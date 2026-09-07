@@ -209,17 +209,22 @@ fretwork        song folder path -> D, RemapDiff, CalcTier, NPS/VPS metrics
 **Measured:** 68 of 77 score hashes (88%) resolve to a folder through the cache.
 
 The 9 that do not are **not** songs that left the library - they are scores stranded
-on *chart files that were replaced*. Three were identified through `LeaderboardCache/`
-as Through the Fire and Flames, Raining Blood and Stricken, all charted by "Buldy",
-from a GH3 pack that was swapped for a different one. **All three songs are still in
-the library and still in `songcache.bin`** - under different hashes, because the chart
-files differ.
+on chart files that no longer exist. Three were identified through `LeaderboardCache/`
+as Through the Fire and Flames, Raining Blood and Stricken, all charted by **"Buldy"**:
+unofficial custom charts the player had and later deleted.
+
+**All three songs are still in the library**, as the official Guitar Hero III rips -
+their `song.ini` files read `charter = <color=orange>Neversoft</color>`. Same songs,
+different chart files, therefore different hashes, therefore no join. The player even
+has live scores on the Neversoft version of Through the Fire and Flames alongside the
+orphaned Buldy one.
 
 That is the single most important property of this data:
 
-> **A score is bound to the exact chart file, not to the song.** Re-downloading a
-> pack, or swapping one charter's version for another's, silently orphans every score
-> on it. The song reappears with a fresh hash and no history.
+> **A score is bound to the exact chart file, not to the song.** Deleting a custom
+> chart in favour of an official one - or re-downloading a pack, or switching
+> charters - silently orphans every score on it. The song reappears with a fresh hash
+> and no history, and nothing in the save data links the two.
 
 For the rating this means measured coverage is a **floor, not a count** - a player may
 have played far more than the resolved rows suggest. Orphans should be surfaced rather
