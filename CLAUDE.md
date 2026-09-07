@@ -136,13 +136,33 @@ Build **always** appends new songs to `caches/{header}_BackupData.csv` (append-o
 
 ## Working with the repo
 
-Hosted at `github.com/Staycation44/fretwork`, single maintainer. `main` is the only long-lived branch. There is no CI, no branch protection, and no `.github/` directory, so nothing gates a merge except the maintainer and a manual pipeline run.
+This is a fork. `origin` is `github.com/ChaseFranz/fretwork`, the main line for the
+web viewer and, on its own branch, the player rating. `upstream` is
+`github.com/Staycation44/fretwork`, the original project (single maintainer, no CI,
+no branch protection), and the source of parser, instrument and difficulty-formula
+improvements. The viewer was offered upstream as PR #6 and closed unmerged on
+2026-09-07; it is this fork's project now.
 
-- **Feature work goes on a staging branch** named for the feature (`five-fret-staging`, `EMHX-Staging`), branched from `main`. Before merging, merge `main` *into* the staging branch to absorb anything that landed meanwhile, then merge the staging branch into `main` with a merge commit, preferably via a GitHub PR. Delete the branch after it lands. Every feature branch so far has been deleted post-merge.
-- **Merge commits only.** History is never rebased or squashed; WIP commits and self-merges are left as-is.
-- **Small changes go straight to `main`.** README edits, one-line fixes, and calibration tweaks (e.g. "updated remap bins") are committed directly.
-- **Releases are lightweight tags on `main`** (`v0.6.1` through `v0.8`), applied after the merge lands. There is no version constant in the code; the only "bump version" commit edited the README. Numbering is informal.
-- **Outside contributions arrive as fork PRs** and are typically reworked after merging (PR #1 added a standalone restore script that was later folded into `analyze.py`).
-- **Commit messages are short and informal**, one line, describing what changed. Larger refactors are sometimes bundled into a single commit.
-- **Example outputs are tracked despite the gitignore.** The `.xlsx` in `metrics/` and `.png` in `renders/` were force-added; if you regenerate them, `git add -f` the new files and remove the stale ones in the same commit. Never commit caches, backup CSVs, or a real library's metrics.
-- **Before merging parser or metrics changes**, run build, analyze, and render against a small song folder and compare the terminal summary and error CSV against the previous run, since there is no automated test to catch regressions.
+- **`main` on the fork is `upstream/main` plus the viewer.** Feature work branches
+  from `main`, is named for the feature (`rank-column`), and merges back with a merge
+  commit (`git merge --no-ff`). Delete the branch after it lands.
+- **Pulling upstream changes:** `git fetch upstream && git checkout main && git merge
+  upstream/main`, then `git push origin main`. Conflicts should only appear in files
+  both sides touch (`README.md`, `.gitignore`, `CLAUDE.md`); `serve.py` and `web/`
+  do not exist upstream. Never rebase onto upstream - history is merge-only here, as
+  it is upstream. `upstream/cleanup` is the maintainer's unmerged work and was copied
+  to the fork at fork time; leave it alone and take it via `upstream/main` when it
+  lands there.
+- **Never open pull requests against `upstream` for viewer, scores or rating work.**
+  A genuine fix to the shared tooling (parsers, formula) can still go upstream as a
+  fork PR, from a branch cut off `upstream/main` rather than off `main`.
+- **`elo` is the rating branch**, secondary to the viewer: `ScoreData.md` and
+  `SkillRating.md` so far. Merge `main` into it periodically; it merges to `main`
+  only when there is code worth shipping. The rating never touches `web/`.
+- **Merge commits only, short informal one-line messages**, matching upstream.
+  Example outputs under `metrics/` and `renders/` are force-added; if you regenerate
+  them, `git add -f` the new files and remove the stale ones in the same commit.
+  Never commit caches, backup CSVs, `songs/`, or a real library's metrics.
+- **No tests, no CI.** After merging parser or metrics changes from upstream, run
+  build, analyze and render against `songs/` and compare the terminal summary and
+  error CSV with the previous run, since nothing else will catch a regression.
