@@ -33,7 +33,7 @@ python analyze.py [--header NAME] [--cache FILE.pkl] [--diff-mode CalcTier|Remap
 python render.py CODE [CODE ...] [--codes-file FILE] [--header NAME] [--cache FILE.pkl] [--out-dir DIR]
 ```
 
-`serve.py` is an optional fourth entry point that browses an existing metrics `.xlsx` in a browser instead of Excel. Clicking a row renders that chart's graph on demand; columns have Excel-style filter dropdowns and can be hidden individually (remembered in `localStorage`). It reads the spreadsheet, not the cache, so `analyze.py` must have run first; the cache is loaded lazily only when a graph is clicked. Stdlib `http.server` plus pandas, binds `127.0.0.1` only, nothing added to `requirements.txt`:
+`serve.py` is an optional fourth entry point that browses an existing metrics `.xlsx` in a browser instead of Excel. Clicking a row renders that chart's graph on demand; columns have Excel-style filter dropdowns, can be hidden individually, and can be dragged into any order in the column chooser. Both preferences are remembered per browser in `localStorage` (`fw.hidden` and `fw.order`) and "Reset columns" clears both. It reads the spreadsheet, not the cache, so `analyze.py` must have run first; the cache is loaded lazily only when a graph is clicked. A synthetic `Rank` column leads the table, numbering rows in the current view; it has no slot in the row arrays, so `state.visible()` pairs it with index -1. Long titles wrap rather than truncate, and a footer carries attribution and the licence. Stdlib `http.server` plus pandas, binds `127.0.0.1` only, nothing added to `requirements.txt`:
 
 ```
 python serve.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--port 8000] [--no-bootstrap]
@@ -52,6 +52,23 @@ python deploy.py [--env FILE] [--no-publish] [--dry-run]
 ```
 
 Bootstrap 5.3 supplies the base CSS. It is downloaded once into `CACHE_DIR` as `bootstrap-<version>.min.css` (gitignored with the rest of `caches/`) and served same-origin from `/bootstrap.css`, so the page never contacts a CDN at view time and works offline after the first run. If the fetch fails or `--no-bootstrap` is passed, the page inlines `FALLBACK_CSS` instead, which covers layout plus the `d-none` / `dropdown-menu.show` state classes the page's JS toggles. There is no JS framework and no Bootstrap JS; interaction is plain DOM code that toggles Bootstrap's own classes.
+
+### The public site is `fretladder`
+
+The hosted site is named *fretladder* (`config.SITE_NAME`, `SITE_URL`); the engine and
+this repo stay *fretwork*, and the footer credits it. `page.build(..., public=True)` is
+the only difference between what serve shows and what publish writes: a published page
+names no internal file (the title is just the site name and the strapline is
+"Updated 7 September 2026 - 4,634 charts", read back from the spreadsheet's own
+timestamp), and it emits Open Graph / Twitter tags, which need `SITE_URL` because a
+social preview cannot use a relative image. `page.OG_IMAGE` picks the chart that serves
+as that preview.
+
+The footer is assembled in `static/js/main.js` from `labels.FOOTER_LINKS` plus the
+`copyright` / `license_label` / `license_url` strings in `UI`. **The fork is MIT and its
+`LICENSE` is byte-identical to upstream's, so the copyright line names Staycation, not
+this fork** - MIT requires the original notice survive. Check upstream's `LICENSE` before
+touching either.
 
 ### `web/` is the viewer, and only the viewer
 
@@ -119,9 +136,9 @@ Every instrument/level table lives there: canonical keys and iteration order, `.
 
 ### `functions/labels.py` holds every human-facing string
 
-The abbreviated keys (`pNPS`, `medVPS`, `COV`, `DurationS`) are the data contract: they come out of `density.calc_metrics` and `formula.calc_nvcov`, flow through the dataframes in `analyze.py`, and become the xlsx headers. Nothing keyed off a column name should change. `labels.py` maps those keys to readable text at display time only, via `COLUMN_LABELS`, `COLUMN_HELP` (tooltips), `TIME_COLUMNS` (seconds shown as m:ss), and `UI` (interface wording for `serve.py`). `label()` falls back to the raw key, so a new metric column degrades gracefully instead of raising.
+The abbreviated keys (`pNPS`, `medVPS`, `COV`, `DurationS`) are the data contract: they come out of `density.calc_metrics` and `formula.calc_nvcov`, flow through the dataframes in `analyze.py`, and become the xlsx headers. Nothing keyed off a column name should change. `labels.py` maps those keys to readable text at display time only, via `COLUMN_LABELS`, `COLUMN_HELP` (tooltips), `TIME_COLUMNS` (seconds shown as m:ss), `DISPLAY_ORDER` (left-to-right column order on the page, which is deliberately not `analyze.COLUMN_ORDER`, so the site can lead with `D` without touching the spreadsheet), `FOOTER_LINKS` (the attribution links), and `UI` (interface wording, including the copyright and licence lines). `label()` falls back to the raw key, so a new metric column degrades gracefully instead of raising.
 
-Only `serve.py` consumes it today. The xlsx headers and the render header are deliberately still raw keys, since changing them would alter committed example outputs and anything downstream that reads the spreadsheet by column name. Wiring either one up is a display-layer change through this module, not a rename in the pipeline.
+`serve.py` and `publish.py` consume it through `web/boot.py`; the pipeline itself does not. The xlsx headers and the render header are deliberately still raw keys, since changing them would alter committed example outputs and anything downstream that reads the spreadsheet by column name. Wiring either one up is a display-layer change through this module, not a rename in the pipeline.
 
 ### Metrics pipeline (`functions/density.py` -> `functions/formula.py`)
 
