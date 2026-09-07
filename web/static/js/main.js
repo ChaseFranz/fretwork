@@ -1,5 +1,5 @@
 // Entry module: label the chrome, wire the panels, then first paint.
-import { UI } from "./boot.js";
+import { FOOTER, UI } from "./boot.js";
 import { el, esc } from "./dom.js";
 import { initDropdown } from "./dropdown.js";
 import { initChooser } from "./chooser.js";
@@ -13,11 +13,22 @@ function labelChrome() {
   el("q").placeholder = UI.search;
   el("cols").textContent = UI.columns;
   el("cols").title = UI.columns_tip;
-  el("credit").innerHTML = '<a class="link-secondary text-decoration-none" href="' +
-    esc(UI.credit_url) + '">' + esc(UI.credit) + "</a>";
+}
+
+const link = (text, href) =>
+  '<a href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(text) + "</a>";
+
+// Attribution, the explainer that says what D means, and the licence.
+function buildFooter() {
+  const links = FOOTER.map(([text, href]) => link(text, href)).join('<span class="sep">/</span>');
+  el("foot").innerHTML =
+    '<div class="d-flex flex-wrap align-items-center gap-1">' + links + "</div>" +
+    '<div class="mt-1">' + esc(UI.copyright) + " " +
+    link(UI.license_label, UI.license_url) + "</div>";
 }
 
 labelChrome();
+buildFooter();
 initDropdown();
 initChooser();
 initRouter();

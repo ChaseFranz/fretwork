@@ -1,11 +1,16 @@
   /* project-specific only - Bootstrap handles layout, controls, table, dropdown, modal */
   :root { --fw-accent:#b71fb7; --fw-code:#4aa3e0; }
   [data-bs-theme="dark"] { --bs-primary:#b71fb7; --bs-link-color-rgb:74,163,224; }
-  body { font-size:13px; }
+  html, body { height:100%; }
+  body { font-size:13px; margin:0; display:flex; flex-direction:column; }
   .fw-accent { color:var(--fw-accent); }
   .btn-check:checked + .btn, .btn-fw.active { background:var(--fw-accent); border-color:var(--fw-accent); color:#fff; }
-  .fw-head { position:sticky; top:0; z-index:1030; }
-  .fw-wrap { overflow:auto; height:calc(100vh - 118px); }
+  .fw-head { flex:0 0 auto; z-index:1030; }
+  .fw-wrap { flex:1 1 auto; min-height:0; overflow:auto; }
+  .fw-foot { flex:0 0 auto; font-size:11px; color:var(--bs-secondary-color); }
+  .fw-foot a { color:var(--bs-secondary-color); text-decoration:none; }
+  .fw-foot a:hover { color:var(--fw-code); text-decoration:underline; }
+  .fw-foot .sep { opacity:.35; margin:0 .35rem; }
   .fw-wrap table { margin-bottom:0; }
   .fw-wrap thead th { position:sticky; top:0; z-index:2; background:var(--bs-tertiary-bg);
     padding:0; font-size:11px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
@@ -20,7 +25,8 @@
   td.rank { color:var(--bs-secondary-color); }
   td.code { font-family:var(--bs-font-monospace); color:var(--fw-code); cursor:pointer; }
   td.code:hover { text-decoration:underline; }
-  td.title { max-width:320px; overflow:hidden; text-overflow:ellipsis; }
+  td.title { max-width:300px; white-space:normal; overflow-wrap:break-word; }
+  td.song { min-width:150px; }
   /* level + difficulty colors carried over from xlsx_format.py so the two views read alike */
   .lvl { color:#1a1a1c; font-weight:600; }
   .Easy{background:#c6efce}.Medium{background:#bdd7ee}.Hard{background:#ffe5b4}.Expert{background:#ffc7ce}
@@ -41,8 +47,12 @@
   tr:hover td.code .cp { visibility:visible; }
   td.code .cp:hover { opacity:1; }
   #cd { position:fixed; width:230px; max-height:min(420px,70vh); overflow:auto; z-index:1050; font-size:12px; }
-  #cd .form-check { margin-bottom:0; padding:2px 4px 2px 1.6rem; border-radius:4px; }
-  #cd .form-check:hover { background:var(--bs-tertiary-bg); }
+  #cd .cc { display:flex; align-items:center; gap:4px; border-radius:4px; }
+  #cd .cc:hover { background:var(--bs-tertiary-bg); }
+  #cd .cc.dragging { opacity:.4; }
+  #cd .cc .grip { cursor:grab; opacity:.4; padding:0 2px; user-select:none; }
+  #cd .cc .grip:active { cursor:grabbing; }
+  #cd .form-check { flex:1; margin-bottom:0; padding:2px 4px 2px 1.5rem; }
   #modal { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
            align-items:center; justify-content:center; z-index:1060; padding:24px; }
   #modal.on { display:flex; }
@@ -57,10 +67,10 @@
     .fw-head #brand { white-space:nowrap; }
     .fw-head #src { flex-basis:100%; order:3; }
     .fw-head #credit { order:4; }
-    .fw-wrap { height:calc(100vh - 168px); }
     .fw-wrap td { padding:5px 6px; }
     .fw-wrap thead th .thw { padding:6px 4px 6px 6px; gap:0; }
-    td.title { max-width:118px; }
+    td.title { max-width:150px; }
+    td.song { min-width:132px; }
     td.num { font-size:12px; }
   }
   #hint { position:fixed; bottom:16px; left:50%; transform:translateX(-50%);

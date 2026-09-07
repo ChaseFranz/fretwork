@@ -133,6 +133,15 @@ TIME_COLUMNS = ('DurationS',)
 # Left-to-right order on the page, which is not the spreadsheet's order: D is what
 # the site is for, so it sits beside the song instead of past the right edge.
 # Anything missing from this list keeps its spreadsheet position, at the end.
+# Footer attribution: the engine, its author's channel, the explainer that says
+# what D means, and this site's own source.
+FOOTER_LINKS = (
+    ('How difficulty is scored', 'https://youtu.be/emoWMpDJ4ls'),
+    ('fretwork engine', 'https://github.com/Staycation44/fretwork'),
+    ('@StaycationGH', 'https://www.youtube.com/@StaycationGH'),
+    ('Site source', 'https://github.com/ChaseFranz/fretwork'),
+)
+
 DISPLAY_ORDER = (
     'Song Title', 'Artist', 'D', 'CalcTier', 'Level', 'Type',
     'DurationS', 'NoteCount', 'Charter', 'Release',
@@ -163,6 +172,11 @@ UI = {
     'chart_count':      '{n} charts',
     'credit':           'powered by fretwork',
     'credit_url':       'https://github.com/Staycation44/fretwork',
+    'copyright':        'A fork of fretwork. Copyright (c) 2026 Staycation.',
+    'license_label':    'MIT License',
+    'license_url':      'https://github.com/Staycation44/fretwork/blob/main/LICENSE',
+    'reorder_tip':      'Drag to reorder',
+    'columns_reset_tip':'Show every column in the original order',
     'search':           'Search song, artist, charter or source...',
     'clear_one':        'Clear 1 filter',
     'clear_many':       'Clear {n} filters',
@@ -191,5 +205,5 @@ UI = {
     # column chooser
     'columns':          'Columns',
     'columns_tip':      'Choose which columns to show',
-    'columns_reset':    'Show all',
+    'columns_reset':    'Reset columns',
 }

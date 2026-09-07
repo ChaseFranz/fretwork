@@ -41,8 +41,10 @@ function bodyCell(col, v, bounds) {
     return '<td class="num">' + (v === true ? "&#10003;" : "") + "</td>";
   if (col === "Level")
     return '<td><span class="badge rounded-pill lvl ' + esc(v) + '">' + esc(v) + "</span></td>";
-  if (col === "Song Title" || col === "Artist")
-    return '<td class="title" title="' + esc(v ?? "") + '">' + esc(v ?? "") + "</td>";
+  if (col === "Song Title" || col === "Artist" || col === "Charter" || col === "Release") {
+    const cls = col === "Song Title" ? "title song" : "title";
+    return '<td class="' + cls + '" title="' + esc(v ?? "") + '">' + esc(v ?? "") + "</td>";
+  }
   if (isMissing(col, v)) {
     const tip = MISS_HELP[col] || "";
     return '<td class="num blank"' + (tip ? ' title="' + esc(tip) + '"' : '') +
