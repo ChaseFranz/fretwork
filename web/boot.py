@@ -7,6 +7,7 @@ into the script, so spreadsheet text can never be parsed as code.
 
 import json
 
+import config
 from functions import labels as labels_mod
 
 # Mirrors xlsx_format.SCALED_COLS. Kept local on purpose: importing that module
@@ -20,7 +21,7 @@ def boot_payload(frames_data):
         'scaled': SCALED_COLS,
         'labels': labels_mod.COLUMN_LABELS,
         'help': labels_mod.COLUMN_HELP,
-        'ui': labels_mod.UI,
+        'ui': {**labels_mod.UI, 'title': config.SITE_NAME},
         'timecols': list(labels_mod.TIME_COLUMNS),
         'missing': {k: list(v) for k, v in labels_mod.MISSING_VALUES.items()},
         'missText': labels_mod.MISSING_TEXT,

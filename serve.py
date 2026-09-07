@@ -43,7 +43,7 @@ def serve(header=None, xlsx_path=None, cache_path=None, port=8000, out_dir=None,
     source = f"{xlsx_path.name}  -  {total} rows  -  {', '.join(sheets)}"
 
     body = page.render_page(
-        f"Fretwork - {header}", source, bootstrap_css,
+        f"{config.SITE_NAME} - {header}", source, bootstrap_css,
         boot.boot_json(frames.frames_payload(sheets)))
 
     httpd = MetricsServer(
