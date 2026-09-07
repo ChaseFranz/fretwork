@@ -9,6 +9,7 @@ page are relative, so it works at a domain root or under any sub-path.
 import html
 import re
 
+import config
 from web import assets, boot, bootstrap, frames
 
 _PLACEHOLDER = re.compile(r'__([A-Z]+)__')
@@ -37,6 +38,6 @@ def build(header, xlsx_path, bootstrap_css):
     xlsx_path, sheets = frames.load_frames(header, xlsx_path)
     total = sum(len(df) for df in sheets.values())
     source = f"{xlsx_path.name}  -  {total} rows  -  {', '.join(sheets)}"
-    body = render_page(f"Fretwork - {header}", source, bootstrap_css,
+    body = render_page(f"{config.SITE_NAME} - {header}", source, bootstrap_css,
                        boot.boot_json(frames.frames_payload(sheets)))
     return xlsx_path, sheets, total, body
