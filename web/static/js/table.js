@@ -43,7 +43,7 @@ export function draw() {
   const bounds = ranges(rows);
   const codeIdx = cols().indexOf("Code");
   el("body").innerHTML = rows.length
-    ? rows.map(r => bodyRow(r, vis, r[codeIdx], bounds)).join("")
+    ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], bounds, n + 1)).join("")
     : emptyRow(vis.length);
 
   paintFooter(rows.length, rowsAll().length);

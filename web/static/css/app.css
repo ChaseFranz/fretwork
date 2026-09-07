@@ -15,6 +15,9 @@
   .fw-wrap thead th.filtered { background:#2b2233; }
   .fw-wrap td { padding:5px 10px; white-space:nowrap; vertical-align:middle; }
   td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  /* rank is a view position, not data - keep it narrow and quiet */
+  thead th.rank, td.rank { width:1%; }
+  td.rank { color:var(--bs-secondary-color); }
   td.code { font-family:var(--bs-font-monospace); color:var(--fw-code); cursor:pointer; }
   td.code:hover { text-decoration:underline; }
   td.title { max-width:320px; overflow:hidden; text-overflow:ellipsis; }

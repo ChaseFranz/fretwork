@@ -21,6 +21,9 @@ version of the same thing.
 # NPS/VPS get spelled out - "notes/sec" and "fret changes/sec" are what they
 # actually measure, and that reads better than the acronym in a column header
 COLUMN_LABELS = {
+    # view-only, added by the page rather than the data pipeline
+    'Rank':       'Rank',
+
     # identity / metadata
     'Code':       'Code',
     'Song Title': 'Song',
@@ -60,6 +63,7 @@ COLUMN_LABELS = {
 }
 
 COLUMN_HELP = {
+    'Rank':       'Position in the list as currently sorted and filtered, so it renumbers as you narrow the view.',
     'Code':       'Retrieval code: 8-digit song hash, then level (E/M/H/X) and instrument (G/C/R/B/K). Pass it to render.py.',
     'Song Title': 'Song name from song.ini.',
     'Artist':     'Artist from song.ini.',

@@ -3,8 +3,18 @@ import { SCALED, TIMECOLS, HELP, UI, MISS_TEXT, MISS_HELP } from "./boot.js";
 import { esc } from "./dom.js";
 import { lab, mmss, isMissing } from "./format.js";
 import { scaleColor } from "./scale.js";
+import { RANK_COL } from "./state.js";
+
+// Rank is a position in the current view, so there is nothing to sort or
+// filter it by; it gets a bare header instead of the usual controls.
+function rankHeaderCell() {
+  return '<th data-c="' + esc(RANK_COL) + '" class="rank"><div class="thw">' +
+    '<span title="' + esc(HELP[RANK_COL] || "") + '">' + esc(lab(RANK_COL)) +
+    "</span></div></th>";
+}
 
 export function headerCell(col, { sorted, ascending, filtered }) {
+  if (col === RANK_COL) return rankHeaderCell();
   const cls = [sorted ? "sorted" : "", filtered ? "filtered" : ""].join(" ").trim();
   const tip = (HELP[col] ? HELP[col] + "\n\n" : "") + "Column: " + col + "\n" + UI.sort_tip;
   const arrow = sorted ? (ascending ? " &#9650;" : " &#9660;") : "";
@@ -42,9 +52,11 @@ function bodyCell(col, v, bounds) {
   return "<td>" + esc(v === null ? "" : v) + "</td>";
 }
 
-export function bodyRow(row, visibleCols, code, bounds) {
+export function bodyRow(row, visibleCols, code, bounds, rank) {
   const cells = visibleCols
-    .map(([col, i]) => bodyCell(col, row[i], bounds[col]))
+    .map(([col, i]) => col === RANK_COL
+      ? '<td class="num rank">' + rank + "</td>"
+      : bodyCell(col, row[i], bounds[col]))
     .join("");
   return '<tr title="' + esc(UI.row_tip) + '" data-code="' + esc(code) + '">' +
     cells + "</tr>";

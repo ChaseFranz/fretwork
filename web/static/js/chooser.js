@@ -2,11 +2,11 @@
 import { UI } from "./boot.js";
 import { el, esc, placeUnder } from "./dom.js";
 import { lab } from "./format.js";
-import { state, cols, saveHidden } from "./state.js";
+import { state, allCols, saveHidden } from "./state.js";
 import { draw } from "./table.js";
 
 function renderCD() {
-  const items = cols().map(c =>
+  const items = allCols().map(c =>
     '<div class="form-check"><input class="form-check-input" type="checkbox" id="cc' +
     esc(c) + '" data-col="' + esc(c) + '"' + (state.hidden.has(c) ? "" : " checked") + '>' +
     '<label class="form-check-label" for="cc' + esc(c) + '">' + esc(lab(c)) +

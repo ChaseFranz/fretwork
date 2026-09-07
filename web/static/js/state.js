@@ -24,10 +24,19 @@ export function saveHidden() {
   catch (e) {}
 }
 
+// Leading column showing a row's place in the current view. Synthetic: it has
+// no slot in the row arrays, so visible() pairs it with -1.
+export const RANK_COL = "Rank";
+
 export const cols = () => DATA[state.sheet].columns;
 export const rowsAll = () => DATA[state.sheet].rows;
 export const idx = name => cols().indexOf(name);
 
+// Everything the column chooser can toggle: the data columns plus rank.
+export const allCols = () => [RANK_COL, ...cols()];
+
 // [column, index-into-row] for every column still on screen.
-export const visible = () =>
-  cols().map((c, i) => [c, i]).filter(([c]) => !state.hidden.has(c));
+export const visible = () => {
+  const shown = cols().map((c, i) => [c, i]).filter(([c]) => !state.hidden.has(c));
+  return state.hidden.has(RANK_COL) ? shown : [[RANK_COL, -1], ...shown];
+};
