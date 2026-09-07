@@ -82,7 +82,9 @@ ratings.
 
 ## The model
 
-One fit per instrument. Every quantity is in continuous CalcTier units.
+One fit per instrument, on Expert scores only - `D` and the tier constants are
+Expert-anchored, so lower-difficulty records are dropped rather than mis-rated.
+Every quantity is in continuous CalcTier units.
 
 ```text
 b_i    = ln(D_i / BASE_D) / LN_INC + 1          chart difficulty; floor(b_i) is fretwork's CalcTier
@@ -179,9 +181,14 @@ effectively saw).
 |---|---|---|
 | `unrated` | no rows on this instrument | "unrated - no scores yet" |
 | `censored` | the 90% line falls outside the tiers played | a bound only: "at least 4.8" or "at most 8.1", with the hardest or easiest chart played |
-| `provisional` | fewer than 5 rows, or 80% interval wider than 2 tiers | the number, labelled provisional |
+| `provisional` | fewer than 10 rows, or 95% interval wider than 1.5 tiers | the number, labelled provisional |
 | `extrapolated` | `n_near` below 3 | the number, labelled extrapolated |
-| `established` | none of the above | the number |
+| `established` | 10 or more rows, interval within 1.5 tiers, `n_near` at least 3 | the number |
+
+The judges tightened these from the winning design's original `n < 5`: no fit on
+five rows is ever labelled established, whatever its interval says. On this player's
+random subsets, 0% of 5-row fits, 22% of 10-row fits and 72% of 20-row fits earn
+the label.
 
 The censored rule matters most. A player who has only played easy charts will
 produce a numerically identified crossing above everything they have played; that is
@@ -295,7 +302,7 @@ who re-ran every prototype and confirmed every claimed number.
 | Robust Bayesian logit line, Student-t, retry covariate | 6.67 | 215 | **Winner** - the model above |
 | Threshold crossing, fractional logit | 6.74 | 212 | Grafted: the 90% justification, the censored display rule, profile intervals in place of MCMC |
 | Item-response with ceiling, censoring, mixture | 6.85 | 191 | Grafted: the ceiling `u`, FC right-censoring, the misfit flag |
-| Snapshot Elo, chart as opponent | "even-match tier 11.6" | 174 | Rejected; grafted: session deltas, `n_eff` |
+| Snapshot Elo, chart as opponent | "even-match tier 11.6" | 174 | Rejected; grafted: session deltas, the model-form band |
 
 Three of the four converged on 6.67 to 6.85 from different assumptions, which is the
 strongest evidence that the number is a property of the data rather than of a model.
@@ -316,6 +323,9 @@ information diagnostic were worth keeping; its rating was not.
   which are never written to. The rating never modifies any of them.
 - `T`, `NU`, `STUNT_TIER`, and every prior are named constants at the top of one
   module. `BASE_D` and `LN_INC` are imported from `functions/formula.py`, not copied.
+- The last rated snapshot per instrument - rows, fitted parameters, constants - is
+  persisted under `caches/` (gitignored) so the next refit can warm-start and the
+  session delta has something to diff against.
 - No new dependencies. numpy and pandas only; the closed-form t(4) CDF and the
   order-statistic table are a few lines each.
 - matplotlib stays off the import path unless a plot is requested, as in the viewer.
@@ -323,8 +333,10 @@ information diagnostic were worth keeping; its rating was not.
 ## Open questions
 
 - **Byte 12 of the score record** (always 1 or 8; see `ScoreData.md`) is unidentified.
-  If it turns out to encode the instrument, twelve of the guitar rows may belong to
-  another instrument. The design is unaffected; the join is.
+  Until the instrument field is decoded, every record is assumed to be guitar - every
+  observed record is Expert guitar - and the card must say so. If byte 12 encodes
+  the instrument, twelve of the guitar rows may belong elsewhere. The design is
+  unaffected; the join is.
 - **The bass path has no real data** and has only been run on synthetic rows.
 - **The priors were set by judgment** from this one player and the CalcTier design
   intent. They should be revisited once a second player's data exist, and `gamma`
@@ -334,11 +346,37 @@ information diagnostic were worth keeping; its rating was not.
   tier 9 informs the curve, and the 80% line is barely inside the played range.
 - **A cliff cannot be distinguished from a line** past tier 8 with this data. The
   model-form band is the only misspecification signal.
+- **Play-count semantics.** The retry correction assumes `plays` counts completed
+  attempts. If a failed or quit run also increments Clone Hero's counter, `m(k)`
+  overstates the lift and the first-try rating sits slightly low. Testable in a
+  few minutes with a deliberate failed run.
+- **Guitar, Co-op and Rhythm** share tier constants but are different charts. They
+  are specified as three separate ratings; pooling them into one 5-fret rating is
+  the alternative, and nothing in the data yet says which is right.
+- **Lower difficulties.** Hard, Medium and Easy scores are dropped because the tier
+  scale is Expert-anchored. fretwork computes `D` per level, so a per-level rating
+  is possible once a per-level tier calibration exists.
+- **Integer accuracy is treated as exact.** Interval-censoring each percent to
+  `[p - 0.5, p + 0.5]` is the correct refinement if the plateau rows turn out to
+  drive the ceiling; it is worth about 0.17 logit at 97%, against `sigma` of 0.35.
+- **Ratings below tier 1.** The beginner case fits `r = -1.8` and is shown only as a
+  bound. Whether a non-censored display should floor at 0 needs deciding before
+  anything ships.
 
 ## Validation plan
 
+- **The prospective first-play check** is the one true out-of-sample test this data
+  allows. Every new row that appears with `plays = 1` was predicted before it
+  existed. At each refit, log the chart, its tier, the expected first-try accuracy
+  with its 80% predictive interval, and the observed result. Over time the mean
+  residual should sit near zero and about 80% should fall inside. A drift that is
+  the same at every tier is skill change and the rating should follow it; a drift
+  that depends on tier is miscalibration.
 - Recompute after every session and log the rating, interval, flag, `n_near` and
   `n_eff`. The rating should drift slowly and the interval should narrow.
+- Track leave-one-out predictive RMSE against the two built-in variants (no
+  ceiling, no retry correction) on every refit. The full model must stay at or
+  below both, or a graft is doing harm on this player's data.
 - Check posterior-predictive coverage as rows accrue: about 80% of new results should
   fall inside the 80% predictive interval for their tier. Sustained miscoverage
   means the curve shape is wrong, not the data.
