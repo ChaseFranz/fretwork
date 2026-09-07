@@ -9,7 +9,8 @@ those keys to something a person can read, applied only at display time.
 
     COLUMN_LABELS  short label for a column header
     COLUMN_HELP    one-line explanation, for tooltips / hover text
-    UI             interface strings for serve.py's page
+    DISPLAY_ORDER  left-to-right column order on the page
+    UI             interface strings for the page
 
 Anything not in COLUMN_LABELS falls back to the raw key, so a new metric column
 shows up readable-ish instead of blowing up - see label().
@@ -129,6 +130,21 @@ def is_missing(column, value):
 TIME_COLUMNS = ('DurationS',)
 
 
+# Left-to-right order on the page, which is not the spreadsheet's order: D is what
+# the site is for, so it sits beside the song instead of past the right edge.
+# Anything missing from this list keeps its spreadsheet position, at the end.
+DISPLAY_ORDER = (
+    'Song Title', 'Artist', 'D', 'CalcTier', 'Level', 'Type',
+    'DurationS', 'NoteCount', 'Charter', 'Release',
+    'Difficulty', 'RemapDiff', 'Official', 'Code',
+)
+
+
+# "4,634 charts", grouped for readability
+def t_count(n):
+    return UI['chart_count'].format(n=f"{n:,}")
+
+
 def label(column):
     return COLUMN_LABELS.get(column, column)
 
@@ -140,13 +156,17 @@ def help_text(column):
 # interface strings for serve.py's page, kept here so the wording lives in one file
 UI = {
     'title':            'Fretwork',            # overridden by config.SITE_NAME at serve time
-    'subtitle':         'library difficulty',
+    'subtitle':         'chart difficulty',
+    'description':      'Difficulty ratings for Clone Hero and Guitar Hero charts, '
+                        'scored from note density and fret movement.',
+    'updated':          'Updated {date}',
+    'chart_count':      '{n} charts',
     'credit':           'powered by fretwork',
     'credit_url':       'https://github.com/Staycation44/fretwork',
-    'search':           'Filter by song, artist, charter or source...',
+    'search':           'Search song, artist, charter or source...',
     'clear_one':        'Clear 1 filter',
     'clear_many':       'Clear {n} filters',
-    'count':            '{shown} of {total} songs',
+    'count':            '{shown} of {total} charts',
     'filter_tip':       'Filter this column',
     'sort_tip':         'Sort by this column',
     'code_tip':         'Click to see the difficulty graph, shift-click to copy the code',
@@ -159,9 +179,9 @@ UI = {
     'range_min':        'min {v}',
     'range_max':        'max {v}',
     'rendering':        'Rendering graph...',
-    'render_failed':    'Could not render this chart. Is the matching cache loaded?',
+    'render_failed':    'No graph available for this chart.',
     'copied':           'Copied {code}',
-    'no_data':          'No songs match these filters.',
+    'no_data':          'No charts match these filters.',
 
     # row / graph interaction
     'row_tip':          'Click for the difficulty graph',

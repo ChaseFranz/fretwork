@@ -29,6 +29,9 @@ HEADER = "Test" # edit to title your cache before running Build/Analyze/Render
 # the name the web viewer shows; fretwork stays the name of the engine underneath
 SITE_NAME = 'fretladder'
 
+# public URL of the published site, used for social-preview links; blank to omit them
+SITE_URL = 'https://fretladder.com'
+
 #-----------------
 # Analyze Options
 #-----------------

@@ -51,7 +51,7 @@ def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
     renderer = GraphRenderer(header, cache_path)
     renderer.cache()   # a missing cache fails here, before anything is written
     bootstrap_css = bootstrap.ensure_bootstrap(use_bootstrap)
-    xlsx_path, sheets, _total, body = page.build(header, xlsx_path, bootstrap_css)
+    xlsx_path, sheets, _total, body = page.build(header, xlsx_path, bootstrap_css, public=True)
     check_pair(header, xlsx_path, renderer.cache_path)
 
     print(f"\nPublishing {xlsx_path}")

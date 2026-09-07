@@ -20,6 +20,7 @@ def boot_payload(frames_data):
         'data': frames_data,
         'scaled': SCALED_COLS,
         'labels': labels_mod.COLUMN_LABELS,
+        'order': list(labels_mod.DISPLAY_ORDER),
         'help': labels_mod.COLUMN_HELP,
         'ui': {**labels_mod.UI, 'title': config.SITE_NAME},
         'timecols': list(labels_mod.TIME_COLUMNS),

@@ -49,6 +49,20 @@
   #modal .mcard { max-width:100%; max-height:92vh; overflow:auto; }
   #modal img { max-width:100%; max-height:86vh; border-radius:8px; display:block; }
   #modal .mhead { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  /* narrow screens: tighten everything so the difficulty column is on screen
+     without a sideways swipe, and give the strapline its own line */
+  @media (max-width:640px) {
+    .fw-head { padding-left:.5rem!important; padding-right:.5rem!important; }
+    .fw-head > div:first-child { flex-wrap:wrap; }
+    .fw-head #brand { white-space:nowrap; }
+    .fw-head #src { flex-basis:100%; order:3; }
+    .fw-head #credit { order:4; }
+    .fw-wrap { height:calc(100vh - 168px); }
+    .fw-wrap td { padding:5px 6px; }
+    .fw-wrap thead th .thw { padding:6px 4px 6px 6px; gap:0; }
+    td.title { max-width:118px; }
+    td.num { font-size:12px; }
+  }
   #hint { position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
           z-index:1070; opacity:0; transition:opacity .18s; pointer-events:none; }
   #hint.on { opacity:1; }

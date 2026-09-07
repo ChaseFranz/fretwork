@@ -37,6 +37,8 @@ function bodyCell(col, v, bounds) {
   if (col === "Code")
     return '<td class="code" title="' + esc(UI.copy_code_tip) + '">' + esc(v) +
       '<span class="cp" data-copy="' + esc(v) + '">&#128203;</span></td>';
+  if (col === "Official")
+    return '<td class="num">' + (v === true ? "&#10003;" : "") + "</td>";
   if (col === "Level")
     return '<td><span class="badge rounded-pill lvl ' + esc(v) + '">' + esc(v) + "</span></td>";
   if (col === "Song Title" || col === "Artist")
