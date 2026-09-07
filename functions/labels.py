@@ -139,8 +139,10 @@ def help_text(column):
 
 # interface strings for serve.py's page, kept here so the wording lives in one file
 UI = {
-    'title':            'Fretwork',
+    'title':            'Fretwork',            # overridden by config.SITE_NAME at serve time
     'subtitle':         'library difficulty',
+    'credit':           'powered by fretwork',
+    'credit_url':       'https://github.com/Staycation44/fretwork',
     'search':           'Filter by song, artist, charter or source...',
     'clear_one':        'Clear 1 filter',
     'clear_many':       'Clear {n} filters',

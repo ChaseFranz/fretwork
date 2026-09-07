@@ -13,6 +13,8 @@ function labelChrome() {
   el("q").placeholder = UI.search;
   el("cols").textContent = UI.columns;
   el("cols").title = UI.columns_tip;
+  el("credit").innerHTML = '<a class="link-secondary text-decoration-none" href="' +
+    esc(UI.credit_url) + '">' + esc(UI.credit) + "</a>";
 }
 
 labelChrome();
