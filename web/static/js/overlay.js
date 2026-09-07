@@ -39,7 +39,7 @@ export function openGraph(code) {
   const img = new Image();
   img.onload = () => { card.innerHTML = head; card.appendChild(img); };
   img.onerror = () => { card.innerHTML = message(UI.render_failed); };
-  img.src = "/graph/" + code + ".png";
+  img.src = "graph/" + code + ".png";
 }
 
 export const closeGraph = () => el("modal").classList.remove("on");

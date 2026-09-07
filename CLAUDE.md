@@ -39,23 +39,30 @@ python render.py CODE [CODE ...] [--codes-file FILE] [--header NAME] [--cache FI
 python serve.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--port 8000] [--no-bootstrap]
 ```
 
+`publish.py` is the fifth entry point: the same page, written to `SITE_DIR/<header>/` as a static site (`index.html` with the data baked in, the assets, Bootstrap, and every chart pre-rendered to `graph/<code>.png`) so it can be hosted with no server-side code. The page's URLs are relative, so the bundle works at a domain root or under a sub-path. Re-publishing is incremental: files are rewritten only when their bytes change (so `aws s3 sync` uploads only what moved), and `graph/manifest.json` holds a fingerprint of each chart's render inputs - notes, Expert anchor, the difficulty numbers the header prints, metadata, `source_format`, the curve constants and the render theme - so unchanged charts skip the render. Safety rules in `web/bundle.py`: a chart that cannot be rendered keeps its previous PNG, only graphs a previous publish recorded are ever pruned, nothing is pruned when no code resolves (a cache/xlsx mismatch), and the manifest is saved every 200 charts so an interrupted run keeps its work. `--force` re-renders everything, which a change to `functions/plot.py` or a matplotlib upgrade requires since the fingerprint cannot see code. Measured at ~0.12 s per chart. `site/` is gitignored:
+
+```
+python publish.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--out-dir DIR] [--no-bootstrap] [--force]
+```
+
 Bootstrap 5.3 supplies the base CSS. It is downloaded once into `CACHE_DIR` as `bootstrap-<version>.min.css` (gitignored with the rest of `caches/`) and served same-origin from `/bootstrap.css`, so the page never contacts a CDN at view time and works offline after the first run. If the fetch fails or `--no-bootstrap` is passed, the page inlines `FALLBACK_CSS` instead, which covers layout plus the `d-none` / `dropdown-menu.show` state classes the page's JS toggles. There is no JS framework and no Bootstrap JS; interaction is plain DOM code that toggles Bootstrap's own classes.
 
 ### `web/` is the viewer, and only the viewer
 
-Root `serve.py` is a thin entry point in the same shape as the other three: docstring, one orchestration function, `main()`. Everything else lives in `web/`, a namespace package (no `__init__.py`, matching `functions/` and `parsers/`). It is named `web/` rather than `serve/` because a `serve/` directory beside `serve.py` loses to the module in Python's import resolution and would be silently unimportable.
+Root `serve.py` and `publish.py` are thin entry points in the same shape as the other three: docstring, one orchestration function, `main()`. They share everything below; publish writes what serve serves. Everything else lives in `web/`, a namespace package (no `__init__.py`, matching `functions/` and `parsers/`). It is named `web/` rather than `serve/` because a `serve/` directory beside `serve.py` loses to the module in Python's import resolution and would be silently unimportable.
 
 | Module | Responsibility |
 |---|---|
-| `web/frames.py` | Reads the metrics `.xlsx` into JSON-safe rows. The only pandas importer. |
+| `web/frames.py` | Reads the metrics `.xlsx` into JSON-safe rows, and lists its codes. The only pandas importer. |
 | `web/boot.py` | Builds the JSON payload the page reads, and escapes `</` in it. |
-| `web/page.py` | Substitutes `index.html`'s four placeholders in one regex pass. |
+| `web/page.py` | `build()` composes a header's page; substitutes `index.html`'s placeholders in one regex pass. |
 | `web/bootstrap.py` | Bootstrap fetch/cache plus `FALLBACK_CSS`, its own fallback branch. |
 | `web/assets.py` | Locates `static/` relative to `__file__` and loads it at startup. |
-| `web/graph.py` | `GraphRenderer`: lazy cache load, PNG memo, render on demand. |
+| `web/graph.py` | `GraphRenderer`: lazy cache load, `lookup`/`render` per code, memoised `png` for serve. |
+| `web/bundle.py` | Publish only: write-if-changed, the render-input manifest, and the never-delete-what-we-did-not-write rules. |
 | `web/handler.py` | `MetricsHandler`: routing and response writing only. |
 | `web/server.py` | `MetricsServer`: carries the handler's dependencies. |
-| `web/banner.py` | The startup and shutdown terminal output. |
+| `web/banner.py` | The terminal output: serve's startup/shutdown, publish's summary. |
 
 The page's markup, CSS and 15 ES modules live under `web/static/`, served from an in-memory dict built by globbing at startup. Keys never derive from a request path, so traversal is impossible by construction rather than by guard. Server data reaches the JS through a `<script type="application/json" id="fw-boot">` island that `boot.js` parses once and re-exports; `boot.py` escapes `</` so spreadsheet text can never close the tag. All mutable page state lives in one exported `state` object because ES module imports are read-only bindings.
 

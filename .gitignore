@@ -9,3 +9,4 @@ instrument_scan.py
 *.xlsx#
 .venv/
 songs/
+site/
