@@ -118,6 +118,9 @@ RENDER_DEFAULT = {
 #------------------------------
 RENDER_DIR = 'renders'
 
+# PUBLISH output directory - the static site lands in SITE_DIR/<header>/
+SITE_DIR = 'site'
+
 # fix for cache/metrics folders 
 OUTPUT_DIR = '.'
 CACHE_DIR = 'caches'

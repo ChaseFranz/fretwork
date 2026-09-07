@@ -21,6 +21,13 @@ def load_frames(header, xlsx_path=None):
 
 # to_json is the round trip that turns NaN into null and numpy scalars into
 # plain numbers; df.values.tolist() would emit bare NaN and invalid JSON.
+# Every code the table can click, in sheet order, without duplicates.
+def codes_in(frames):
+    codes = [str(c) for df in frames.values() if 'Code' in df.columns
+             for c in df['Code'].dropna()]
+    return list(dict.fromkeys(codes))
+
+
 def frames_payload(frames):
     return {
         name: {

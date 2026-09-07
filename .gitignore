@@ -9,3 +9,6 @@ instrument_scan.py
 *.xlsx#
 .venv/
 songs/
+site/
+.env*
+!.env.example

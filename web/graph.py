@@ -31,35 +31,37 @@ class GraphRenderer:
         with self._lock:
             if code in self._png:
                 return self._png[code]
-            data = self._render(code)
+            entry = self.lookup(code)
+            data = self.render(entry) if entry else None
             if data is not None:
                 self._png[code] = data
             return data
 
-    def _render(self, code):
+    # The cache entry behind a code, or None.
+    def lookup(self, code):
+        entries, _missing = cache_mod.entries_by_code(self.cache(), [code])
+        return entries[0] if entries else None
+
+    # PNG bytes for one entry, never memoized: publish walks thousands of these.
+    def render(self, entry, out_dir=None):
         # plot pulls matplotlib, so it stays off the startup path
         from functions import curves as curves_mod
         from functions import plot
 
-        entries, _missing = cache_mod.entries_by_code(self.cache(), [code])
-        if not entries:
-            return None
-
-        entry = entries[0]
         song_curves = curves_mod.calc_curves(entry['notes'])
         if song_curves is None:
             return None
 
         png_path = plot.render_song(
             entry, song_curves, difficulty.entry_difficulty(entry),
-            original_diff=self.original_diff(entry), out_dir=self.out_dir)
+            original_diff=self.original_diff(entry), out_dir=out_dir or self.out_dir)
         return pathlib.Path(png_path).read_bytes()
 
     def cache(self):
         if self._cache is None:
-            path = self.cache_path or timestamp.latest_output(
+            self.cache_path = self.cache_path or timestamp.latest_output(
                 'cache', self.header, ext='pkl')
-            self._cache = cache_mod.load(path)
+            self._cache = cache_mod.load(self.cache_path)
         return self._cache
 
     # The backed-up song.ini tier shown in the render header.
