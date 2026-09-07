@@ -46,7 +46,7 @@ def check_pair(header, xlsx_path, cache_path):
 def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
             use_bootstrap=True, force=False):
     header = header or config.HEADER
-    out_dir = pathlib.Path(out_dir) if out_dir else pathlib.Path(config.SITE_DIR) / header
+    out_dir = pathlib.Path(out_dir).expanduser() if out_dir else pathlib.Path(config.SITE_DIR) / header
 
     renderer = GraphRenderer(header, cache_path)
     renderer.cache()   # a missing cache fails here, before anything is written

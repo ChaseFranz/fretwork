@@ -45,6 +45,12 @@ python serve.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--port 80
 python publish.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--out-dir DIR] [--no-bootstrap] [--force]
 ```
 
+`deploy.py` is the sixth entry point and the only one that talks to AWS: it calls `publish()` and then shells out to the AWS CLI (`aws s3 sync ... --delete`, then a CloudFront invalidation of `/*`). No boto3, nothing added to `requirements.txt`. Settings come from a gitignored `.env` in the repo root read by `functions/envfile.py` (a ten-line KEY=VALUE reader; `.env.example` is committed). Only `FRETWORK_*` keys and `AWS_PROFILE`/`AWS_REGION`/`AWS_DEFAULT_REGION` are read (the `.env` value overrides the shell for those); **credentials never go in `.env`** and a file containing any is refused - the AWS CLI's own profile/SSO chain supplies them. Because the sync uses `--delete`, two guards protect the bucket: the site folder may hold only the four things publish writes (`index.html`, `bootstrap.css`, `static/`, `graph/`), so `FRETWORK_SITE_DIR=.` is refused instead of uploading the repo, and it must contain a publish output before anything is sent. `--dry-run` publishes nothing and sends nothing:
+
+```
+python deploy.py [--env FILE] [--no-publish] [--dry-run]
+```
+
 Bootstrap 5.3 supplies the base CSS. It is downloaded once into `CACHE_DIR` as `bootstrap-<version>.min.css` (gitignored with the rest of `caches/`) and served same-origin from `/bootstrap.css`, so the page never contacts a CDN at view time and works offline after the first run. If the fetch fails or `--no-bootstrap` is passed, the page inlines `FALLBACK_CSS` instead, which covers layout plus the `d-none` / `dropdown-menu.show` state classes the page's JS toggles. There is no JS framework and no Bootstrap JS; interaction is plain DOM code that toggles Bootstrap's own classes.
 
 ### `web/` is the viewer, and only the viewer

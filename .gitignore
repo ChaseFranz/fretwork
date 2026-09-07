@@ -10,3 +10,5 @@ instrument_scan.py
 .venv/
 songs/
 site/
+.env*
+!.env.example

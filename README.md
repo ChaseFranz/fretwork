@@ -204,7 +204,9 @@ The first publish of a large library takes a while - measured at about 0.12 seco
 
 To check a bundle locally, serve the folder with any static server, for example `python -m http.server 8000 --directory site/Main`, and open **http://localhost:8000**. Opening `index.html` straight from the filesystem will not work: the page uses ES modules, which browsers refuse to load from `file://`.
 
-To put it on S3, for example: `aws s3 sync site/Main/ s3://your-bucket/ --delete`. The `--delete` mirrors publish's own pruning by removing objects that are no longer in the folder, so use it only on a bucket that holds nothing but this site.
+**Deploying to S3:** `python deploy.py` publishes and then pushes the folder to a bucket through the AWS CLI, invalidating CloudFront if you have it in front. Settings live in a `.env` file in the repo root - copy `.env.example`, set `FRETWORK_BUCKET`, and optionally `FRETWORK_DISTRIBUTION`, `FRETWORK_HEADER` and `AWS_PROFILE`. Credentials never go in that file - `deploy.py` refuses a `.env` that contains any. Configure an AWS CLI profile or `aws configure sso` and name the profile in `.env` instead; for the `AWS_*` keys the `.env` value wins over one exported in your shell, so the deploy always uses the profile you wrote down for it. `.env` and any `.env.*` are gitignored. `--dry-run` lists what the sync would upload and publishes nothing; `--no-publish` syncs what is already in the folder.
+
+The sync runs with `--delete`, mirroring publish's own pruning, so the bucket must hold nothing but this site. Two guards enforce that: the site folder may contain only what publish writes (so pointing it at the repo root is refused rather than uploaded), and it must hold a publish output before anything is sent.
 
 ---
 
