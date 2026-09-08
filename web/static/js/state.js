@@ -1,18 +1,28 @@
 // All mutable page state, in one object because ES module imports are
 // read-only bindings and several of these are reassigned wholesale.
-import { DATA, ORDER } from "./boot.js";
+import { DATA, ORDER, HIDDEN_DEFAULT } from "./boot.js";
 
 const STORAGE_KEY = "fw.hidden";
 const ORDER_KEY = "fw.order";
+const WIDTH_KEY = "fw.widths";
 
+// An absent key means a first visit, which gets the site's defaults; a stored
+// empty list means someone deliberately turned every column on.
 function loadHidden() {
-  try { return new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]")); }
-  catch (e) { return new Set(); }
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return new Set(saved === null ? HIDDEN_DEFAULT : JSON.parse(saved));
+  } catch (e) { return new Set(HIDDEN_DEFAULT); }
 }
 
 function loadOrder() {
   try { return JSON.parse(localStorage.getItem(ORDER_KEY) || "[]"); }
   catch (e) { return []; }
+}
+
+function loadWidths() {
+  try { return JSON.parse(localStorage.getItem(WIDTH_KEY) || "{}"); }
+  catch (e) { return {}; }
 }
 
 export const state = {
@@ -23,6 +33,7 @@ export const state = {
   ddCol: null,        // column whose filter dropdown is open
   hidden: loadHidden(),
   order: loadOrder(),   // viewer's own column order; [] means the site default
+  widths: loadWidths(), // column -> pixels, only for columns dragged wider or narrower
 };
 
 // Remember hidden columns per browser; storage may be unavailable.
@@ -36,12 +47,19 @@ export function saveOrder() {
   catch (e) {}
 }
 
-// Back to the site's own order and every column showing.
+export function saveWidths() {
+  try { localStorage.setItem(WIDTH_KEY, JSON.stringify(state.widths)); }
+  catch (e) {}
+}
+
+// Back to the columns, order and widths the site ships with.
 export function resetColumns() {
-  state.hidden.clear();
+  state.hidden = new Set(HIDDEN_DEFAULT);
   state.order = [];
+  state.widths = {};
   saveHidden();
   saveOrder();
+  saveWidths();
 }
 
 // Leading column showing a row's place in the current view. Synthetic: it has

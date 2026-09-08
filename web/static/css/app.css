@@ -11,11 +11,21 @@
   .fw-foot a { color:var(--bs-secondary-color); text-decoration:none; }
   .fw-foot a:hover { color:var(--fw-code); text-decoration:underline; }
   .fw-foot .sep { opacity:.35; margin:0 .35rem; }
+  .fw-foot a.req { color:var(--fw-accent); font-weight:600; }
+  .fw-foot a.req:hover { color:var(--fw-accent); }
   .fw-wrap table { margin-bottom:0; }
   .fw-wrap thead th { position:sticky; top:0; z-index:2; background:var(--bs-tertiary-bg);
     padding:0; font-size:11px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
-  .fw-wrap thead th .thw { display:flex; align-items:center; gap:2px; padding:6px 6px 6px 10px; }
-  .fw-wrap thead th .lbl { cursor:pointer; user-select:none; flex:1; }
+  .fw-wrap thead th .thw { display:flex; align-items:center; gap:2px;
+    padding:6px 6px 6px 10px; position:relative; }
+  .fw-wrap thead th .lbl { cursor:pointer; user-select:none; flex:1;
+    overflow:hidden; text-overflow:ellipsis; }
+  /* the drag target for column width: invisible until the header is hovered */
+  .fw-wrap thead th .rz { position:absolute; top:0; right:0; width:7px; height:100%;
+    cursor:col-resize; touch-action:none; opacity:0; background:var(--fw-accent); }
+  .fw-wrap thead th:hover .rz { opacity:.45; }
+  .fw-wrap thead th .rz:hover { opacity:1; }
+  body.resizing { cursor:col-resize; user-select:none; }
   .fw-wrap thead th.sorted .lbl, .fw-wrap thead th.filtered .flt { color:var(--fw-accent); }
   .fw-wrap thead th.filtered { background:#2b2233; }
   .fw-wrap td { padding:5px 10px; white-space:nowrap; vertical-align:middle; }
@@ -27,6 +37,7 @@
   td.code:hover { text-decoration:underline; }
   td.title { max-width:300px; white-space:normal; overflow-wrap:break-word; }
   td.song { min-width:150px; }
+  td.artist { max-width:220px; }
   /* level + difficulty colors carried over from xlsx_format.py so the two views read alike */
   .lvl { color:#1a1a1c; font-weight:600; }
   .Easy{background:#c6efce}.Medium{background:#bdd7ee}.Hard{background:#ffe5b4}.Expert{background:#ffc7ce}
@@ -69,9 +80,15 @@
     .fw-head #credit { order:4; }
     .fw-wrap td { padding:5px 6px; }
     .fw-wrap thead th .thw { padding:6px 4px 6px 6px; gap:0; }
-    td.title { max-width:150px; }
-    td.song { min-width:132px; }
+    /* a two-line header costs one row and buys the width that puts the
+       difficulty column on screen without a sideways swipe */
+    .fw-wrap thead th, .fw-wrap thead th .lbl { white-space:normal; }
+    td.title { max-width:128px; }
+    td.artist { max-width:100px; }
+    td.song { min-width:120px; }
     td.num { font-size:12px; }
+    /* a 7px drag target is not a touch target, and it would fight the scroll */
+    .fw-wrap thead th .rz { display:none; }
   }
   #hint { position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
           z-index:1070; opacity:0; transition:opacity .18s; pointer-events:none; }

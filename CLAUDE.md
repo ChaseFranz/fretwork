@@ -33,7 +33,7 @@ python analyze.py [--header NAME] [--cache FILE.pkl] [--diff-mode CalcTier|Remap
 python render.py CODE [CODE ...] [--codes-file FILE] [--header NAME] [--cache FILE.pkl] [--out-dir DIR]
 ```
 
-`serve.py` is an optional fourth entry point that browses an existing metrics `.xlsx` in a browser instead of Excel. Clicking a row renders that chart's graph on demand; columns have Excel-style filter dropdowns, can be hidden individually, and can be dragged into any order in the column chooser. Both preferences are remembered per browser in `localStorage` (`fw.hidden` and `fw.order`) and "Reset columns" clears both. It reads the spreadsheet, not the cache, so `analyze.py` must have run first; the cache is loaded lazily only when a graph is clicked. A synthetic `Rank` column leads the table, numbering rows in the current view; it has no slot in the row arrays, so `state.visible()` pairs it with index -1. Long titles wrap rather than truncate, and a footer carries attribution and the licence. Stdlib `http.server` plus pandas, binds `127.0.0.1` only, nothing added to `requirements.txt`:
+`serve.py` is an optional fourth entry point that browses an existing metrics `.xlsx` in a browser instead of Excel. Clicking a row renders that chart's graph on demand; columns have Excel-style filter dropdowns, can be hidden individually, dragged into any order in the column chooser, and resized by dragging the right edge of a header. All three preferences are remembered per browser in `localStorage` (`fw.hidden`, `fw.order`, `fw.widths`) and "Reset columns" clears all three. It reads the spreadsheet, not the cache, so `analyze.py` must have run first; the cache is loaded lazily only when a graph is clicked. A synthetic `Rank` column leads the table, numbering rows in the current view; it has no slot in the row arrays, so `state.visible()` pairs it with index -1. Long titles wrap rather than truncate, and a footer carries attribution and the licence. Stdlib `http.server` plus pandas, binds `127.0.0.1` only, nothing added to `requirements.txt`:
 
 ```
 python serve.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--port 8000] [--no-bootstrap]
@@ -70,6 +70,18 @@ The footer is assembled in `static/js/main.js` from `labels.FOOTER_LINKS` plus t
 this fork** - MIT requires the original notice survive. Check upstream's `LICENSE` before
 touching either.
 
+Three details of the table are easy to undo by accident. Column widths are
+applied as a single generated stylesheet in `static/js/widths.js`, keyed by
+`:nth-child`, not as styles on the cells: the table is thousands of rows, and
+nth-child follows the visible column order with no bookkeeping. A width pins
+`width`, `min-width` and `max-width` together, because in an auto-layout table a
+width alone is only a hint and a `max-width` can cap a column but never widen
+one. Decimal places are decided per column rather than per value (`format.js`),
+so a `D` that lands on exactly 700 still prints 700.00 and the decimal points
+stay in a line. And the narrow-screen rules exist to keep `D` on screen without a
+sideways swipe - `td.artist`'s cap and the wrapping header labels are load-bearing
+for that, not cosmetic; re-measure at 390px after changing any column's width.
+
 ### `web/` is the viewer, and only the viewer
 
 Root `serve.py` and `publish.py` are thin entry points in the same shape as the other three: docstring, one orchestration function, `main()`. They share everything below; publish writes what serve serves. Everything else lives in `web/`, a namespace package (no `__init__.py`, matching `functions/` and `parsers/`). It is named `web/` rather than `serve/` because a `serve/` directory beside `serve.py` loses to the module in Python's import resolution and would be silently unimportable.
@@ -87,7 +99,7 @@ Root `serve.py` and `publish.py` are thin entry points in the same shape as the 
 | `web/server.py` | `MetricsServer`: carries the handler's dependencies. |
 | `web/banner.py` | The terminal output: serve's startup/shutdown, publish's summary. |
 
-The page's markup, CSS and 15 ES modules live under `web/static/`, served from an in-memory dict built by globbing at startup. Keys never derive from a request path, so traversal is impossible by construction rather than by guard. Server data reaches the JS through a `<script type="application/json" id="fw-boot">` island that `boot.js` parses once and re-exports; `boot.py` escapes `</` so spreadsheet text can never close the tag. All mutable page state lives in one exported `state` object because ES module imports are read-only bindings.
+The page's markup, CSS and 16 ES modules live under `web/static/`, served from an in-memory dict built by globbing at startup. Keys never derive from a request path, so traversal is impossible by construction rather than by guard. Server data reaches the JS through a `<script type="application/json" id="fw-boot">` island that `boot.js` parses once and re-exports; `boot.py` escapes `</` so spreadsheet text can never close the tag. All mutable page state lives in one exported `state` object because ES module imports are read-only bindings.
 
 Two things must stay off the server's startup import path: matplotlib (via `functions/plot.py`) and openpyxl (via `functions/xlsx_format.py`). `GraphRenderer` imports plot inside its method bodies, and `web/boot.py` keeps a local copy of `SCALED_COLS` rather than importing `xlsx_format` for it.
 
@@ -136,7 +148,7 @@ Every instrument/level table lives there: canonical keys and iteration order, `.
 
 ### `functions/labels.py` holds every human-facing string
 
-The abbreviated keys (`pNPS`, `medVPS`, `COV`, `DurationS`) are the data contract: they come out of `density.calc_metrics` and `formula.calc_nvcov`, flow through the dataframes in `analyze.py`, and become the xlsx headers. Nothing keyed off a column name should change. `labels.py` maps those keys to readable text at display time only, via `COLUMN_LABELS`, `COLUMN_HELP` (tooltips), `TIME_COLUMNS` (seconds shown as m:ss), `DISPLAY_ORDER` (left-to-right column order on the page, which is deliberately not `analyze.COLUMN_ORDER`, so the site can lead with `D` without touching the spreadsheet), `FOOTER_LINKS` (the attribution links), and `UI` (interface wording, including the copyright and licence lines). `label()` falls back to the raw key, so a new metric column degrades gracefully instead of raising.
+The abbreviated keys (`pNPS`, `medVPS`, `COV`, `DurationS`) are the data contract: they come out of `density.calc_metrics` and `formula.calc_nvcov`, flow through the dataframes in `analyze.py`, and become the xlsx headers. Nothing keyed off a column name should change. `labels.py` maps those keys to readable text at display time only, via `COLUMN_LABELS`, `COLUMN_HELP` (tooltips), `TIME_COLUMNS` (seconds shown as m:ss), `DISPLAY_ORDER` (left-to-right column order on the page, which is deliberately not `analyze.COLUMN_ORDER`, so the site can lead with `D` without touching the spreadsheet), `DEFAULT_HIDDEN` (the columns a first visit does not show; search still looks inside a hidden column, and a filter set on one still applies, so hiding is display-only), `FOOTER_LINKS` (the attribution links), and `UI` (interface wording, including the copyright and licence lines). `label()` falls back to the raw key, so a new metric column degrades gracefully instead of raising.
 
 `serve.py` and `publish.py` consume it through `web/boot.py`; the pipeline itself does not. The xlsx headers and the render header are deliberately still raw keys, since changing them would alter committed example outputs and anything downstream that reads the spreadsheet by column name. Wiring either one up is a display-layer change through this module, not a rename in the pipeline.
 
@@ -183,6 +195,11 @@ improvements. The viewer was offered upstream as PR #6 and closed unmerged on
   it is upstream. `upstream/cleanup` is the maintainer's unmerged work and was copied
   to the fork at fork time; leave it alone and take it via `upstream/main` when it
   lands there.
+- **Song pack requests come in as issues** on the fork, through the form in
+  `.github/ISSUE_TEMPLATE/song-pack.yml` (labelled `song pack`), which the site's
+  footer links to. The form asks for a link to where a pack is already published
+  and refuses attachments: no audio or chart files are ever accepted through it,
+  which is the same rule the hosting design runs on.
 - **Never open pull requests against `upstream` for viewer, scores or rating work.**
   A genuine fix to the shared tooling (parsers, formula) can still go upstream as a
   fork PR, from a branch cut off `upstream/main` rather than off `main`.

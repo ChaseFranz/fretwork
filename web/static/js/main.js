@@ -4,6 +4,7 @@ import { el, esc } from "./dom.js";
 import { initDropdown } from "./dropdown.js";
 import { initChooser } from "./chooser.js";
 import { initRouter, render } from "./router.js";
+import { initWidths } from "./widths.js";
 import { state } from "./state.js";
 
 function labelChrome() {
@@ -15,12 +16,16 @@ function labelChrome() {
   el("cols").title = UI.columns_tip;
 }
 
-const link = (text, href) =>
-  '<a href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(text) + "</a>";
+const link = (text, href, cls) =>
+  '<a class="' + (cls || "") + '" href="' + esc(href) +
+  '" target="_blank" rel="noopener">' + esc(text) + "</a>";
 
-// Attribution, the explainer that says what D means, and the licence.
+// The one thing a visitor can ask us for, then attribution, the explainer that
+// says what D means, and the licence.
 function buildFooter() {
-  const links = FOOTER.map(([text, href]) => link(text, href)).join('<span class="sep">/</span>');
+  const links = [link(UI.request, UI.request_url, "req")]
+    .concat(FOOTER.map(([text, href]) => link(text, href)))
+    .join('<span class="sep">/</span>');
   el("foot").innerHTML =
     '<div class="d-flex flex-wrap align-items-center gap-1">' + links + "</div>" +
     '<div class="mt-1">' + esc(UI.copyright) + " " +
@@ -31,6 +36,7 @@ labelChrome();
 buildFooter();
 initDropdown();
 initChooser();
+initWidths();
 initRouter();
 
 // Open on Expert only; the chips read this back as their active state.

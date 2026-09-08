@@ -1,7 +1,7 @@
 // Builds the table's HTML. Everything it needs is passed in.
 import { SCALED, TIMECOLS, HELP, UI, MISS_TEXT, MISS_HELP } from "./boot.js";
 import { esc } from "./dom.js";
-import { lab, mmss, isMissing } from "./format.js";
+import { lab, mmss, isMissing, decimals } from "./format.js";
 import { scaleColor } from "./scale.js";
 import { RANK_COL } from "./state.js";
 
@@ -23,11 +23,22 @@ export function headerCell(col, { sorted, ascending, filtered }) {
     '<span class="lbl" data-sort="' + esc(col) + '" title="' + esc(tip) + '">' +
     esc(lab(col)) + arrow + '</span>' +
     '<button class="btn btn-sm btn-link p-0 px-1 flt text-secondary" data-flt="' +
-    esc(col) + '" title="' + esc(UI.filter_tip) + '">&#9662;</button></div></th>';
+    esc(col) + '" title="' + esc(UI.filter_tip) + '">&#9662;</button>' +
+    '<span class="rz" data-rz="' + esc(col) + '" title="' + esc(UI.resize_tip) +
+    '"></span></div></th>';
 }
 
+// The wrapping text columns. Each gets its own class as well, because how much
+// room they may take differs per column and differs again on a phone.
+const TEXT_CLASS = {
+  "Song Title": "title song",
+  "Artist": "title artist",
+  "Charter": "title",
+  "Release": "title",
+};
+
 function numberCell(col, v, bounds) {
-  const text = Number.isInteger(v) ? v : v.toFixed(2);
+  const text = v.toFixed(decimals(col));
   if (!SCALED.has(col) || !bounds) return '<td class="num">' + text + "</td>";
   return '<td class="num"><span class="scale" style="background:' +
     scaleColor(v, bounds[0], bounds[1]) + '">' + text + "</span></td>";
@@ -41,10 +52,9 @@ function bodyCell(col, v, bounds) {
     return '<td class="num">' + (v === true ? "&#10003;" : "") + "</td>";
   if (col === "Level")
     return '<td><span class="badge rounded-pill lvl ' + esc(v) + '">' + esc(v) + "</span></td>";
-  if (col === "Song Title" || col === "Artist" || col === "Charter" || col === "Release") {
-    const cls = col === "Song Title" ? "title song" : "title";
-    return '<td class="' + cls + '" title="' + esc(v ?? "") + '">' + esc(v ?? "") + "</td>";
-  }
+  if (TEXT_CLASS[col])
+    return '<td class="' + TEXT_CLASS[col] + '" title="' + esc(v ?? "") + '">' +
+      esc(v ?? "") + "</td>";
   if (isMissing(col, v)) {
     const tip = MISS_HELP[col] || "";
     return '<td class="num blank"' + (tip ? ' title="' + esc(tip) + '"' : '') +
@@ -67,6 +77,6 @@ export function bodyRow(row, visibleCols, code, bounds, rank) {
 }
 
 export function emptyRow(span) {
-  return '<tr><td colspan="' + span + '" class="text-secondary p-3">' +
+  return '<tr class="empty"><td colspan="' + span + '" class="text-secondary p-3">' +
     esc(UI.no_data) + "</td></tr>";
 }

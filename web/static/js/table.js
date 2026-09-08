@@ -7,6 +7,7 @@ import { headerCell, bodyRow, emptyRow } from "./markup.js";
 import { passing, compare } from "./query.js";
 import { ranges } from "./scale.js";
 import { state, cols, idx, rowsAll, visible } from "./state.js";
+import { applyWidths } from "./widths.js";
 
 function paintFooter(shown, total) {
   el("count").textContent = t("count", { shown: shown, total: total });
@@ -24,6 +25,21 @@ function paintLevelChips() {
   chips("levels", LEVELS, active, v => {
     if (active === v) delete state.filters["Level"];
     else state.filters["Level"] = { type: "set", sel: new Set([v]) };
+    draw();
+  });
+}
+
+// Official is a chip rather than a column: it is one bit, and it is the cut
+// people want most. Same shortcut-into-a-column-filter shape as the levels.
+function paintOfficialChips() {
+  if (idx("Official") < 0) { el("official").innerHTML = ""; return; }
+  const f = state.filters["Official"];
+  const on = f && f.type === "set" && f.sel.size === 1 ? [...f.sel][0] : null;
+  const names = [UI.official_chip, UI.custom_chip];
+  chips("official", names, on === null ? null : names[on === "true" ? 0 : 1], v => {
+    const want = v === UI.official_chip ? "true" : "false";
+    if (on === want) delete state.filters["Official"];
+    else state.filters["Official"] = { type: "set", sel: new Set([want]) };
     draw();
   });
 }
@@ -46,6 +62,8 @@ export function draw() {
     ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], bounds, n + 1)).join("")
     : emptyRow(vis.length);
 
+  applyWidths();
   paintFooter(rows.length, rowsAll().length);
   paintLevelChips();
+  paintOfficialChips();
 }

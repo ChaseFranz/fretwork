@@ -10,6 +10,8 @@ those keys to something a person can read, applied only at display time.
     COLUMN_LABELS  short label for a column header
     COLUMN_HELP    one-line explanation, for tooltips / hover text
     DISPLAY_ORDER  left-to-right column order on the page
+    DEFAULT_HIDDEN columns a first visit does not show
+    FOOTER_LINKS   attribution links along the bottom of the page
     UI             interface strings for the page
 
 Anything not in COLUMN_LABELS falls back to the raw key, so a new metric column
@@ -130,11 +132,8 @@ def is_missing(column, value):
 TIME_COLUMNS = ('DurationS',)
 
 
-# Left-to-right order on the page, which is not the spreadsheet's order: D is what
-# the site is for, so it sits beside the song instead of past the right edge.
-# Anything missing from this list keeps its spreadsheet position, at the end.
-# Footer attribution: the engine, its author's channel, the explainer that says
-# what D means, and this site's own source.
+# Footer attribution: the explainer that says what D means, the engine, its
+# author's channel, and this site's own source.
 FOOTER_LINKS = (
     ('How difficulty is scored', 'https://youtu.be/emoWMpDJ4ls'),
     ('fretwork engine', 'https://github.com/Staycation44/fretwork'),
@@ -142,11 +141,23 @@ FOOTER_LINKS = (
     ('Site source', 'https://github.com/ChaseFranz/fretwork'),
 )
 
+# Left-to-right order on the page, which is not the spreadsheet's order: D is what
+# the site is for, so it sits beside the song instead of past the right edge.
+# Anything missing from this list keeps its spreadsheet position, at the end.
 DISPLAY_ORDER = (
     'Song Title', 'Artist', 'D', 'CalcTier', 'Level', 'Type',
     'DurationS', 'NoteCount', 'Charter', 'Release',
     'Difficulty', 'RemapDiff', 'Official', 'Code',
 )
+
+# Off by default, so a first visit is the ten columns worth reading rather than
+# every column the spreadsheet has. Each is still one click away in the chooser,
+# and search still looks inside Charter and Release while they are hidden:
+#   Charter/Difficulty  detail, not what the ranking is for
+#   RemapDiff           CalcTier says the same thing without a 0-6 ceiling
+#   Official            the header has a chip for it, which is the useful form
+#   Code                only means something to render.py
+DEFAULT_HIDDEN = ('Charter', 'Difficulty', 'RemapDiff', 'Official', 'Code')
 
 
 # "4,634 charts", grouped for readability
@@ -176,7 +187,8 @@ UI = {
     'license_label':    'MIT License',
     'license_url':      'https://github.com/Staycation44/fretwork/blob/main/LICENSE',
     'reorder_tip':      'Drag to reorder',
-    'columns_reset_tip':'Show every column in the original order',
+    'resize_tip':       'Drag to resize, double-click to fit',
+    'columns_reset_tip':'Back to the default columns, order and widths',
     'search':           'Search song, artist, charter or source...',
     'clear_one':        'Clear 1 filter',
     'clear_many':       'Clear {n} filters',
@@ -196,6 +208,15 @@ UI = {
     'render_failed':    'No graph available for this chart.',
     'copied':           'Copied {code}',
     'no_data':          'No charts match these filters.',
+
+    # quick filters in the header, a shortcut into the Official column
+    'official_chip':    'Official',
+    'custom_chip':      'Custom',
+
+    # how someone asks for a pack to be scored
+    'request':          'Request a song pack',
+    'request_url':      'https://github.com/ChaseFranz/fretwork/issues/new'
+                        '?template=song-pack.yml',
 
     # row / graph interaction
     'row_tip':          'Click for the difficulty graph',

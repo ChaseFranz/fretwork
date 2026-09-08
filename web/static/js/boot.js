@@ -5,6 +5,7 @@ const BOOT = JSON.parse(document.getElementById("fw-boot").textContent);
 export const DATA = BOOT.data;
 export const LABELS = BOOT.labels;
 export const ORDER = BOOT.order;
+export const HIDDEN_DEFAULT = BOOT.hiddenDefault;
 export const FOOTER = BOOT.footer;
 export const HELP = BOOT.help;
 export const UI = BOOT.ui;

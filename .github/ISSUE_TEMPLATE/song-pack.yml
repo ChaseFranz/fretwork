@@ -1,0 +1,54 @@
+name: Song pack request
+description: Ask for a pack to be scored and listed on fretladder
+title: "[pack] "
+labels: ["song pack"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        fretladder scores **charts**, not audio. Please do not attach song files,
+        chart files or audio here - a link to where the pack is already published
+        is all that is needed. Requests are worked through in batches, so there is
+        no ETA on any one pack.
+  - type: input
+    id: pack
+    attributes:
+      label: Pack name
+      description: The pack as its release names it, e.g. "CSC Monthly Packs 2024".
+      placeholder: Pack name
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: Where it is published
+      description: A Chorus/Encore page, a release thread, or the charter's own post.
+      placeholder: https://
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Roughly how many songs
+      options:
+        - Under 25
+        - 25 to 100
+        - 100 to 500
+        - Over 500
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else worth knowing
+      description: Charter, instruments charted, whether it supersedes a pack already listed.
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Before you file
+      options:
+        - label: This pack is publicly released, and I have not attached audio or chart files.
+          required: true
+        - label: I checked the site's Source column and it is not listed already.
+          required: true
