@@ -17,6 +17,9 @@ Optionally, applies calculated difficulty to `song.ini` files for use in-game, o
 3. **Render** - Output a PNG graph of metrics over time for one or more song/instrument combos based on a retrieval code from the spreadsheet
 4. **Serve** *(optional)* - Browse the spreadsheet in a browser instead of Excel, with per-column filters and click-a-row-to-see-its-graph
 5. **Publish** *(optional)* - Write the viewer as a static site to host anywhere
+6. **Deploy** *(optional)* - Push that site to S3 and refresh the CDN in front of it
+
+In a hurry? [7. Updating the live site, start to finish](#7-updating-the-live-site-start-to-finish) is the whole rescan-to-published sequence as numbered steps.
 
 ## Index <!-- omit in toc -->
 - [1. Setup your Config](#1-setup-your-config)
@@ -25,7 +28,8 @@ Optionally, applies calculated difficulty to `song.ini` files for use in-game, o
 - [4. Rendering song graphs](#4-rendering-song-graphs)
 - [5. Browsing in a browser](#5-browsing-in-a-browser)
 - [6. Publishing a static site](#6-publishing-a-static-site)
-- [7. Fixes/Extension Ideas](#7-fixesextension-ideas)
+- [7. Updating the live site, start to finish](#7-updating-the-live-site-start-to-finish)
+- [8. Fixes/Extension Ideas](#8-fixesextension-ideas)
 - [License](#license)
 
 ---
@@ -210,7 +214,112 @@ The sync runs with `--delete`, mirroring publish's own pruning, so the bucket mu
 
 ---
 
-## 7. Fixes/Extension Ideas
+## 7. Updating the live site, start to finish
+
+Everything between "I changed what is in the song library" and "the website shows it", in order. Run every command from the repo root with the virtualenv active:
+
+```
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+```
+
+The examples use `Local` as the header and `songs/` as the library. Substitute your own; the header is what ties a cache, a spreadsheet and a published site together, so **use the same one at every step**.
+
+### Before the first run
+
+Three things need to be right once, and then never again:
+
+1. `config.py` - `SEARCH_PATH` and `HEADER` if you would rather not pass them on the command line. See [1. Setup your Config](#1-setup-your-config).
+2. `.env` in the repo root - copy `.env.example` and set `FRETWORK_BUCKET`, and `FRETWORK_DISTRIBUTION` if CloudFront is in front of it. **No credentials go in this file**; `deploy.py` refuses one that has any.
+3. An AWS login the CLI can find - `aws configure sso` then `aws sso login`, or a named profile. Name it in `.env` as `AWS_PROFILE` so the deploy always uses the same one. Check it works: `aws sts get-caller-identity`.
+
+### Step 1 - rescan the library
+
+```
+python build.py --search-path songs --header Local
+```
+
+Walks every folder under the search path, parses each `notes.chart` / `notes.mid`, and writes a cache to `caches/Local_cache_<timestamp>.pkl`. It also appends any new songs to `caches/Local_BackupData.csv`, so the original `song.ini` difficulties are recoverable. Nothing is written back to the library.
+
+Several minutes on a few thousand songs; MIDI parsing dominates. **Check before moving on:**
+
+- the song count in the summary is what you expect - if you added a pack and the number did not move, `--search-path` is pointing somewhere else
+- `caches/Local_errors_<timestamp>.csv` - one row per song that failed to parse. A handful is normal; a sudden jump means a bad download, not a bad build
+
+### Step 2 - recompute the metrics
+
+```
+python analyze.py --header Local
+```
+
+Reads the newest cache **for that header** and writes `metrics/Local_metrics_<timestamp>.xlsx`, reusing the cache's timestamp so the pair can be matched later. This is the step that computes D, RemapDiff and CalcTier.
+
+Run it with no `--diff-mode` unless you specifically want to write difficulties back into your `song.ini` files; those modes change your library.
+
+### Step 3 - look at the result before anyone else does *(optional)*
+
+```
+python serve.py --header Local
+```
+
+Opens the same viewer the website runs, against your local spreadsheet, at http://127.0.0.1:8000. Worth a minute: sort by D and check the top of the list is plausible, and search for a song from whatever pack you just added to confirm it is there.
+
+### Step 4 - build the site
+
+```
+python publish.py --header Local
+```
+
+Writes `site/Local/` - `index.html` with the table baked in, `404.html`, the assets, Bootstrap, and a PNG per chart under `graph/`. The first run on a large library takes around ten minutes; after that only charts whose inputs changed are re-rendered, so it is usually seconds. Add `--force` only after changing `functions/plot.py`, the render theme, or upgrading matplotlib - the manifest cannot see code changes.
+
+You can skip this step: `deploy.py` publishes first anyway. Run it separately when you want to look at the bundle before it goes anywhere.
+
+### Step 5 - preview the exact bundle *(optional)*
+
+```
+python -m http.server 8000 --directory site/Local
+```
+
+Then open http://localhost:8000. Opening `index.html` from the filesystem will **not** work - the page uses ES modules, which browsers refuse to load over `file://`.
+
+### Step 6 - deploy
+
+```
+python deploy.py --dry-run     # lists what would upload; sends nothing
+python deploy.py               # publish, sync, invalidate
+```
+
+`--dry-run` first is a good habit when the library changed a lot: the upload list is the clearest confirmation that publish produced what you expected. The real run publishes again, syncs to S3 in two passes (graphs with a week of caching, the page and assets with `no-cache`), and invalidates CloudFront so the new page is live immediately.
+
+### Step 7 - confirm it landed
+
+```
+curl -s -o /dev/null -w "%{http_code}\n" https://fretladder.com/
+curl -s https://fretladder.com/ | grep -o "Updated [^\"]*charts"
+```
+
+The second line should print the date of the build you just made. Then load the site and check the chart count in the header. CloudFront invalidation usually takes under a minute.
+
+### When something is off
+
+| What you see | What it is | Fix |
+|---|---|---|
+| "spreadsheet is from X but the cache is from Y" | Analyze has not run since the last Build | `python analyze.py --header Local` |
+| Site shows an old date | The invalidation has not finished, or the browser cached the page | Wait a minute, then hard-reload |
+| A graph looks stale after changing plotting code | The manifest fingerprints data, not code | `python publish.py --header Local --force` |
+| `deploy.py` refuses: "holds files publish did not write" | `FRETWORK_SITE_DIR` points at the wrong folder | Point it at `site/<header>` |
+| `deploy.py` refuses: a credential in `.env` | Keys were pasted into `.env` | Remove them; use an AWS profile or SSO |
+| Cache headers wrong on files already in the bucket | `sync` only sets headers on files it uploads | `python deploy.py --set-headers` |
+
+**Rolling back:** every build's outputs are kept, so the previous site is one command away. Point publish at the older pair and deploy that:
+
+```
+python publish.py --header Local --xlsx metrics/Local_metrics_<older>.xlsx --cache caches/Local_cache_<older>.pkl
+python deploy.py --no-publish
+```
+
+---
+
+## 8. Fixes/Extension Ideas
 **Fixes:**
 - Midi files misbehaving - *possibly parser drift / file corrruption/truncation?*
 

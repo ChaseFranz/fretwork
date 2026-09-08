@@ -35,10 +35,10 @@ def write_if_changed(path, data):
     return True
 
 
-# index.html, the static assets and Bootstrap. Returns (names, count rewritten).
-def write_page(out_dir, body, static, bootstrap_css):
+# The pages, the static assets and Bootstrap. Returns (names, count rewritten).
+def write_page(out_dir, pages, static, bootstrap_css):
     out = pathlib.Path(out_dir)
-    files = {'index.html': body}
+    files = dict(pages)
     files.update({url.lstrip('/'): data for url, (data, _type) in static.items()})
     if bootstrap_css:
         files['bootstrap.css'] = bootstrap_css

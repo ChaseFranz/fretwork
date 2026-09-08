@@ -4,6 +4,7 @@ DEPLOY - publish the site and push it to S3 through the AWS CLI
     python deploy.py                 # publish, sync to the bucket, invalidate CloudFront
     python deploy.py --dry-run       # list what the sync would upload; publishes nothing, sends nothing
     python deploy.py --no-publish    # sync whatever is already in the site folder
+    python deploy.py --set-headers   # rewrite Cache-Control on everything already in the bucket
 
 Settings come from a .env file in the repo root (gitignored - copy .env.example):
 
@@ -23,12 +24,21 @@ requirements.txt.
 The sync uses --delete, so the bucket must hold nothing but this site. Two
 guards enforce that on this side: the site folder may contain only what
 publish writes, and it must contain a publish output before anything is sent.
+
+It goes up as two syncs, because the two halves want opposite caching. The page
+and its assets are not fingerprinted - a deploy rewrites main.js in place - so
+they carry no-cache and are revalidated, which costs a 304 and never serves a
+stale script. A chart's PNG changes only when that chart does, so graphs carry a
+week. sync sets those headers on the files it uploads, which means files already
+in the bucket keep whatever they were uploaded with: --set-headers rewrites the
+metadata on everything in place, and is only needed after changing these values.
 """
 
 import argparse
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -41,8 +51,11 @@ ENV_FILE = '.env'
 AWS_ENV = ('AWS_PROFILE', 'AWS_REGION', 'AWS_DEFAULT_REGION')
 CREDENTIAL_PREFIXES = ('AWS_ACCESS_KEY', 'AWS_SECRET', 'AWS_SESSION')
 BUCKET_RE = re.compile(r'^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$')
-BUNDLE_TOP = {'index.html', 'bootstrap.css', 'static', 'graph'}   # all publish ever writes
+BUNDLE_TOP = {'index.html', '404.html', 'bootstrap.css', 'static', 'graph'}  # all publish writes
 REQUIRED = ('index.html', 'graph/manifest.json')                   # proof it came from publish
+GRAPHS = 'graph'
+CACHE_PAGE = 'no-cache'                     # revalidate: these are rewritten in place
+CACHE_GRAPHS = 'public, max-age=604800'     # a week; a chart's PNG changes when its chart does
 
 
 def settings(env_path):
@@ -78,18 +91,37 @@ def check_site(site_dir, need_output):
 
 
 def run(cmd, dry_run):
-    print('    ' + ' '.join(cmd))
+    print('    ' + ' '.join(shlex.quote(part) for part in cmd))
     if dry_run and cmd[1] == 'cloudfront':
         return
     subprocess.run(cmd, check=True)
 
 
-def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False):
+# One-off: sync only sets headers on what it uploads, so changing the values
+# above leaves everything already in the bucket as it was.
+def set_headers(bucket, dry_run):
+    print(f"\nRewriting Cache-Control on s3://{bucket}/" + ("  (dry run)" if dry_run else ""))
+    for prefix, value, extra in (
+        (f"{GRAPHS}/", CACHE_GRAPHS, []),
+        ("", CACHE_PAGE, ['--exclude', f"{GRAPHS}/*"]),
+    ):
+        cmd = ['aws', 's3', 'cp', f"s3://{bucket}/{prefix}", f"s3://{bucket}/{prefix}",
+               '--recursive', '--metadata-directive', 'REPLACE',
+               '--cache-control', value] + extra
+        run(cmd + ['--dryrun'] if dry_run else cmd, dry_run)
+
+
+def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False, headers_only=False):
     bucket, distribution, header, site_dir = settings(env_path)
     if not bucket:
         sys.exit(f"FRETWORK_BUCKET is not set - copy .env.example to {env_path} and fill it in")
     if shutil.which('aws') is None:
         sys.exit("the AWS CLI (`aws`) is not on PATH")
+
+    if headers_only:
+        set_headers(bucket, dry_run)
+        print("\nDry run - nothing was changed\n" if dry_run else "\nDone\n")
+        return
 
     do_publish = do_publish and not dry_run
     check_site(site_dir, need_output=not do_publish)
@@ -98,8 +130,16 @@ def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False):
         check_site(site_dir, need_output=True)
 
     print(f"\nDeploying {site_dir}/ -> s3://{bucket}/" + ("  (dry run)" if dry_run else ""))
-    sync = ['aws', 's3', 'sync', f"{site_dir}/", f"s3://{bucket}/", '--delete']
-    run(sync + ['--dryrun'] if dry_run else sync, dry_run)
+    # Graphs first, so a chart's PNG is in place before the page that links it.
+    # The page sync excludes graph/, and an AWS CLI filter applies to the
+    # destination listing too, so --delete there cannot reach a graph.
+    for cmd in (
+        ['aws', 's3', 'sync', f"{site_dir}/{GRAPHS}/", f"s3://{bucket}/{GRAPHS}/",
+         '--delete', '--cache-control', CACHE_GRAPHS],
+        ['aws', 's3', 'sync', f"{site_dir}/", f"s3://{bucket}/",
+         '--delete', '--exclude', f"{GRAPHS}/*", '--cache-control', CACHE_PAGE],
+    ):
+        run(cmd + ['--dryrun'] if dry_run else cmd, dry_run)
     if distribution:
         run(['aws', 'cloudfront', 'create-invalidation', '--distribution-id', distribution,
              '--paths', '/*'], dry_run)
@@ -112,9 +152,12 @@ def main():
     parser.add_argument('--no-publish', action='store_true', help="sync the existing site folder without publishing")
     parser.add_argument('--dry-run', action='store_true',
                         help="list what the sync would upload; publishes nothing and sends nothing")
+    parser.add_argument('--set-headers', action='store_true',
+                        help="rewrite Cache-Control on everything already in the bucket, then stop")
     args = parser.parse_args()
     try:
-        deploy(env_path=args.env, do_publish=not args.no_publish, dry_run=args.dry_run)
+        deploy(env_path=args.env, do_publish=not args.no_publish, dry_run=args.dry_run,
+               headers_only=args.set_headers)
     except subprocess.CalledProcessError as exc:
         sys.exit(f"aws exited with status {exc.returncode}")
 

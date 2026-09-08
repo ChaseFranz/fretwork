@@ -235,6 +235,11 @@ UI = {
     'official_chip':    'Official',
     'custom_chip':      'Custom',
 
+    # the page CloudFront serves for a path that is not in the bucket
+    'not_found_title':  'Page not found',
+    'not_found':        'There is nothing at that address. Every chart is on one page.',
+    'not_found_link':   'Go to the charts',
+
     # how someone asks for a pack to be scored
     'request':          'Request a song pack',
     'request_url':      'https://github.com/ChaseFranz/fretwork/issues/new'

@@ -65,6 +65,20 @@ def render_page(title, source, bootstrap_css, boot_json, public=False):
     return body.encode('utf-8')
 
 
+# The 404 body. Static text, no data and no scripts, so it stays valid however
+# old the bundle around it gets.
+def render_404():
+    values = {
+        'TITLE': html.escape(f"{labels.UI['not_found_title']} - {config.SITE_NAME}"),
+        'BRAND': html.escape(config.SITE_NAME),
+        'SUBTITLE': html.escape(labels.UI['subtitle']),
+        'MESSAGE': html.escape(labels.UI['not_found']),
+        'LINK': html.escape(labels.UI['not_found_link']),
+    }
+    template = assets.read_text('404.html')
+    return _PLACEHOLDER.sub(lambda m: values[m.group(1)], template).encode('utf-8')
+
+
 # What serve and publish both need: (xlsx_path, sheets, total rows, page body).
 # A published page names no internal file: the title is just the site and the
 # strapline is when the data was built. Serving locally keeps both, which is
