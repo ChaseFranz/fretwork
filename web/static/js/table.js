@@ -18,13 +18,18 @@ function paintFooter(shown, total) {
 }
 
 // The level chips are a shortcut into the Level column filter, so they read
-// their active state back out of it.
+// their active state back out of it. They stack: a lit chip is a level the table
+// is showing, and clicking one adds or removes just that level. With no filter
+// every level is on screen, so every chip is lit - which is also what makes
+// "everything except Easy" a single click.
 function paintLevelChips() {
   const f = state.filters["Level"];
-  const active = f && f.type === "set" && f.sel.size === 1 ? [...f.sel][0] : null;
-  chips("levels", LEVELS, active, v => {
-    if (active === v) delete state.filters["Level"];
-    else state.filters["Level"] = { type: "set", sel: new Set([v]) };
+  const on = f && f.type === "set" ? f.sel : new Set(LEVELS);
+  chips("levels", LEVELS, on, v => {
+    const next = new Set(on);
+    if (next.has(v)) next.delete(v); else next.add(v);
+    if (next.size === 0 || next.size === LEVELS.length) delete state.filters["Level"];
+    else state.filters["Level"] = { type: "set", sel: next };
     draw();
   });
 }

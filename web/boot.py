@@ -22,6 +22,8 @@ def boot_payload(frames_data):
         'labels': labels_mod.COLUMN_LABELS,
         'order': list(labels_mod.DISPLAY_ORDER),
         'hiddenDefault': list(labels_mod.DEFAULT_HIDDEN),
+        'valueOrder': {k: list(v) for k, v in labels_mod.VALUE_ORDER.items()},
+        'valueLabels': labels_mod.VALUE_LABELS,
         'footer': [list(pair) for pair in labels_mod.FOOTER_LINKS],
         'help': labels_mod.COLUMN_HELP,
         'ui': {**labels_mod.UI, 'title': config.SITE_NAME},

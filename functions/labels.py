@@ -8,6 +8,7 @@ column name has to change. This module is the single place that maps one of
 those keys to something a person can read, applied only at display time.
 
     COLUMN_LABELS  short label for a column header
+    VALUE_ORDER    the order a column's values are listed and sorted in
     COLUMN_HELP    one-line explanation, for tooltips / hover text
     DISPLAY_ORDER  left-to-right column order on the page
     DEFAULT_HIDDEN columns a first visit does not show
@@ -20,6 +21,8 @@ shows up readable-ish instead of blowing up - see label().
 Formula terms are spelled out in Methodology.md; the help text here is the short
 version of the same thing.
 """
+
+from functions import instruments
 
 # NPS/VPS get spelled out - "notes/sec" and "fret changes/sec" are what they
 # actually measure, and that reads better than the acronym in a column header
@@ -130,6 +133,25 @@ def is_missing(column, value):
 
 # columns holding a duration in seconds - shown as m:ss, still sorted as a number
 TIME_COLUMNS = ('DurationS',)
+
+
+# The columns whose values have an order of their own. Sorting them as text puts
+# Expert between Easy and Hard, and Co-op before Lead. Both orders come from
+# instruments.py rather than being spelled out again here, and both read as
+# ascending: the filter list runs top to bottom in this order, and so does a sort
+# on the column. Official is deliberately absent - as plain text its two values
+# already sort Custom before Official, which is what puts the ticks on top when
+# the column is first clicked, since the first click sorts descending.
+VALUE_ORDER = {
+    'Level': tuple(instruments.LEVEL_DISPLAY_NAMES[k] for k in instruments.LEVEL_KEYS),
+    'Type': tuple(instruments.TYPE_LABELS[k] for k in instruments.INSTRUMENT_KEYS),
+}
+
+# A column whose stored values are not what a reader should see. Display only:
+# the filter still matches on the stored key underneath.
+VALUE_LABELS = {
+    'Official': {'true': 'Official', 'false': 'Custom'},
+}
 
 
 # Footer attribution: the explainer that says what D means, the engine, its
