@@ -299,6 +299,8 @@ curl -s https://fretladder.com/ | grep -o "Updated [^\"]*charts"
 
 The second line should print the date of the build you just made. Then load the site and check the chart count in the header. CloudFront invalidation usually takes under a minute.
 
+`deploy.py` ends by asking S3 what content type it will serve for one file of each kind, and refuses to call the deploy done if any is wrong. A file served as `binary/octet-stream` is not a cosmetic problem: browsers refuse to run an ES module with the wrong type, so the page loads and then does nothing.
+
 ### When something is off
 
 | What you see | What it is | Fix |
@@ -309,6 +311,7 @@ The second line should print the date of the build you just made. Then load the 
 | `deploy.py` refuses: "holds files publish did not write" | `FRETWORK_SITE_DIR` points at the wrong folder | Point it at `site/<header>` |
 | `deploy.py` refuses: a credential in `.env` | Keys were pasted into `.env` | Remove them; use an AWS profile or SSO |
 | Cache headers wrong on files already in the bucket | `sync` only sets headers on files it uploads | `python deploy.py --set-headers` |
+| Blank page, console says "Expected a JavaScript-or-Wasm module script" | Objects are served as `binary/octet-stream` | `python deploy.py --set-headers`, then hard-reload |
 
 **Rolling back:** every build's outputs are kept, so the previous site is one command away. Point publish at the older pair and deploy that:
 

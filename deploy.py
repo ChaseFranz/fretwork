@@ -57,6 +57,21 @@ GRAPHS = 'graph'
 CACHE_PAGE = 'no-cache'                     # revalidate: these are rewritten in place
 CACHE_GRAPHS = 'public, max-age=604800'     # a week; a chart's PNG changes when its chart does
 
+# `aws s3 cp --metadata-directive REPLACE` replaces ALL metadata, and does not
+# re-derive Content-Type the way an upload does: without these it writes
+# binary/octet-stream over every object, which browsers refuse to run as an ES
+# module. So --set-headers walks one pass per file type and states the type.
+CONTENT_TYPES = (
+    ('*.js', 'text/javascript; charset=utf-8'),
+    ('*.css', 'text/css; charset=utf-8'),
+    ('*.html', 'text/html; charset=utf-8'),
+    ('*.svg', 'image/svg+xml'),
+)
+GRAPH_TYPES = (
+    ('*.png', 'image/png'),
+    ('*.json', 'application/json'),
+)
+
 
 def settings(env_path):
     values = envfile.load(env_path)
@@ -98,17 +113,49 @@ def run(cmd, dry_run):
 
 
 # One-off: sync only sets headers on what it uploads, so changing the values
-# above leaves everything already in the bucket as it was.
+# above leaves everything already in the bucket as it was. Every pass names both
+# the cache policy and the content type, because REPLACE drops what it is not told.
 def set_headers(bucket, dry_run):
-    print(f"\nRewriting Cache-Control on s3://{bucket}/" + ("  (dry run)" if dry_run else ""))
-    for prefix, value, extra in (
-        (f"{GRAPHS}/", CACHE_GRAPHS, []),
-        ("", CACHE_PAGE, ['--exclude', f"{GRAPHS}/*"]),
-    ):
+    print(f"\nRewriting headers on s3://{bucket}/" + ("  (dry run)" if dry_run else ""))
+    passes = [(f"{GRAPHS}/", CACHE_GRAPHS, pattern, ctype, [])
+              for pattern, ctype in GRAPH_TYPES]
+    passes += [("", CACHE_PAGE, pattern, ctype, ['--exclude', f"{GRAPHS}/*"])
+               for pattern, ctype in CONTENT_TYPES]
+    for prefix, cache, pattern, ctype, extra in passes:
         cmd = ['aws', 's3', 'cp', f"s3://{bucket}/{prefix}", f"s3://{bucket}/{prefix}",
                '--recursive', '--metadata-directive', 'REPLACE',
-               '--cache-control', value] + extra
+               '--cache-control', cache, '--exclude', '*'] + extra + [
+               '--include', pattern, '--content-type', ctype]
         run(cmd + ['--dryrun'] if dry_run else cmd, dry_run)
+
+
+# A wrong Content-Type is invisible from this side - the upload succeeds, the
+# bucket looks right, and the browser refuses to run the file. So ask S3 what it
+# will actually serve for one object of each kind before calling the deploy done.
+def verify(bucket, site_dir):
+    print("\nChecking what S3 will serve")
+    samples = {'index.html': 'text/html'}
+    for name, want in (('static/js/main.js', 'text/javascript'),
+                       ('static/css/app.css', 'text/css'),
+                       ('static/favicon.svg', 'image/svg+xml')):
+        samples[name] = want
+    graphs = sorted((pathlib.Path(site_dir) / GRAPHS).glob('*.png'))
+    if graphs:
+        samples[f"{GRAPHS}/{graphs[0].name}"] = 'image/png'
+
+    wrong = []
+    for key, want in samples.items():
+        got = subprocess.run(
+            ['aws', 's3api', 'head-object', '--bucket', bucket, '--key', key,
+             '--query', 'ContentType', '--output', 'text'],
+            capture_output=True, text=True).stdout.strip()
+        ok = got.startswith(want)
+        print(f"    {'ok  ' if ok else 'WRONG'}  {key}  ->  {got or '(no answer)'}")
+        if not ok:
+            wrong.append(key)
+    if wrong:
+        sys.exit(f"\n{len(wrong)} object(s) would be served as the wrong type. "
+                 f"Run: python deploy.py --set-headers")
 
 
 def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False, headers_only=False):
@@ -120,6 +167,8 @@ def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False, headers_only=False
 
     if headers_only:
         set_headers(bucket, dry_run)
+        if not dry_run:
+            verify(bucket, site_dir)
         print("\nDry run - nothing was changed\n" if dry_run else "\nDone\n")
         return
 
@@ -143,6 +192,8 @@ def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False, headers_only=False
     if distribution:
         run(['aws', 'cloudfront', 'create-invalidation', '--distribution-id', distribution,
              '--paths', '/*'], dry_run)
+    if not dry_run:
+        verify(bucket, site_dir)
     print("\nDry run - nothing was published or sent\n" if dry_run else "\nDone\n")
 
 
