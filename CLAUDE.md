@@ -82,6 +82,20 @@ stay in a line. And the narrow-screen rules exist to keep `D` on screen without 
 sideways swipe - `td.artist`'s cap and the wrapping header labels are load-bearing
 for that, not cosmetic; re-measure at 390px after changing any column's width.
 
+The palette is two magentas and one grey, and the split is deliberate.
+`--fw-accent` (`#b71fb7`) is a **fill**: white on it is 5.4:1, but as text on the
+dark page it is 2.9:1, so everything the accent colours as text or as an icon
+uses `--fw-accent-text` (`#e879e8`) instead. `--fw-dim` (`#9ba3ab`) replaces
+Bootstrap's `#6c757d`, which its `.text-secondary` utility and its outline
+buttons hardcode in both themes at 3.3:1 here. Bootstrap's button colours are
+baked into the compiled CSS rather than read from `--bs-primary`, so the button
+overrides set `--bs-btn-*` per variant; setting `--bs-primary` alone leaves them
+blue. Everything the page renders as text now measures 5.2:1 or better against
+its own background - keep it there: AA wants 4.5:1 for text and 3:1 for anything
+clickable. The one palette to leave alone is the D/tier colour ramp in
+`static/js/scale.js`, which mirrors the spreadsheet's own scale and is 11.8:1 at
+its worst point.
+
 ### `web/` is the viewer, and only the viewer
 
 Root `serve.py` and `publish.py` are thin entry points in the same shape as the other three: docstring, one orchestration function, `main()`. They share everything below; publish writes what serve serves. Everything else lives in `web/`, a namespace package (no `__init__.py`, matching `functions/` and `parsers/`). It is named `web/` rather than `serve/` because a `serve/` directory beside `serve.py` loses to the module in Python's import resolution and would be silently unimportable.

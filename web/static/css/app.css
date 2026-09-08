@@ -1,18 +1,35 @@
   /* project-specific only - Bootstrap handles layout, controls, table, dropdown, modal */
-  :root { --fw-accent:#b71fb7; --fw-code:#4aa3e0; }
+  /* Two magentas, not one. b71fb7 is a fill: white on it clears AA at 5.4:1, but
+     as text on the dark page it is only 2.9:1, so anything the accent colours as
+     TEXT uses the lighter tint instead (5.3:1 on the header, 6.1:1 on the body).
+     --fw-dim replaces Bootstrap's #6c757d, which its .text-secondary utility and
+     its outline buttons hardcode in both themes and which is 3.3:1 here.
+     Ratios are against #212529 body / #2b3035 header; keep anything that is text
+     above 4.5:1, and anything you can click above 3:1. */
+  :root { --fw-accent:#b71fb7; --fw-accent-text:#e879e8;
+          --fw-code:#4aa3e0; --fw-dim:#9ba3ab; }
   [data-bs-theme="dark"] { --bs-primary:#b71fb7; --bs-link-color-rgb:74,163,224; }
   html, body { height:100%; }
   body { font-size:13px; margin:0; display:flex; flex-direction:column; }
-  .fw-accent { color:var(--fw-accent); }
+  .fw-accent { color:var(--fw-accent-text); }
+  .text-secondary { color:var(--fw-dim)!important; }
   .btn-check:checked + .btn, .btn-fw.active { background:var(--fw-accent); border-color:var(--fw-accent); color:#fff; }
+  /* Bootstrap bakes its button colours into the compiled CSS rather than reading
+     --bs-primary, so overriding that variable alone leaves the buttons blue. */
+  .btn-outline-secondary { --bs-btn-color:var(--fw-dim); --bs-btn-border-color:#495057;
+    --bs-btn-hover-color:#fff; --bs-btn-hover-bg:#3d444b; --bs-btn-hover-border-color:var(--fw-dim); }
+  .btn-outline-primary { --bs-btn-color:var(--fw-accent-text); --bs-btn-border-color:var(--fw-accent);
+    --bs-btn-hover-color:#fff; --bs-btn-hover-bg:var(--fw-accent); --bs-btn-hover-border-color:var(--fw-accent); }
+  .btn-primary { --bs-btn-bg:var(--fw-accent); --bs-btn-border-color:var(--fw-accent);
+    --bs-btn-hover-bg:#9c1a9c; --bs-btn-hover-border-color:#9c1a9c; }
   .fw-head { flex:0 0 auto; z-index:1030; }
   .fw-wrap { flex:1 1 auto; min-height:0; overflow:auto; }
   .fw-foot { flex:0 0 auto; font-size:11px; color:var(--bs-secondary-color); }
   .fw-foot a { color:var(--bs-secondary-color); text-decoration:none; }
   .fw-foot a:hover { color:var(--fw-code); text-decoration:underline; }
   .fw-foot .sep { opacity:.35; margin:0 .35rem; }
-  .fw-foot a.req { color:var(--fw-accent); font-weight:600; }
-  .fw-foot a.req:hover { color:var(--fw-accent); }
+  .fw-foot a.req { color:var(--fw-accent-text); font-weight:600; }
+  .fw-foot a.req:hover { color:var(--fw-accent-text); }
   .fw-wrap table { margin-bottom:0; }
   .fw-wrap thead th { position:sticky; top:0; z-index:2; background:var(--bs-tertiary-bg);
     padding:0; font-size:11px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
@@ -22,11 +39,11 @@
     overflow:hidden; text-overflow:ellipsis; }
   /* the drag target for column width: invisible until the header is hovered */
   .fw-wrap thead th .rz { position:absolute; top:0; right:0; width:7px; height:100%;
-    cursor:col-resize; touch-action:none; opacity:0; background:var(--fw-accent); }
+    cursor:col-resize; touch-action:none; opacity:0; background:var(--fw-accent-text); }
   .fw-wrap thead th:hover .rz { opacity:.45; }
   .fw-wrap thead th .rz:hover { opacity:1; }
   body.resizing { cursor:col-resize; user-select:none; }
-  .fw-wrap thead th.sorted .lbl, .fw-wrap thead th.filtered .flt { color:var(--fw-accent); }
+  .fw-wrap thead th.sorted .lbl, .fw-wrap thead th.filtered .flt { color:var(--fw-accent-text); }
   .fw-wrap thead th.filtered { background:#2b2233; }
   .fw-wrap td { padding:5px 10px; white-space:nowrap; vertical-align:middle; }
   td.num { text-align:right; font-variant-numeric:tabular-nums; }
@@ -61,7 +78,7 @@
   #cd .cc { display:flex; align-items:center; gap:4px; border-radius:4px; }
   #cd .cc:hover { background:var(--bs-tertiary-bg); }
   #cd .cc.dragging { opacity:.4; }
-  #cd .cc .grip { cursor:grab; opacity:.4; padding:0 2px; user-select:none; }
+  #cd .cc .grip { cursor:grab; opacity:.6; padding:0 2px; user-select:none; }
   #cd .cc .grip:active { cursor:grabbing; }
   #cd .form-check { flex:1; margin-bottom:0; padding:2px 4px 2px 1.5rem; }
   #modal { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
