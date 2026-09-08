@@ -161,7 +161,12 @@ CHANNEL = 'https://www.youtube.com/@StaycationGH'
 FORK_REPO = 'https://github.com/ChaseFranz/fretwork'
 VIDEO = 'https://youtu.be/emoWMpDJ4ls'
 
-# Prose that names fretwork or Staycation carries a minimal [text](url) markup
+# The author is "Staycation44" everywhere in the prose, matching the GitHub
+# account and the video credit - except in the two copyright notices below, which
+# quote LICENSE verbatim ("Copyright (c) 2026 Staycation", no 44). MIT requires
+# that notice to travel unaltered, so the inconsistency is deliberate: do not
+# tidy it up without changing LICENSE upstream first.
+# Prose that names fretwork or Staycation44 carries a minimal [text](url) markup
 # rather than HTML. The renderers - rich() in dom.js, rich_text() in page.py -
 # escape every character and build the anchors themselves, so a string that ever
 # came from data could not smuggle markup through the same path.
@@ -217,7 +222,7 @@ EXPLAINER = (
      'down. Drums and vocals are not scored at all.'),
     ('Where the numbers come from',
      f'Every chart here was parsed and scored by [fretwork]({ENGINE_REPO}), an '
-     f'open-source project by [Staycation]({CHANNEL}). This site runs that engine '
+     f'open-source project by [Staycation44]({CHANNEL}). This site runs that engine '
      f'unchanged and only displays the result. The full method, including the '
      f'calibration tables, is in [Methodology.md]({ENGINE_REPO}/blob/main/Methodology.md).'),
 )
@@ -254,7 +259,8 @@ ABOUT = (
     ('Licence',
      f'The code behind this site is a fork of [fretwork]({ENGINE_REPO}), published under '
      f'the [MIT licence]({ENGINE_REPO}/blob/main/LICENSE), which requires the original '
-     f'copyright notice to travel with it: Copyright (c) 2026 [Staycation]({CHANNEL}). '
+     f'copyright notice to travel with it, unaltered: \u201cCopyright (c) 2026 '
+     f'[Staycation]({CHANNEL})\u201d. '
      f'The fork\u2019s own source is [on GitHub]({FORK_REPO}).'),
 )
 
