@@ -57,9 +57,10 @@ def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
     print(f"\nPublishing {xlsx_path}")
     pages = {'index.html': body, '404.html': page.render_404(),
              'robots.txt': page.ROBOTS.encode('utf-8')}
-    page_files, written = bundle.write_page(out_dir, pages, assets.load_static(), bootstrap_css)
+    page_files, written, removed = bundle.write_page(
+        out_dir, pages, assets.load_static(), bootstrap_css)
     counts, graph_files = bundle.render_graphs(out_dir, frames.codes_in(sheets), renderer, force)
-    banner.print_published(out_dir, page_files, written, counts, graph_files)
+    banner.print_published(out_dir, page_files, written, removed, counts, graph_files)
 
 
 def main():

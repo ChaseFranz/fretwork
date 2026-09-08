@@ -35,7 +35,24 @@ def write_if_changed(path, data):
     return True
 
 
-# The pages, the static assets and Bootstrap. Returns (names, count rewritten).
+# A page file this publish no longer produces - a deleted module, a renamed
+# stylesheet, bootstrap.css after --no-bootstrap - would otherwise sit in the
+# folder forever and go on being uploaded. Only the page's own territory is
+# swept: the top-level files it writes and everything under static/. graph/ has
+# its own pruning, with its own rules, and is never touched from here.
+def prune_page(out, files):
+    keep = {(out / name).resolve() for name in files}
+    stale = [path for path in (out / 'static').rglob('*')
+             if path.is_file() and path.resolve() not in keep]
+    stale += [out / name for name in ('index.html', '404.html', 'robots.txt', 'bootstrap.css')
+              if (out / name).is_file() and (out / name).resolve() not in keep]
+    for path in stale:
+        path.unlink()
+    return len(stale)
+
+
+# The pages, the static assets and Bootstrap.
+# Returns (names, count rewritten, count removed).
 def write_page(out_dir, pages, static, bootstrap_css):
     out = pathlib.Path(out_dir)
     files = dict(pages)
@@ -43,7 +60,7 @@ def write_page(out_dir, pages, static, bootstrap_css):
     if bootstrap_css:
         files['bootstrap.css'] = bootstrap_css
     written = sum(write_if_changed(out / name, data) for name, data in files.items())
-    return list(files), written
+    return list(files), written, prune_page(out, files)
 
 
 # Everything the PNG depends on: the chart, its Expert anchor, the numbers the
