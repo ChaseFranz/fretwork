@@ -81,7 +81,6 @@ def render_404():
     values = {
         'TITLE': html.escape(f"{labels.UI['not_found_title']} - {config.SITE_NAME}"),
         'BRAND': html.escape(config.SITE_NAME),
-        'SUBTITLE': html.escape(labels.UI['subtitle']),
         'MESSAGE': html.escape(labels.UI['not_found']),
         'LINK': html.escape(labels.UI['not_found_link']),
     }

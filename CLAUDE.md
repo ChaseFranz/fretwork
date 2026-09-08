@@ -82,6 +82,13 @@ The footer is assembled in `static/js/main.js` from `labels.FOOTER_LINKS` plus t
 this fork** - MIT requires the original notice survive. Check upstream's `LICENSE` before
 touching either.
 
+Anything that scrolls sideways - the control strip on a phone, the table itself
+whenever it is wider than the window - fades its right edge while there is more
+past it, and clears the fade at the end (`static/js/scroll.js`, one `.more`
+class, one CSS mask). It is a mask on the scroller rather than an element laid
+over the rows, which was checked against the sticky header: masking the scroll
+container does not detach it.
+
 Three details of the table are easy to undo by accident. Column widths are
 applied as a single generated stylesheet in `static/js/widths.js`, keyed by
 `:nth-child`, not as styles on the cells: the table is thousands of rows, and
@@ -133,7 +140,7 @@ Root `serve.py` and `publish.py` are thin entry points in the same shape as the 
 | `web/server.py` | `MetricsServer`: carries the handler's dependencies. |
 | `web/banner.py` | The terminal output: serve's startup/shutdown, publish's summary. |
 
-The page's markup, CSS and 16 ES modules live under `web/static/`, served from an in-memory dict built by globbing at startup. Keys never derive from a request path, so traversal is impossible by construction rather than by guard. Server data reaches the JS through a `<script type="application/json" id="fw-boot">` island that `boot.js` parses once and re-exports; `boot.py` escapes `</` so spreadsheet text can never close the tag. All mutable page state lives in one exported `state` object because ES module imports are read-only bindings.
+The page's markup, CSS and 17 ES modules live under `web/static/`, served from an in-memory dict built by globbing at startup. Keys never derive from a request path, so traversal is impossible by construction rather than by guard. Server data reaches the JS through a `<script type="application/json" id="fw-boot">` island that `boot.js` parses once and re-exports; `boot.py` escapes `</` so spreadsheet text can never close the tag. All mutable page state lives in one exported `state` object because ES module imports are read-only bindings.
 
 Two things must stay off the server's startup import path: matplotlib (via `functions/plot.py`) and openpyxl (via `functions/xlsx_format.py`). `GraphRenderer` imports plot inside its method bodies, and `web/boot.py` keeps a local copy of `SCALED_COLS` rather than importing `xlsx_format` for it.
 

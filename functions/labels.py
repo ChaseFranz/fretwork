@@ -230,7 +230,6 @@ def help_text(column):
 # interface strings for serve.py's page, kept here so the wording lives in one file
 UI = {
     'title':            'Fretwork',            # overridden by config.SITE_NAME at serve time
-    'subtitle':         'chart difficulty',
     'description':      'Difficulty ratings for Clone Hero and Guitar Hero charts, '
                         'scored from note density and fret movement.',
     'updated':          'Updated {date}',

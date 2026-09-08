@@ -6,6 +6,7 @@ import { t } from "./format.js";
 import { headerCell, bodyRow, emptyRow } from "./markup.js";
 import { passing, compare } from "./query.js";
 import { state, cols, idx, rowsAll, visible } from "./state.js";
+import { refreshFades } from "./scroll.js";
 import { writeUrl } from "./url.js";
 import { applyWidths } from "./widths.js";
 
@@ -83,6 +84,7 @@ export function draw() {
   if (first) first.tabIndex = 0;
 
   applyWidths();
+  refreshFades();
   writeUrl();
   paintFooter(rows.length, rowsAll().length);
   paintLevelChips();

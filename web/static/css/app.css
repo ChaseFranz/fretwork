@@ -28,6 +28,9 @@
     --bs-btn-hover-bg:#9c1a9c; --bs-btn-hover-border-color:#9c1a9c; }
   .fw-head { flex:0 0 auto; z-index:1030; }
   .fw-wrap { flex:1 1 auto; min-height:0; overflow:auto; }
+  /* .more is set from scroll.js, only while something is past the right edge */
+  .more { mask-image:linear-gradient(to right, #000 calc(100% - 40px), transparent);
+    -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 40px), transparent); }
   .fw-foot { flex:0 0 auto; font-size:11px; color:var(--bs-secondary-color); }
   .fw-foot a { color:var(--bs-secondary-color); text-decoration:none; }
   .fw-foot a:hover { color:var(--fw-code); text-decoration:underline; }
@@ -141,7 +144,7 @@
       scroll-padding-right:28px; }
     #tools::-webkit-scrollbar { display:none; }
     #tools > * { flex:0 0 auto; }
-    /* .more is set by main.js only while there is something past the right edge */
+    /* the strip is short, so its fade is narrower than the table's */
     #tools.more { mask-image:linear-gradient(to right, #000 calc(100% - 34px), transparent);
       -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 34px), transparent); }
     /* the attribution row scrolls sideways too, rather than wrapping to three
