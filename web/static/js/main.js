@@ -10,7 +10,8 @@ import { state } from "./state.js";
 function labelChrome() {
   el("brand").innerHTML = esc(UI.title) +
     ' <span class="fw-accent">&#9679;</span> <span class="fw-normal">' +
-    esc(UI.subtitle) + "</span>";
+    esc(UI.subtitle) + "</span>" +
+    ' <span class="beta" title="' + esc(UI.beta_tip) + '">' + esc(UI.beta) + "</span>";
   el("q").placeholder = UI.search;
   el("q").setAttribute("aria-label", UI.search);
   el("grid").setAttribute("aria-label", UI.grid_label);
@@ -30,6 +31,7 @@ function buildFooter() {
     .join('<span class="sep">/</span>');
   el("foot").innerHTML =
     '<div id="src2" class="mb-1">' + esc(el("src").textContent) + "</div>" +
+    '<div class="beta-note mb-1">' + esc(UI.beta_note) + "</div>" +
     '<div class="d-flex flex-wrap align-items-center gap-1">' + links + "</div>" +
     '<div class="mt-1">' + esc(UI.copyright) + " " +
     link(UI.license_label, UI.license_url) + "</div>";

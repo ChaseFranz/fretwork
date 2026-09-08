@@ -203,6 +203,15 @@ UI = {
                         'scored from note density and fret movement.',
     'updated':          'Updated {date}',
     'chart_count':      '{n} charts',
+    # what "beta" actually means here, rather than a bare badge
+    'beta':             'beta',
+    'beta_tip':         'Coverage and calibration are both still changing',
+    # the badge already says "beta", so the note carries the substance instead of
+    # repeating it - and stays one line on a desktop, three on a phone
+    'beta_note':        'The library is partial and the scoring is still being calibrated, '
+                        'so a chart\u2019s numbers can move between updates. '
+                        'Guitar, bass and keys for now.',
+
     'credit':           'powered by fretwork',
     'credit_url':       'https://github.com/Staycation44/fretwork',
     'copyright':        'A fork of fretwork. Copyright (c) 2026 Staycation.',

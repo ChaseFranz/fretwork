@@ -33,6 +33,11 @@
   .fw-foot a:hover { color:var(--fw-code); text-decoration:underline; }
   .fw-foot .sep { opacity:.35; margin:0 .35rem; }
   #src2 { display:none; }
+  .beta { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--fw-accent-text); border:1px solid var(--fw-accent-text); border-radius:10px;
+    padding:1px 6px; vertical-align:2px; }
+  /* no measure cap: one footer line beats three, and it is a single sentence */
+  .fw-foot .beta-note { color:var(--bs-body-color); }
   .fw-foot a.req { color:var(--fw-accent-text); font-weight:600; }
   .fw-foot a.req:hover { color:var(--fw-accent-text); }
   .fw-wrap table { margin-bottom:0; }
