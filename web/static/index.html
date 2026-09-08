@@ -17,18 +17,21 @@ __BOOTSTRAP__
   </div>
   <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
     <input type="search" id="q" class="form-control form-control-sm w-auto"
-           style="min-width:260px">
-    <div class="btn-group btn-group-sm" id="sheets"></div>
-    <div class="btn-group btn-group-sm" id="levels"></div>
-    <div class="btn-group btn-group-sm" id="official"></div>
-    <button id="cols" class="btn btn-sm btn-outline-secondary"></button>
-    <button id="clear" class="btn btn-sm btn-outline-primary d-none"></button>
-    <span class="ms-auto small text-secondary" id="count"></span>
+           style="min-width:260px" aria-label="">
+    <div class="d-flex align-items-center gap-2" id="tools">
+      <div class="btn-group btn-group-sm" id="sheets"></div>
+      <div class="btn-group btn-group-sm" id="levels"></div>
+      <div class="btn-group btn-group-sm" id="official"></div>
+      <button id="cols" class="btn btn-sm btn-outline-secondary"
+              aria-expanded="false" aria-haspopup="true"></button>
+      <button id="clear" class="btn btn-sm btn-outline-primary d-none"></button>
+    </div>
+    <span class="ms-auto small text-secondary" id="count" aria-live="polite"></span>
   </div>
 </div>
 
 <div class="fw-wrap">
-  <table class="table table-sm table-hover align-middle">
+  <table class="table table-sm table-hover align-middle" id="grid">
     <thead><tr id="head"></tr></thead>
     <tbody id="body"></tbody>
   </table>
@@ -36,10 +39,10 @@ __BOOTSTRAP__
 
 <div id="dd" class="dropdown-menu shadow p-2"></div>
 <div id="cd" class="dropdown-menu shadow p-2"></div>
-<div id="modal"><div class="mcard"></div></div>
+<div id="modal" role="dialog" aria-modal="true" tabindex="-1"><div class="mcard"></div></div>
 <footer class="fw-foot border-top px-3 py-2" id="foot"></footer>
 
-<div id="hint"><span class="badge text-bg-secondary rounded-pill px-3 py-2"></span></div>
+<div id="hint" aria-live="polite"><span class="badge text-bg-secondary rounded-pill px-3 py-2"></span></div>
 
 <script type="application/json" id="fw-boot">__BOOT__</script>
 <script type="module" src="static/js/main.js"></script>

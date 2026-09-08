@@ -27,7 +27,7 @@ SEARCH_PATH = r"C:\Users\user\Documents\Clone Hero\Songs" # edit to your library
 HEADER = "Test" # edit to title your cache before running Build/Analyze/Render
 
 # the name the web viewer shows; fretwork stays the name of the engine underneath
-SITE_NAME = 'fretladder'
+SITE_NAME = 'Fretladder'
 
 # public URL of the published site, used for social-preview links; blank to omit them
 SITE_URL = 'https://fretladder.com'

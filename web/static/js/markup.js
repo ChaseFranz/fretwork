@@ -8,24 +8,32 @@ import { RANK_COL } from "./state.js";
 // Rank is a position in the current view, so there is nothing to sort or
 // filter it by; it gets a bare header instead of the usual controls.
 function rankHeaderCell() {
-  return '<th data-c="' + esc(RANK_COL) + '" class="rank"><div class="thw">' +
+  return '<th scope="col" data-c="' + esc(RANK_COL) + '" class="rank"><div class="thw">' +
     '<span title="' + esc(HELP[RANK_COL] || "") + '">' + esc(lab(RANK_COL)) +
     "</span></div></th>";
 }
 
-export function headerCell(col, { sorted, ascending, filtered }) {
+// The label and the caret are real buttons so a keyboard reaches them, and the
+// th carries aria-sort so the sort is announced rather than only drawn as an
+// arrow. The resize grip is deliberately not focusable: it changes how wide a
+// column is drawn and nothing else, and the value it might clip is in the cell's
+// title, so there is no content behind it for a keyboard to be locked out of.
+export function headerCell(col, { sorted, ascending, filtered, expanded }) {
   if (col === RANK_COL) return rankHeaderCell();
   const cls = [sorted ? "sorted" : "", filtered ? "filtered" : ""].join(" ").trim();
   const tip = (HELP[col] ? HELP[col] + "\n\n" : "") + "Column: " + col + "\n" + UI.sort_tip;
   const arrow = sorted ? (ascending ? " &#9650;" : " &#9660;") : "";
-  return '<th data-c="' + esc(col) + '"' + (cls ? ' class="' + cls + '"' : '') +
-    '><div class="thw">' +
-    '<span class="lbl" data-sort="' + esc(col) + '" title="' + esc(tip) + '">' +
-    esc(lab(col)) + arrow + '</span>' +
-    '<button class="btn btn-sm btn-link p-0 px-1 flt text-secondary" data-flt="' +
-    esc(col) + '" title="' + esc(UI.filter_tip) + '">&#9662;</button>' +
-    '<span class="rz" data-rz="' + esc(col) + '" title="' + esc(UI.resize_tip) +
-    '"></span></div></th>';
+  const order = sorted ? (ascending ? "ascending" : "descending") : "none";
+  return '<th scope="col" aria-sort="' + order + '" data-c="' + esc(col) + '"' +
+    (cls ? ' class="' + cls + '"' : '') + '><div class="thw">' +
+    '<button type="button" class="lbl" data-sort="' + esc(col) + '" title="' + esc(tip) + '">' +
+    esc(lab(col)) + arrow + '</button>' +
+    '<button type="button" class="btn btn-sm btn-link p-0 px-1 flt text-secondary" data-flt="' +
+    esc(col) + '" title="' + esc(UI.filter_tip) + '" aria-label="' +
+    esc(UI.filter_tip + ": " + lab(col)) + '" aria-expanded="' + (expanded ? "true" : "false") +
+    '">&#9662;</button>' +
+    '<span class="rz" aria-hidden="true" data-rz="' + esc(col) + '" title="' +
+    esc(UI.resize_tip) + '"></span></div></th>';
 }
 
 // The wrapping text columns. Each gets its own class as well, because how much
@@ -72,8 +80,8 @@ export function bodyRow(row, visibleCols, code, bounds, rank) {
       ? '<td class="num rank">' + rank + "</td>"
       : bodyCell(col, row[i], bounds[col]))
     .join("");
-  return '<tr title="' + esc(UI.row_tip) + '" data-code="' + esc(code) + '">' +
-    cells + "</tr>";
+  return '<tr tabindex="-1" title="' + esc(UI.row_tip) + '" data-code="' +
+    esc(code) + '">' + cells + "</tr>";
 }
 
 export function emptyRow(span) {

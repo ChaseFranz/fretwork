@@ -55,17 +55,33 @@ export function draw() {
   const rows = passing(null);
   if (sortIdx >= 0) rows.sort((a, b) => compare(a[sortIdx], b[sortIdx]));
 
+  // Sorting from the keyboard rewrites this row, which would drop focus back to
+  // the top of the page, so note where it was and put it back afterwards.
+  const held = document.activeElement;
+  const heldTh = held && held.closest ? held.closest("#head th") : null;
+  const heldFor = heldTh ? [heldTh.dataset.c, held.dataset.sort ? "sort" : "flt"] : null;
+
   el("head").innerHTML = vis.map(([c]) => headerCell(c, {
     sorted: c === state.sortCol,
     ascending: state.sortAsc,
     filtered: Boolean(state.filters[c]),
+    expanded: c === state.ddCol,
   })).join("");
+  if (heldFor) {
+    const back = el("head").querySelector(
+      '[data-' + heldFor[1] + '="' + CSS.escape(heldFor[0]) + '"]');
+    if (back) back.focus();
+  }
 
   const bounds = ranges(rows);
   const codeIdx = cols().indexOf("Code");
   el("body").innerHTML = rows.length
     ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], bounds, n + 1)).join("")
     : emptyRow(vis.length);
+
+  // One tab stop for the whole table; the arrow keys move within it.
+  const first = el("body").querySelector("tr[data-code]");
+  if (first) first.tabIndex = 0;
 
   applyWidths();
   paintFooter(rows.length, rowsAll().length);

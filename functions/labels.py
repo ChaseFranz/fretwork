@@ -242,6 +242,8 @@ UI = {
 
     # row / graph interaction
     'row_tip':          'Click for the difficulty graph',
+    'graph_label':      'Difficulty graph',
+    'grid_label':       'Charts, sortable and filterable by column',
     'copy_code_tip':    'Copy this code',
     'close_tip':        'Close (Esc)',
 

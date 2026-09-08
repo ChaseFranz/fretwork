@@ -4,6 +4,7 @@ import { el, esc } from "./dom.js";
 import { cols, rowsAll } from "./state.js";
 
 let hintTimer = null;
+let opener = null;      // what to hand focus back to when the graph closes
 
 export function toast(message) {
   const hint = el("hint");
@@ -33,7 +34,10 @@ export function openGraph(code) {
   const head = heading(code);
   const message = text => head + '<div class="text-secondary py-4">' + esc(text) + "</div>";
 
+  opener = document.activeElement;
+  modal.setAttribute("aria-label", UI.graph_label + ": " + code);
   modal.classList.add("on");
+  modal.focus();
   card.innerHTML = message(UI.rendering);
 
   const img = new Image();
@@ -42,4 +46,10 @@ export function openGraph(code) {
   img.src = "graph/" + code + ".png";
 }
 
-export const closeGraph = () => el("modal").classList.remove("on");
+export function closeGraph() {
+  el("modal").classList.remove("on");
+  if (opener && opener.isConnected) opener.focus();
+  opener = null;
+}
+
+export const graphIsOpen = () => el("modal").classList.contains("on");

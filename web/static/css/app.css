@@ -12,6 +12,10 @@
   html, body { height:100%; }
   body { font-size:13px; margin:0; display:flex; flex-direction:column; }
   .fw-accent { color:var(--fw-accent-text); }
+  :focus-visible { outline:2px solid var(--fw-accent-text); outline-offset:2px; }
+  .fw-wrap tbody tr:focus-visible, .fw-wrap thead th .lbl:focus-visible {
+    outline:2px solid var(--fw-accent-text); outline-offset:-2px; }
+  #modal:focus-visible { outline:none; }
   .text-secondary { color:var(--fw-dim)!important; }
   .btn-check:checked + .btn, .btn-fw.active { background:var(--fw-accent); border-color:var(--fw-accent); color:#fff; }
   /* Bootstrap bakes its button colours into the compiled CSS rather than reading
@@ -28,6 +32,7 @@
   .fw-foot a { color:var(--bs-secondary-color); text-decoration:none; }
   .fw-foot a:hover { color:var(--fw-code); text-decoration:underline; }
   .fw-foot .sep { opacity:.35; margin:0 .35rem; }
+  #src2 { display:none; }
   .fw-foot a.req { color:var(--fw-accent-text); font-weight:600; }
   .fw-foot a.req:hover { color:var(--fw-accent-text); }
   .fw-wrap table { margin-bottom:0; }
@@ -36,7 +41,9 @@
   .fw-wrap thead th .thw { display:flex; align-items:center; gap:2px;
     padding:6px 6px 6px 10px; position:relative; }
   .fw-wrap thead th .lbl { cursor:pointer; user-select:none; flex:1;
-    overflow:hidden; text-overflow:ellipsis; }
+    overflow:hidden; text-overflow:ellipsis;
+    background:none; border:0; padding:0; margin:0; text-align:left;
+    color:inherit; font:inherit; letter-spacing:inherit; text-transform:inherit; }
   /* the drag target for column width: invisible until the header is hovered */
   .fw-wrap thead th .rz { position:absolute; top:0; right:0; width:7px; height:100%;
     cursor:col-resize; touch-action:none; opacity:0; background:var(--fw-accent-text); }
@@ -90,11 +97,26 @@
   /* narrow screens: tighten everything so the difficulty column is on screen
      without a sideways swipe, and give the strapline its own line */
   @media (max-width:640px) {
+    /* The header was four wrapped rows and a quarter of a phone screen. Now it
+       is three: the name, then search beside the count, then one strip of
+       controls that scrolls sideways rather than wrapping. The strapline moves
+       to the footer, where there is room for it. */
     .fw-head { padding-left:.5rem!important; padding-right:.5rem!important; }
-    .fw-head > div:first-child { flex-wrap:wrap; }
     .fw-head #brand { white-space:nowrap; }
-    .fw-head #src { flex-basis:100%; order:3; }
-    .fw-head #credit { order:4; }
+    .fw-head #src { display:none; }
+    #src2 { display:block; }
+    /* the search may not take the whole line, or the count is orphaned onto one
+       of its own and the header grows back by a row */
+    .fw-head #q { flex:1 1 55%; min-width:0!important; }
+    .fw-head #count { order:1; }
+    #tools { order:2; flex:1 1 100%; overflow-x:auto; scrollbar-width:none; }
+    #tools::-webkit-scrollbar { display:none; }
+    #tools > * { flex:0 0 auto; }
+    /* the attribution row scrolls sideways too, rather than wrapping to three
+       lines and taking the screen back from the table */
+    .fw-foot .d-flex { flex-wrap:nowrap!important; overflow-x:auto; scrollbar-width:none; }
+    .fw-foot .d-flex::-webkit-scrollbar { display:none; }
+    .fw-foot .d-flex > * { flex:0 0 auto; }
     .fw-wrap td { padding:5px 6px; }
     .fw-wrap thead th .thw { padding:6px 4px 6px 6px; gap:0; }
     /* a two-line header costs one row and buys the width that puts the

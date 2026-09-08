@@ -22,13 +22,17 @@ function renderCD() {
 
 export function toggleCD(anchor) {
   const cd = el("cd");
-  if (cd.classList.contains("show")) { cd.classList.remove("show"); return; }
+  if (cd.classList.contains("show")) { closeCD(); return; }
   renderCD();
   cd.classList.add("show");
+  el("cols").setAttribute("aria-expanded", "true");
   placeUnder(cd, anchor);
 }
 
-export const closeCD = () => el("cd").classList.remove("show");
+export function closeCD() {
+  el("cd").classList.remove("show");
+  el("cols").setAttribute("aria-expanded", "false");
+}
 
 // The panel's own DOM order is the column order: move the row, then read it back.
 function initDrag(cd) {

@@ -6,8 +6,8 @@ export function chips(hostId, items, active, onPick) {
   const isOn = active instanceof Set ? v => active.has(v) : v => v === active;
   el(hostId).innerHTML = items.map(v =>
     '<button type="button" class="btn btn-fw btn-outline-secondary' +
-    (isOn(v) ? " active" : "") + '" data-v="' + esc(v) + '">' +
-    esc(v) + "</button>").join("");
+    (isOn(v) ? " active" : "") + '" aria-pressed="' + isOn(v) + '" data-v="' +
+    esc(v) + '">' + esc(v) + "</button>").join("");
   el(hostId).querySelectorAll("button")
     .forEach(b => b.onclick = () => onPick(b.dataset.v));
 }
