@@ -3,7 +3,9 @@ import { FOOTER, UI } from "./boot.js";
 import { el, esc } from "./dom.js";
 import { initDropdown } from "./dropdown.js";
 import { initChooser } from "./chooser.js";
+import { openGraph } from "./overlay.js";
 import { initRouter, render } from "./router.js";
+import { readUrl } from "./url.js";
 import { initWidths } from "./widths.js";
 import { state } from "./state.js";
 
@@ -17,6 +19,8 @@ function labelChrome() {
   el("grid").setAttribute("aria-label", UI.grid_label);
   el("cols").textContent = UI.columns;
   el("cols").title = UI.columns_tip;
+  el("how").textContent = UI.explainer;
+  el("how").title = UI.explainer_tip;
 }
 
 const link = (text, href, cls) =>
@@ -49,4 +53,8 @@ initRouter();
 // chip rows read their state back out of these, and either clears in one click.
 state.filters["Level"] = { type: "set", sel: new Set(["Expert"]) };
 state.filters["Official"] = { type: "set", sel: new Set(["true"]) };
+
+// A shared link describes a view, so whatever it names wins over those defaults.
+const shared = readUrl();
 render();
+if (shared) openGraph(shared);

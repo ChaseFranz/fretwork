@@ -10,6 +10,7 @@ export const VALUE_ORDER = BOOT.valueOrder;
 export const VALUE_LABELS = BOOT.valueLabels;
 export const FOOTER = BOOT.footer;
 export const HELP = BOOT.help;
+export const EXPLAINER = BOOT.explainer;
 export const UI = BOOT.ui;
 export const SCALED = new Set(BOOT.scaled);
 export const TIMECOLS = new Set(BOOT.timecols);

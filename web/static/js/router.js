@@ -7,7 +7,8 @@ import { el } from "./dom.js";
 import { t } from "./format.js";
 import { openDD, closeDD } from "./dropdown.js";
 import { toggleCD, closeCD } from "./chooser.js";
-import { openGraph, closeGraph, graphIsOpen, toast } from "./overlay.js";
+import { openGraph, closeGraph, graphIsOpen, openAbout, closeAbout, aboutIsOpen,
+         toast } from "./overlay.js";
 import { state, idx } from "./state.js";
 import { draw } from "./table.js";
 
@@ -25,6 +26,12 @@ function copyCode(event, cell) {
 
 function onClick(e) {
   if (e.target.closest("#dd") || e.target.closest("#cd")) return;
+
+  if (e.target.closest("#how")) { closeDD(); closeCD(); openAbout(); return; }
+  if (aboutIsOpen()) {
+    if (!e.target.closest(".mcard") || e.target.dataset.act === "close") closeAbout();
+    return;
+  }
 
   if (e.target.closest("#cols")) { closeDD(); toggleCD(el("cols")); return; }
   closeCD();
@@ -46,7 +53,7 @@ function onClick(e) {
   const row = e.target.closest("tbody tr[data-code]");
   if (row) { holdRow(row); openGraph(row.dataset.code); return; }
 
-  if (e.target.closest("#modal")) closeGraph();
+  if (e.target.closest("#modal") && !e.target.closest(".mhead a")) closeGraph();
 }
 
 // The table is one tab stop with the arrows moving inside it, rather than 875
@@ -84,11 +91,12 @@ function onGridKey(e) {
 
 function onKeydown(e) {
   // Nothing inside the graph is focusable, so Tab would leave it open behind you.
-  if (graphIsOpen() && e.key === "Tab") { e.preventDefault(); return; }
+  if ((graphIsOpen() || aboutIsOpen()) && e.key === "Tab") { e.preventDefault(); return; }
   if (e.key === "Escape") {
     closeDD();
     closeCD();
     closeGraph();
+    closeAbout();
     return;
   }
   onGridKey(e);

@@ -19,6 +19,15 @@ _PLACEHOLDER = re.compile(r'__([A-Z]+)__')
 # a chart whose graph reads well as a link preview
 OG_IMAGE = 'graph/10145439XG.png'
 
+# Crawlers are welcome on the page and not in the graph folder: it is ~12,000
+# PNGs and a couple of gigabytes, none of it meaningful out of context, and all
+# of it counted against the CDN's request and transfer allowance. The one graph
+# used as the social preview stays fetchable.
+ROBOTS = ('User-agent: *\n'
+          'Allow: /\n'
+          f'Allow: /{OG_IMAGE}\n'
+          'Disallow: /graph/\n')
+
 BOOTSTRAP_LINK = '<link rel="stylesheet" href="bootstrap.css">'
 
 
@@ -33,6 +42,7 @@ def meta_head(public):
     tags = [f'<meta name="description" content="{html.escape(description)}">']
     if public and config.SITE_URL:
         url = config.SITE_URL.rstrip('/')
+        tags.append(f'<link rel="canonical" href="{html.escape(url)}/">')
         for prop, content in (('og:type', 'website'), ('og:url', url),
                               ('og:title', config.SITE_NAME), ('og:description', description),
                               ('og:image', f'{url}/{OG_IMAGE}')):

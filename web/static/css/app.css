@@ -31,7 +31,7 @@
   .fw-foot { flex:0 0 auto; font-size:11px; color:var(--bs-secondary-color); }
   .fw-foot a { color:var(--bs-secondary-color); text-decoration:none; }
   .fw-foot a:hover { color:var(--fw-code); text-decoration:underline; }
-  .fw-foot .sep { opacity:.35; margin:0 .35rem; }
+  .sep { opacity:.35; margin:0 .35rem; }
   #src2 { display:none; }
   .beta { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.6px;
     color:var(--fw-accent-text); border:1px solid var(--fw-accent-text); border-radius:10px;
@@ -93,12 +93,25 @@
   #cd .cc .grip { cursor:grab; opacity:.6; padding:0 2px; user-select:none; }
   #cd .cc .grip:active { cursor:grabbing; }
   #cd .form-check { flex:1; margin-bottom:0; padding:2px 4px 2px 1.5rem; }
-  #modal { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
+  #modal, #about { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
            align-items:center; justify-content:center; z-index:1060; padding:24px; }
-  #modal.on { display:flex; }
-  #modal .mcard { max-width:100%; max-height:92vh; overflow:auto; }
+  #modal.on, #about.on { display:flex; }
+  #modal .mcard, #about .mcard { max-width:100%; max-height:92vh; overflow:auto; }
+  #about .mcard { max-width:60ch; background:var(--bs-body-bg); border:1px solid var(--bs-border-color);
+    border-radius:8px; padding:20px 22px; }
+  #about h2 { font-size:12px; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--fw-accent-text); margin:1.1rem 0 .3rem; }
+  #about p { margin:0; font-size:13px; line-height:1.55; }
+  #about .mhead { margin-bottom:0; align-items:center; justify-content:space-between; }
+  #about .x { background:none; border:0; color:var(--fw-dim); font-size:22px;
+    line-height:1; padding:0 2px; cursor:pointer; }
+  #about .x:hover { color:var(--bs-body-color); }
+  #about p.more { margin-top:1.4rem; font-size:11px; }
+  #about p.more a { color:var(--fw-accent-text); }
+  .mhead .rpt { font-size:11px; white-space:nowrap; }
   #modal img { max-width:100%; max-height:86vh; border-radius:8px; display:block; }
-  #modal .mhead { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  /* both overlays use this header, so it is not scoped to either one */
+  .mhead { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
   /* narrow screens: tighten everything so the difficulty column is on screen
      without a sideways swipe, and give the strapline its own line */
   @media (max-width:640px) {

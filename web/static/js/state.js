@@ -34,6 +34,7 @@ export const state = {
   hidden: loadHidden(),
   order: loadOrder(),   // viewer's own column order; [] means the site default
   widths: loadWidths(), // column -> pixels, only for columns dragged wider or narrower
+  graph: null,          // code of the chart whose graph is open, for the URL
 };
 
 // Remember hidden columns per browser; storage may be unavailable.

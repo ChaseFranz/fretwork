@@ -175,11 +175,43 @@ DISPLAY_ORDER = (
 # Off by default, so a first visit is the ten columns worth reading rather than
 # every column the spreadsheet has. Each is still one click away in the chooser,
 # and search still looks inside Charter and Release while they are hidden:
-#   Charter/Difficulty  detail, not what the ranking is for
-#   RemapDiff           CalcTier says the same thing without a 0-6 ceiling
-#   Official            the header has a chip for it, which is the useful form
-#   Code                only means something to render.py
-DEFAULT_HIDDEN = ('Charter', 'Difficulty', 'RemapDiff', 'Official', 'Code')
+#   Difficulty  the tag already in song.ini, not what this site calculates
+#   RemapDiff   CalcTier says the same thing without a 0-6 ceiling
+#   Official    the header has a chip for it, which is the useful form
+#   Code        only means something to render.py
+# Charter is deliberately NOT in this list: the people most likely to read this
+# site are the ones who charted what is in it.
+DEFAULT_HIDDEN = ('Difficulty', 'RemapDiff', 'Official', 'Code')
+
+
+# The in-page answer to "what is this number?", which until now lived only in a
+# 20-minute video linked from the footer. Kept as (heading, body) pairs so the
+# panel that renders it needs no markup of its own.
+EXPLAINER = (
+    ('What D measures',
+     'D is a single number for how hard a chart is to play, read out of the chart '
+     'file itself rather than from anyone\u2019s opinion. It multiplies three things: '
+     'how busy the chart is (N, from the peak, average and median notes per second), '
+     'how much the fretting hand has to move (V, the same three figures for fret '
+     'changes), and how unevenly that work is spread across the song (CoV). Higher '
+     'is harder, and the scale has no ceiling \u2013 the hardest charts here run past 1000.'),
+    ('Reading the tiers',
+     'Calc Tier is D on a log scale: one step for every 0.44 rise in ln(D) above 7.6, '
+     'so it keeps climbing past 10 for the hardest customs. Remap Tier is the same '
+     'value binned into the 0\u20136 range the games use, calibrated per instrument. Both '
+     'are computed from the Expert chart and then shown on every difficulty of that '
+     'song, because song.ini carries only one rating per instrument.'),
+    ('What it does not know',
+     'Strum, HOPO and tap state are discarded, so how a chart flows does not change '
+     'its score. There is no pattern recognition \u2013 trills, anchoring and chord '
+     'shapes all count simply as movement. Long quiet stretches pull the averages '
+     'down. Drums and vocals are not scored at all.'),
+    ('Where the numbers come from',
+     'Every chart here was parsed and scored by fretwork, an open-source project by '
+     'Staycation. This site runs that engine unchanged and only displays the result. '
+     'The full method, including the calibration tables, is in Methodology.md in the '
+     'engine\u2019s repository.'),
+)
 
 
 # "4,634 charts", grouped for readability
@@ -243,6 +275,19 @@ UI = {
     # quick filters in the header, a shortcut into the Official column
     'official_chip':    'Official',
     'custom_chip':      'Custom',
+
+    # the explainer panel
+    'explainer':        'How it works',
+    'explainer_tip':    'What D means, and what it does not measure',
+    'explainer_title':  'How difficulty is scored',
+    'explainer_more':   'The explainer video',
+    'explainer_method': 'The full method (Methodology.md)',
+    'method_url':       'https://github.com/Staycation44/fretwork/blob/main/Methodology.md',
+
+    # reporting a rating that looks wrong, from the chart's own graph
+    'report':           'Report this rating',
+    'report_url':       'https://github.com/ChaseFranz/fretwork/issues/new'
+                        '?template=rating.yml',
 
     # the page CloudFront serves for a path that is not in the bucket
     'not_found_title':  'Page not found',

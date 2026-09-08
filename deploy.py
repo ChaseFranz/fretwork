@@ -51,7 +51,7 @@ ENV_FILE = '.env'
 AWS_ENV = ('AWS_PROFILE', 'AWS_REGION', 'AWS_DEFAULT_REGION')
 CREDENTIAL_PREFIXES = ('AWS_ACCESS_KEY', 'AWS_SECRET', 'AWS_SESSION')
 BUCKET_RE = re.compile(r'^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$')
-BUNDLE_TOP = {'index.html', '404.html', 'bootstrap.css', 'static', 'graph'}  # all publish writes
+BUNDLE_TOP = {'index.html', '404.html', 'robots.txt', 'bootstrap.css', 'static', 'graph'}
 REQUIRED = ('index.html', 'graph/manifest.json')                   # proof it came from publish
 GRAPHS = 'graph'
 CACHE_PAGE = 'no-cache'                     # revalidate: these are rewritten in place
@@ -62,6 +62,7 @@ CACHE_GRAPHS = 'public, max-age=604800'     # a week; a chart's PNG changes when
 # binary/octet-stream over every object, which browsers refuse to run as an ES
 # module. So --set-headers walks one pass per file type and states the type.
 CONTENT_TYPES = (
+    ('*.txt', 'text/plain; charset=utf-8'),
     ('*.js', 'text/javascript; charset=utf-8'),
     ('*.css', 'text/css; charset=utf-8'),
     ('*.html', 'text/html; charset=utf-8'),

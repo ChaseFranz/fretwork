@@ -7,6 +7,7 @@ import { headerCell, bodyRow, emptyRow } from "./markup.js";
 import { passing, compare } from "./query.js";
 import { ranges } from "./scale.js";
 import { state, cols, idx, rowsAll, visible } from "./state.js";
+import { writeUrl } from "./url.js";
 import { applyWidths } from "./widths.js";
 
 function paintFooter(shown, total) {
@@ -84,6 +85,7 @@ export function draw() {
   if (first) first.tabIndex = 0;
 
   applyWidths();
+  writeUrl();
   paintFooter(rows.length, rowsAll().length);
   paintLevelChips();
   paintOfficialChips();
