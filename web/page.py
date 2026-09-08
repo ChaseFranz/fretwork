@@ -14,7 +14,7 @@ import config
 from functions import labels, timestamp
 from web import assets, boot, bootstrap, frames
 
-_PLACEHOLDER = re.compile(r'__([A-Z]+)__')
+_PLACEHOLDER = re.compile(r'__([A-Z][A-Z_]*)__')
 
 # a chart whose graph reads well as a link preview
 OG_IMAGE = 'graph/10145439XG.png'
@@ -29,6 +29,16 @@ ROBOTS = ('User-agent: *\n'
           'Disallow: /graph/\n')
 
 BOOTSTRAP_LINK = '<link rel="stylesheet" href="bootstrap.css">'
+
+
+# Substitutes in one pass, then checks its work: a placeholder that survives is
+# a typo or a missing value, and it would otherwise be published as visible text.
+def fill(template, values):
+    page = _PLACEHOLDER.sub(lambda m: values[m.group(1)], template)
+    left = _PLACEHOLDER.findall(page)
+    if left:
+        raise KeyError(f"unfilled placeholder(s) in the page: {', '.join(sorted(set(left)))}")
+    return page.encode('utf-8')
 
 
 def bootstrap_head(bootstrap_css):
@@ -70,9 +80,7 @@ def render_page(title, source, bootstrap_css, boot_json, public=False):
         'BOOTSTRAP': bootstrap_head(bootstrap_css),
         'BOOT': boot_json,
     }
-    template = assets.read_text('index.html')
-    body = _PLACEHOLDER.sub(lambda m: values[m.group(1)], template)
-    return body.encode('utf-8')
+    return fill(assets.read_text('index.html'), values)
 
 
 # The same [text](url) markup labels.py uses, rendered for the static pages.
@@ -102,8 +110,7 @@ def render_404():
         'MESSAGE': html.escape(labels.UI['not_found']),
         'LINK': html.escape(labels.UI['not_found_link']),
     }
-    template = assets.read_text('404.html')
-    return _PLACEHOLDER.sub(lambda m: values[m.group(1)], template).encode('utf-8')
+    return fill(assets.read_text('404.html'), values)
 
 
 # The about page: who runs this, what it does and does not hold, and who owns
@@ -124,11 +131,10 @@ def render_about():
         'BODY': body,
         'LINKS': links,
         'COPYRIGHT': rich_text(labels.UI['copyright']),
-        'LICENSE': html.escape(labels.UI['license_label']),
+        'LICENSE_LABEL': html.escape(labels.UI['license_label']),
         'LICENSE_URL': html.escape(labels.UI['license_url']),
     }
-    template = assets.read_text('about.html')
-    return _PLACEHOLDER.sub(lambda m: values[m.group(1)], template).encode('utf-8')
+    return fill(assets.read_text('about.html'), values)
 
 
 # What serve and publish both need: (xlsx_path, sheets, total rows, page body).
