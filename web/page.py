@@ -75,6 +75,24 @@ def render_page(title, source, bootstrap_css, boot_json, public=False):
     return body.encode('utf-8')
 
 
+# The same [text](url) markup labels.py uses, rendered for the static pages.
+# Mirrors rich() in static/js/dom.js: everything is escaped, and the only markup
+# emitted is an anchor built here.
+_LINK = re.compile(r'\[([^\]]+)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)')
+
+
+def rich_text(text):
+    out, at = [], 0
+    for found in _LINK.finditer(text):
+        out.append(html.escape(text[at:found.start()]))
+        href, label = found.group(2), html.escape(found.group(1))
+        out.append(f'<a href="{html.escape(href)}" rel="noopener">{label}</a>'
+                   if href.startswith(('http://', 'https://')) else label)
+        at = found.end()
+    out.append(html.escape(text[at:]))
+    return ''.join(out)
+
+
 # The 404 body. Static text, no data and no scripts, so it stays valid however
 # old the bundle around it gets.
 def render_404():
@@ -93,7 +111,7 @@ def render_404():
 # app around it does not.
 def render_about():
     body = '\n'.join(
-        f'  <h2>{html.escape(heading)}</h2>\n  <p>{html.escape(text)}</p>'
+        f'  <h2>{html.escape(heading)}</h2>\n  <p>{rich_text(text)}</p>'
         for heading, text in labels.ABOUT)
     links = '\n'.join(
         f'    <li><a href="{html.escape(href)}" rel="noopener">{html.escape(text)}</a></li>'
@@ -105,7 +123,7 @@ def render_about():
         'BACK': html.escape(labels.UI['about_back']),
         'BODY': body,
         'LINKS': links,
-        'COPYRIGHT': html.escape(labels.UI['copyright']),
+        'COPYRIGHT': rich_text(labels.UI['copyright']),
         'LICENSE': html.escape(labels.UI['license_label']),
         'LICENSE_URL': html.escape(labels.UI['license_url']),
     }

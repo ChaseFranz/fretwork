@@ -91,6 +91,15 @@ autoplay. Closing the panel posts a `pauseVideo` command to it - `display:none`
 does not stop an iframe playing audio - which is why the embed URL carries
 `enablejsapi=1` and the command names YouTube's origin rather than `*`.
 
+Every mention of fretwork or its author in the prose is a link, to the engine's
+repository or to the channel. Those strings carry a minimal `[text](url)` markup
+rather than HTML: `rich()` in `static/js/dom.js` and `rich_text()` in
+`web/page.py` are the two renderers, they escape every character, they build the
+anchors themselves, and they emit an anchor only for an `http(s)` target. Keep
+them in step - the same strings go through both, one for the panel and one for
+`about.html`. The four URLs are named once at the top of `labels.py`
+(`ENGINE_REPO`, `CHANNEL`, `FORK_REPO`, `VIDEO`).
+
 The footer is assembled in `static/js/main.js` from `labels.FOOTER_LINKS` plus the
 `copyright` / `license_label` / `license_url` strings in `UI`. **The fork is MIT and its
 `LICENSE` is byte-identical to upstream's, so the copyright line names Staycation, not

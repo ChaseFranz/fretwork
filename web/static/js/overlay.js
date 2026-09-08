@@ -1,6 +1,6 @@
 // The graph lightbox and the transient hint, the page's two overlays.
 import { EXPLAINER, FOOTER, UI } from "./boot.js";
-import { el, esc } from "./dom.js";
+import { el, esc, rich } from "./dom.js";
 import { cols, rowsAll, state } from "./state.js";
 import { writeUrl } from "./url.js";
 
@@ -79,12 +79,12 @@ export function openAbout() {
       '<button type="button" class="x" data-act="close" aria-label="' +
       esc(UI.close_tip) + '" title="' + esc(UI.close_tip) + '">&times;</button></div>' +
       '<div class="vid"><iframe src="' + esc(UI.video_embed) + '" title="' +
-      esc(UI.video_caption) + '" loading="lazy" allowfullscreen ' +
+      esc(UI.video_title) + '" loading="lazy" allowfullscreen ' +
       'referrerpolicy="strict-origin-when-cross-origin" ' +
       'allow="encrypted-media; picture-in-picture; fullscreen"></iframe></div>' +
-      '<p class="cap">' + esc(UI.video_caption) + "</p>" +
+      '<p class="cap">' + rich(UI.video_caption) + "</p>" +
       EXPLAINER.map(([heading, body]) =>
-        "<h2>" + esc(heading) + "</h2><p>" + esc(body) + "</p>").join("") +
+        "<h2>" + esc(heading) + "</h2><p>" + rich(body) + "</p>").join("") +
       '<p class="more">' + out(UI.explainer_more, FOOTER[0][1]) +
       '<span class="sep">/</span>' + out(UI.explainer_method, UI.method_url) +
       '<span class="sep">/</span><a href="about.html">' + esc(UI.about) + "</a></p>";

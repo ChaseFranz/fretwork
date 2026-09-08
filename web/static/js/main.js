@@ -1,6 +1,6 @@
 // Entry module: label the chrome, wire the panels, then first paint.
 import { FOOTER, UI } from "./boot.js";
-import { el, esc } from "./dom.js";
+import { el, esc, rich } from "./dom.js";
 import { initDropdown } from "./dropdown.js";
 import { initChooser } from "./chooser.js";
 import { openGraph } from "./overlay.js";
@@ -39,7 +39,7 @@ function buildFooter() {
     '<div id="src2" class="mb-1">' + esc(el("src").textContent) + "</div>" +
     '<div class="beta-note mb-1">' + esc(UI.beta_note) + "</div>" +
     '<div class="d-flex flex-wrap align-items-center gap-1">' + links + "</div>" +
-    '<div class="mt-1">' + esc(UI.copyright) + " " +
+    '<div class="mt-1">' + rich(UI.copyright) + " " +
     link(UI.license_label, UI.license_url) + "</div>";
 }
 

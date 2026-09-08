@@ -154,13 +154,22 @@ VALUE_LABELS = {
 }
 
 
-# Footer attribution: the explainer that says what D means, the engine, its
-# author's channel, and this site's own source.
+# The four places this site points at, named once. Every mention of fretwork or
+# its author in the prose below links to one of them.
+ENGINE_REPO = 'https://github.com/Staycation44/fretwork'
+CHANNEL = 'https://www.youtube.com/@StaycationGH'
+FORK_REPO = 'https://github.com/ChaseFranz/fretwork'
+VIDEO = 'https://youtu.be/emoWMpDJ4ls'
+
+# Prose that names fretwork or Staycation carries a minimal [text](url) markup
+# rather than HTML. The renderers - rich() in dom.js, rich_text() in page.py -
+# escape every character and build the anchors themselves, so a string that ever
+# came from data could not smuggle markup through the same path.
 FOOTER_LINKS = (
-    ('How difficulty is scored', 'https://youtu.be/emoWMpDJ4ls'),
-    ('fretwork engine', 'https://github.com/Staycation44/fretwork'),
-    ('@StaycationGH', 'https://www.youtube.com/@StaycationGH'),
-    ('Site source', 'https://github.com/ChaseFranz/fretwork'),
+    ('How difficulty is scored', VIDEO),
+    ('fretwork engine', ENGINE_REPO),
+    ('@StaycationGH', CHANNEL),
+    ('Site source', FORK_REPO),
 )
 
 # Left-to-right order on the page, which is not the spreadsheet's order: D is what
@@ -207,10 +216,10 @@ EXPLAINER = (
      'shapes all count simply as movement. Long quiet stretches pull the averages '
      'down. Drums and vocals are not scored at all.'),
     ('Where the numbers come from',
-     'Every chart here was parsed and scored by fretwork, an open-source project by '
-     'Staycation. This site runs that engine unchanged and only displays the result. '
-     'The full method, including the calibration tables, is in Methodology.md in the '
-     'engine\u2019s repository.'),
+     f'Every chart here was parsed and scored by [fretwork]({ENGINE_REPO}), an '
+     f'open-source project by [Staycation]({CHANNEL}). This site runs that engine '
+     f'unchanged and only displays the result. The full method, including the '
+     f'calibration tables, is in [Methodology.md]({ENGINE_REPO}/blob/main/Methodology.md).'),
 )
 
 
@@ -226,11 +235,12 @@ ABOUT = (
      'voted on, or edited afterwards. How the calculation works is explained under '
      '\u201cHow it works\u201d on the charts page.'),
     ('An independent project',
-     'Fretladder is not affiliated with, endorsed by, or run by Staycation44, and it is '
-     'not the fretwork project itself. It is a separate fork that uses fretwork\u2019s '
-     'engine under its MIT licence, hosted and maintained independently. Anything about '
-     'this site \u2013 a wrong rating, a missing pack, a bug \u2013 belongs here rather '
-     'than with the engine\u2019s author or their YouTube channel.'),
+     f'Fretladder is not affiliated with, endorsed by, or run by '
+     f'[Staycation44]({CHANNEL}), and it is not the [fretwork]({ENGINE_REPO}) project '
+     f'itself. It is a separate fork that uses fretwork\u2019s engine under its MIT '
+     f'licence, hosted and maintained independently. Anything about this site \u2013 a '
+     f'wrong rating, a missing pack, a bug \u2013 belongs here rather than with the '
+     f'engine\u2019s author or their YouTube channel.'),
     ('What is stored here, and what is not',
      'The site hosts no audio and no chart files, and nothing can be downloaded from it. '
      'What it holds is numbers calculated from charts, the song, artist, charter and pack '
@@ -242,9 +252,10 @@ ABOUT = (
      'the charts to the people who made them. Fretladder claims none of it, and is '
      'endorsed by none of them.'),
     ('Licence',
-     'The code behind this site is a fork of fretwork, published under the MIT licence, '
-     'which requires the original copyright notice to travel with it: Copyright (c) 2026 '
-     'Staycation. The fork\u2019s source is on GitHub, linked below.'),
+     f'The code behind this site is a fork of [fretwork]({ENGINE_REPO}), published under '
+     f'the [MIT licence]({ENGINE_REPO}/blob/main/LICENSE), which requires the original '
+     f'copyright notice to travel with it: Copyright (c) 2026 [Staycation]({CHANNEL}). '
+     f'The fork\u2019s own source is [on GitHub]({FORK_REPO}).'),
 )
 
 
@@ -277,12 +288,11 @@ UI = {
                         'so a chart\u2019s numbers can move between updates. '
                         'Guitar, bass and keys for now.',
 
-    'credit':           'powered by fretwork',
-    'credit_url':       'https://github.com/Staycation44/fretwork',
-    'copyright':        'An independent fork of fretwork, not affiliated with its '
-                        'author. Engine copyright (c) 2026 Staycation.',
+    'copyright':        f'An independent fork of [fretwork]({ENGINE_REPO}), not '
+                        f'affiliated with its author. Engine copyright (c) 2026 '
+                        f'[Staycation]({CHANNEL}).',
     'license_label':    'MIT License',
-    'license_url':      'https://github.com/Staycation44/fretwork/blob/main/LICENSE',
+    'license_url':      f'{ENGINE_REPO}/blob/main/LICENSE',
     'reorder_tip':      'Drag to reorder',
     'resize_tip':       'Drag to resize, double-click to fit',
     'columns_reset_tip':'Back to the default columns, order and widths',
@@ -320,16 +330,17 @@ UI = {
     # from the no-cookie host, and only requested if someone opens the panel -
     # the iframe is not in the page until then.
     'video_embed':      'https://www.youtube-nocookie.com/embed/emoWMpDJ4ls'
-                        '?start=517&rel=0&enablejsapi=1',
-    'video_caption':    'Solving Guitar Hero\u2019s Difficulty Problem \u2013 Staycation44',
+                        '?start=470&rel=0&enablejsapi=1',   # 7:50, where the method starts
+    'video_title':      'Solving Guitar Hero\u2019s Difficulty Problem \u2013 Staycation44',
+    'video_caption':    f'Solving Guitar Hero\u2019s Difficulty Problem \u2013 '
+                        f'[Staycation44]({CHANNEL})',
     'explainer_more':   'Watch it on YouTube',
     'explainer_method': 'The full method (Methodology.md)',
-    'method_url':       'https://github.com/Staycation44/fretwork/blob/main/Methodology.md',
+    'method_url':       f'{ENGINE_REPO}/blob/main/Methodology.md',
 
     # reporting a rating that looks wrong, from the chart's own graph
     'report':           'Report this rating',
-    'report_url':       'https://github.com/ChaseFranz/fretwork/issues/new'
-                        '?template=rating.yml',
+    'report_url':       f'{FORK_REPO}/issues/new?template=rating.yml',
 
     # the page CloudFront serves for a path that is not in the bucket
     'not_found_title':  'Page not found',
@@ -338,8 +349,7 @@ UI = {
 
     # how someone asks for a pack to be scored
     'request':          'Request a song pack',
-    'request_url':      'https://github.com/ChaseFranz/fretwork/issues/new'
-                        '?template=song-pack.yml',
+    'request_url':      f'{FORK_REPO}/issues/new?template=song-pack.yml',
 
     # row / graph interaction
     'row_tip':          'Click for the difficulty graph',
