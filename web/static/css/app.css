@@ -33,6 +33,11 @@
   .fw-foot a:hover { color:var(--fw-code); text-decoration:underline; }
   .sep { opacity:.35; margin:0 .35rem; }
   #src2 { display:none; }
+  /* an underlined text link, not another chip: it opens an explanation, it does
+     not change what the table shows */
+  .fw-head .info { background:none; border:0; padding:0; font-size:12px; cursor:pointer;
+    color:var(--fw-accent-text); text-decoration:underline; text-underline-offset:2px; }
+  .fw-head .info:hover { color:var(--bs-body-color); }
   .beta { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.6px;
     color:var(--fw-accent-text); border:1px solid var(--fw-accent-text); border-radius:10px;
     padding:1px 6px; vertical-align:2px; }
@@ -67,10 +72,15 @@
   td.title { max-width:300px; white-space:normal; overflow-wrap:break-word; }
   td.song { min-width:150px; }
   td.artist { max-width:220px; }
-  /* level + difficulty colors carried over from xlsx_format.py so the two views read alike */
-  .lvl { color:#1a1a1c; font-weight:600; }
-  .Easy{background:#c6efce}.Medium{background:#bdd7ee}.Hard{background:#ffe5b4}.Expert{background:#ffc7ce}
-  .scale { border-radius:4px; padding:1px 6px; color:#1a1a1c; font-weight:600; }
+  /* The four level colours still come from xlsx_format.py, so the site and the
+     spreadsheet agree on which colour means which level - but they are worn as
+     an outline rather than as a filled block, which stops four saturated
+     rectangles per row competing with the song titles. */
+  .lvl { background:none; border:1px solid currentColor; font-weight:600; padding:0 7px; }
+  .Easy{color:#c6efce}.Medium{color:#bdd7ee}.Hard{color:#ffe5b4}.Expert{color:#ffc7ce}
+  /* D is the number the site exists for; weight says so without a colour ramp.
+     Not called .lead - that is a Bootstrap utility and it is 1.25rem. */
+  td.headline { font-weight:600; color:var(--bs-emphasis-color); }
   .blank { color:var(--bs-secondary-color); }
   #dd { position:fixed; width:255px; max-height:min(420px,70vh); overflow:auto;
         z-index:1050; text-transform:none; letter-spacing:normal; font-size:12px; }
@@ -127,9 +137,13 @@
        of its own and the header grows back by a row */
     .fw-head #q { flex:1 1 55%; min-width:0!important; }
     .fw-head #count { order:1; }
-    #tools { order:2; flex:1 1 100%; overflow-x:auto; scrollbar-width:none; }
+    #tools { order:2; flex:1 1 100%; overflow-x:auto; scrollbar-width:none;
+      scroll-padding-right:28px; }
     #tools::-webkit-scrollbar { display:none; }
     #tools > * { flex:0 0 auto; }
+    /* .more is set by main.js only while there is something past the right edge */
+    #tools.more { mask-image:linear-gradient(to right, #000 calc(100% - 34px), transparent);
+      -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 34px), transparent); }
     /* the attribution row scrolls sideways too, rather than wrapping to three
        lines and taking the screen back from the table */
     .fw-foot .d-flex { flex-wrap:nowrap!important; overflow-x:auto; scrollbar-width:none; }

@@ -12,7 +12,6 @@ export const FOOTER = BOOT.footer;
 export const HELP = BOOT.help;
 export const EXPLAINER = BOOT.explainer;
 export const UI = BOOT.ui;
-export const SCALED = new Set(BOOT.scaled);
 export const TIMECOLS = new Set(BOOT.timecols);
 export const MISSING = BOOT.missing;
 export const MISS_TEXT = BOOT.missText;

@@ -94,6 +94,14 @@ stay in a line. And the narrow-screen rules exist to keep `D` on screen without 
 sideways swipe - `td.artist`'s cap and the wrapping header labels are load-bearing
 for that, not cosmetic; re-measure at 390px after changing any column's width.
 
+The table carries no conditional-formatting fill. `D` is set in semibold
+(`td.headline` - not `.lead`, which is a Bootstrap utility at 1.25rem) and the
+level badges are outlines in the four colours `xlsx_format.py` uses, so the site
+and the spreadsheet still agree on which colour means which level. The green-to-
+red ramp that `scale.js` drew was deleted along with the module: the table is
+almost always sorted by `D`, so it was colouring a ranking the row order already
+gives.
+
 The palette is two magentas and one grey, and the split is deliberate.
 `--fw-accent` (`#b71fb7`) is a **fill**: white on it is 5.4:1, but as text on the
 dark page it is 2.9:1, so everything the accent colours as text or as an icon

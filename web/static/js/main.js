@@ -9,6 +9,21 @@ import { readUrl } from "./url.js";
 import { initWidths } from "./widths.js";
 import { state } from "./state.js";
 
+// On a phone the control strip scrolls sideways, which is invisible if the last
+// chip happens to end at the edge. Fading the right edge - only while there is
+// something past it - is the affordance: it says "more this way" and gets out of
+// the way at the end. An overlay scrollbar cannot do this; iOS hides it until
+// you are already scrolling, which is too late to be a hint.
+function initStrip() {
+  const tools = el("tools");
+  const update = () => tools.classList.toggle("more",
+    tools.scrollWidth - tools.scrollLeft - tools.clientWidth > 4);
+  tools.addEventListener("scroll", update, { passive: true });
+  window.addEventListener("resize", update);
+  update();
+  return update;
+}
+
 function labelChrome() {
   el("brand").innerHTML = esc(UI.title) +
     ' <span class="fw-accent">&#9679;</span> <span class="fw-normal">' +
@@ -19,7 +34,7 @@ function labelChrome() {
   el("grid").setAttribute("aria-label", UI.grid_label);
   el("cols").textContent = UI.columns;
   el("cols").title = UI.columns_tip;
-  el("how").textContent = UI.explainer;
+  el("how").innerHTML = '<span aria-hidden="true">&#9432;</span> ' + esc(UI.explainer);
   el("how").title = UI.explainer_tip;
 }
 
@@ -47,6 +62,7 @@ initDropdown();
 initChooser();
 initWidths();
 initRouter();
+const restrip = initStrip();
 
 // Open on Expert charts from official releases: the widest-recognised slice of
 // the library, and the one a first-time visitor can calibrate against. Both
@@ -57,4 +73,5 @@ state.filters["Official"] = { type: "set", sel: new Set(["true"]) };
 // A shared link describes a view, so whatever it names wins over those defaults.
 const shared = readUrl();
 render();
+restrip();          // the chips exist now, so the strip knows its own width
 if (shared) openGraph(shared);

@@ -1,8 +1,7 @@
 // Builds the table's HTML. Everything it needs is passed in.
-import { SCALED, TIMECOLS, HELP, UI, MISS_TEXT, MISS_HELP } from "./boot.js";
+import { TIMECOLS, HELP, UI, MISS_TEXT, MISS_HELP } from "./boot.js";
 import { esc } from "./dom.js";
 import { lab, mmss, isMissing, decimals } from "./format.js";
-import { scaleColor } from "./scale.js";
 import { RANK_COL } from "./state.js";
 
 // Rank is a position in the current view, so there is nothing to sort or
@@ -45,14 +44,15 @@ const TEXT_CLASS = {
   "Release": "title",
 };
 
-function numberCell(col, v, bounds) {
+// No conditional-formatting fill. The table is nearly always sorted by D, so a
+// colour ramp was decorating a ranking the row order already states; weight on
+// the one headline number does the same job without the spreadsheet look.
+function numberCell(col, v) {
   const text = v.toFixed(decimals(col));
-  if (!SCALED.has(col) || !bounds) return '<td class="num">' + text + "</td>";
-  return '<td class="num"><span class="scale" style="background:' +
-    scaleColor(v, bounds[0], bounds[1]) + '">' + text + "</span></td>";
+  return '<td class="num' + (col === "D" ? " headline" : "") + '">' + text + "</td>";
 }
 
-function bodyCell(col, v, bounds) {
+function bodyCell(col, v) {
   if (col === "Code")
     return '<td class="code" title="' + esc(UI.copy_code_tip) + '">' + esc(v) +
       '<span class="cp" data-copy="' + esc(v) + '">&#128203;</span></td>';
@@ -70,15 +70,15 @@ function bodyCell(col, v, bounds) {
   }
   if (TIMECOLS.has(col) && typeof v === "number")
     return '<td class="num">' + mmss(v) + "</td>";
-  if (typeof v === "number") return numberCell(col, v, bounds);
+  if (typeof v === "number") return numberCell(col, v);
   return "<td>" + esc(v === null ? "" : v) + "</td>";
 }
 
-export function bodyRow(row, visibleCols, code, bounds, rank) {
+export function bodyRow(row, visibleCols, code, rank) {
   const cells = visibleCols
     .map(([col, i]) => col === RANK_COL
       ? '<td class="num rank">' + rank + "</td>"
-      : bodyCell(col, row[i], bounds[col]))
+      : bodyCell(col, row[i]))
     .join("");
   return '<tr tabindex="-1" title="' + esc(UI.row_tip) + '" data-code="' +
     esc(code) + '">' + cells + "</tr>";

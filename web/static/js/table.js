@@ -5,7 +5,6 @@ import { el } from "./dom.js";
 import { t } from "./format.js";
 import { headerCell, bodyRow, emptyRow } from "./markup.js";
 import { passing, compare } from "./query.js";
-import { ranges } from "./scale.js";
 import { state, cols, idx, rowsAll, visible } from "./state.js";
 import { writeUrl } from "./url.js";
 import { applyWidths } from "./widths.js";
@@ -74,10 +73,9 @@ export function draw() {
     if (back) back.focus();
   }
 
-  const bounds = ranges(rows);
   const codeIdx = cols().indexOf("Code");
   el("body").innerHTML = rows.length
-    ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], bounds, n + 1)).join("")
+    ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], n + 1)).join("")
     : emptyRow(vis.length);
 
   // One tab stop for the whole table; the arrow keys move within it.
