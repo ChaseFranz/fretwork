@@ -110,11 +110,16 @@
            align-items:center; justify-content:center; z-index:1060; padding:24px; }
   #modal.on, #about.on { display:flex; }
   #modal .mcard, #about .mcard { max-width:100%; max-height:92vh; overflow:auto; }
-  #about .mcard { max-width:60ch; background:var(--bs-body-bg); border:1px solid var(--bs-border-color);
-    border-radius:8px; padding:20px 22px; }
+  #about .mcard { max-width:min(680px, 100%); background:var(--bs-body-bg);
+    border:1px solid var(--bs-border-color); border-radius:8px; padding:20px 22px; }
+  /* the card is wide enough for the video; the prose is not, so it keeps a measure */
+  #about .vid { position:relative; aspect-ratio:16/9; margin:.9rem 0 .45rem; }
+  #about .vid iframe { position:absolute; inset:0; width:100%; height:100%;
+    border:0; border-radius:6px; }
+  #about p.cap { font-size:11px; color:var(--fw-dim); }
   #about h2 { font-size:12px; text-transform:uppercase; letter-spacing:.6px;
     color:var(--fw-accent-text); margin:1.1rem 0 .3rem; }
-  #about p { margin:0; font-size:13px; line-height:1.55; }
+  #about p { margin:0; font-size:13px; line-height:1.55; max-width:62ch; }
   #about .mhead { margin-bottom:0; align-items:center; justify-content:space-between; }
   #about .x { background:none; border:0; color:var(--fw-dim); font-size:22px;
     line-height:1; padding:0 2px; cursor:pointer; }

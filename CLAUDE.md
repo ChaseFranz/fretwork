@@ -76,6 +76,14 @@ timestamp), and it emits Open Graph / Twitter tags, which need `SITE_URL` becaus
 social preview cannot use a relative image. `page.OG_IMAGE` picks the chart that serves
 as that preview.
 
+The "How it works" panel is the site's only explanatory surface: `labels.EXPLAINER`
+(what D measures, how the tiers read, what the formula cannot see, where the
+numbers come from, and that this is an independent fork hosting no audio or
+chart files) plus the engine author's explainer video. The iframe is built on
+first open and never before, so a visitor who does not open the panel makes no
+request to YouTube; it is the no-cookie host, no autoplay. Keep the independence
+wording accurate if the relationship to upstream ever changes.
+
 The footer is assembled in `static/js/main.js` from `labels.FOOTER_LINKS` plus the
 `copyright` / `license_label` / `license_url` strings in `UI`. **The fork is MIT and its
 `LICENSE` is byte-identical to upstream's, so the copyright line names Staycation, not

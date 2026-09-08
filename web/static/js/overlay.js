@@ -78,6 +78,11 @@ export function openAbout() {
       '<div class="mhead"><strong>' + esc(UI.explainer_title) + "</strong>" +
       '<button type="button" class="x" data-act="close" aria-label="' +
       esc(UI.close_tip) + '" title="' + esc(UI.close_tip) + '">&times;</button></div>' +
+      '<div class="vid"><iframe src="' + esc(UI.video_embed) + '" title="' +
+      esc(UI.video_caption) + '" loading="lazy" allowfullscreen ' +
+      'referrerpolicy="strict-origin-when-cross-origin" ' +
+      'allow="encrypted-media; picture-in-picture; fullscreen"></iframe></div>' +
+      '<p class="cap">' + esc(UI.video_caption) + "</p>" +
       EXPLAINER.map(([heading, body]) =>
         "<h2>" + esc(heading) + "</h2><p>" + esc(body) + "</p>").join("") +
       '<p class="more">' + out(UI.explainer_more, FOOTER[0][1]) +

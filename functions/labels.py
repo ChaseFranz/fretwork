@@ -211,6 +211,15 @@ EXPLAINER = (
      'Staycation. This site runs that engine unchanged and only displays the result. '
      'The full method, including the calibration tables, is in Methodology.md in the '
      'engine\u2019s repository.'),
+    ('An independent project',
+     'fretladder is not affiliated with, endorsed by, or run by Staycation44, and it '
+     'is not the fretwork project itself \u2013 it is a separate fork that uses '
+     'fretwork\u2019s engine under its MIT licence. Nothing here is published on anyone '
+     'else\u2019s behalf. The site hosts no audio and no chart files: what it stores is '
+     'numbers calculated from charts, together with the song, artist, charter and pack '
+     'names those charts already carry. Guitar Hero, Rock Band and Clone Hero belong to '
+     'their respective owners, the songs to their rights holders, and the charts to the '
+     'people who made them.'),
 )
 
 
@@ -245,7 +254,8 @@ UI = {
 
     'credit':           'powered by fretwork',
     'credit_url':       'https://github.com/Staycation44/fretwork',
-    'copyright':        'A fork of fretwork. Copyright (c) 2026 Staycation.',
+    'copyright':        'An independent fork of fretwork, not affiliated with its '
+                        'author. Engine copyright (c) 2026 Staycation.',
     'license_label':    'MIT License',
     'license_url':      'https://github.com/Staycation44/fretwork/blob/main/LICENSE',
     'reorder_tip':      'Drag to reorder',
@@ -279,7 +289,13 @@ UI = {
     'explainer':        'How it works',
     'explainer_tip':    'What D means, and what it does not measure',
     'explainer_title':  'How difficulty is scored',
-    'explainer_more':   'The explainer video',
+    # The video is the origin of all of this, so it leads the explainer. Served
+    # from the no-cookie host, and only requested if someone opens the panel -
+    # the iframe is not in the page until then.
+    'video_embed':      'https://www.youtube-nocookie.com/embed/emoWMpDJ4ls'
+                        '?start=517&rel=0',
+    'video_caption':    'Solving Guitar Hero\u2019s Difficulty Problem \u2013 Staycation44',
+    'explainer_more':   'Watch it on YouTube',
     'explainer_method': 'The full method (Methodology.md)',
     'method_url':       'https://github.com/Staycation44/fretwork/blob/main/Methodology.md',
 
