@@ -44,6 +44,9 @@ initChooser();
 initWidths();
 initRouter();
 
-// Open on Expert only; the chips read this back as their active state.
+// Open on Expert charts from official releases: the widest-recognised slice of
+// the library, and the one a first-time visitor can calibrate against. Both
+// chip rows read their state back out of these, and either clears in one click.
 state.filters["Level"] = { type: "set", sel: new Set(["Expert"]) };
+state.filters["Official"] = { type: "set", sel: new Set(["true"]) };
 render();
