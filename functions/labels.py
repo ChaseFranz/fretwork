@@ -211,15 +211,40 @@ EXPLAINER = (
      'Staycation. This site runs that engine unchanged and only displays the result. '
      'The full method, including the calibration tables, is in Methodology.md in the '
      'engine\u2019s repository.'),
+)
+
+
+# The about page. Its own page rather than another heading in the explainer,
+# because the people who need it are not the people asking what D means - they
+# are asking whether this is the official site, whether songs can be downloaded
+# here, and who to complain to. All three answers deserve a URL.
+ABOUT = (
+    ('What this site is',
+     'Fretladder publishes calculated difficulty ratings for 5-fret rhythm-game charts '
+     '\u2013 Guitar Hero, Rock Band, Clone Hero, and the custom charts made for them. '
+     'Every rating is computed from the chart file itself. None of it is hand-assigned, '
+     'voted on, or edited afterwards. How the calculation works is explained under '
+     '\u201cHow it works\u201d on the charts page.'),
     ('An independent project',
-     'fretladder is not affiliated with, endorsed by, or run by Staycation44, and it '
-     'is not the fretwork project itself \u2013 it is a separate fork that uses '
-     'fretwork\u2019s engine under its MIT licence. Nothing here is published on anyone '
-     'else\u2019s behalf. The site hosts no audio and no chart files: what it stores is '
-     'numbers calculated from charts, together with the song, artist, charter and pack '
-     'names those charts already carry. Guitar Hero, Rock Band and Clone Hero belong to '
-     'their respective owners, the songs to their rights holders, and the charts to the '
-     'people who made them.'),
+     'Fretladder is not affiliated with, endorsed by, or run by Staycation44, and it is '
+     'not the fretwork project itself. It is a separate fork that uses fretwork\u2019s '
+     'engine under its MIT licence, hosted and maintained independently. Anything about '
+     'this site \u2013 a wrong rating, a missing pack, a bug \u2013 belongs here rather '
+     'than with the engine\u2019s author or their YouTube channel.'),
+    ('What is stored here, and what is not',
+     'The site hosts no audio and no chart files, and nothing can be downloaded from it. '
+     'What it holds is numbers calculated from charts, the song, artist, charter and pack '
+     'names those charts already carry, and one rendered graph per chart. It is not a '
+     'place to get songs.'),
+    ('Ownership',
+     'Guitar Hero, Rock Band and Clone Hero, and the names and marks that go with them, '
+     'belong to their respective owners. The songs belong to their rights holders, and '
+     'the charts to the people who made them. Fretladder claims none of it, and is '
+     'endorsed by none of them.'),
+    ('Licence',
+     'The code behind this site is a fork of fretwork, published under the MIT licence, '
+     'which requires the original copyright notice to travel with it: Copyright (c) 2026 '
+     'Staycation. The fork\u2019s source is on GitHub, linked below.'),
 )
 
 
@@ -289,11 +314,13 @@ UI = {
     'explainer':        'How it works',
     'explainer_tip':    'What D means, and what it does not measure',
     'explainer_title':  'How difficulty is scored',
+    'about':            'About this site',
+    'about_back':       'Back to the charts',
     # The video is the origin of all of this, so it leads the explainer. Served
     # from the no-cookie host, and only requested if someone opens the panel -
     # the iframe is not in the page until then.
     'video_embed':      'https://www.youtube-nocookie.com/embed/emoWMpDJ4ls'
-                        '?start=517&rel=0',
+                        '?start=517&rel=0&enablejsapi=1',
     'video_caption':    'Solving Guitar Hero\u2019s Difficulty Problem \u2013 Staycation44',
     'explainer_more':   'Watch it on YouTube',
     'explainer_method': 'The full method (Methodology.md)',

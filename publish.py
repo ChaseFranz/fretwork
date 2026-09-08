@@ -56,6 +56,7 @@ def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
 
     print(f"\nPublishing {xlsx_path}")
     pages = {'index.html': body, '404.html': page.render_404(),
+             'about.html': page.render_about(),
              'robots.txt': page.ROBOTS.encode('utf-8')}
     page_files, written, removed = bundle.write_page(
         out_dir, pages, assets.load_static(), bootstrap_css)

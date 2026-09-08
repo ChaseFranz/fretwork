@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<link rel="icon" href="static/favicon.svg" type="image/svg+xml">
+__META__
+<!-- Self-contained on purpose: this page answers "is this the official site?"
+     and "can I download songs here?", so it should still render if the app's
+     stylesheet, its scripts or its data are broken or missing. -->
+<style>
+  :root { color-scheme: dark; --dim:#9ba3ab; --accent:#e879e8; }
+  body { margin:0; background:#212529; color:#dee2e6; padding:40px 20px 60px;
+         font:15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:64ch; margin:0 auto; }
+  h1 { font-size:1.15rem; font-weight:600; margin:0 0 .35rem; }
+  .back { font-size:13px; color:var(--accent); }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.6px;
+       color:var(--accent); margin:2rem 0 .4rem; }
+  p { margin:0; }
+  hr { border:0; border-top:1px solid #343a40; margin:2.5rem 0 1.25rem; }
+  ul { margin:0; padding:0; list-style:none; font-size:13px; }
+  li { margin:.35rem 0; }
+  a { color:var(--accent); }
+  footer { margin-top:1.5rem; font-size:12px; color:var(--dim); }
+</style>
+</head>
+<body>
+<main>
+  <h1>__BRAND__</h1>
+  <p class="back"><a href="./">__BACK__</a></p>
+  __BODY__
+  <hr>
+  <ul>__LINKS__</ul>
+  <footer>__COPYRIGHT__ <a href="__LICENSE_URL__">__LICENSE__</a></footer>
+</main>
+</body>
+</html>

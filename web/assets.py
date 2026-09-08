@@ -17,7 +17,7 @@ STATIC_GLOBS = (
     ('*.svg', 'image/svg+xml'),
 )
 
-REQUIRED = ('index.html', '404.html', 'js/main.js', 'css/app.css')
+REQUIRED = ('index.html', '404.html', 'about.html', 'js/main.js', 'css/app.css')
 
 
 def read_text(name):

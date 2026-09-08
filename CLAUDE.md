@@ -76,13 +76,20 @@ timestamp), and it emits Open Graph / Twitter tags, which need `SITE_URL` becaus
 social preview cannot use a relative image. `page.OG_IMAGE` picks the chart that serves
 as that preview.
 
-The "How it works" panel is the site's only explanatory surface: `labels.EXPLAINER`
-(what D measures, how the tiers read, what the formula cannot see, where the
-numbers come from, and that this is an independent fork hosting no audio or
-chart files) plus the engine author's explainer video. The iframe is built on
-first open and never before, so a visitor who does not open the panel makes no
-request to YouTube; it is the no-cookie host, no autoplay. Keep the independence
-wording accurate if the relationship to upstream ever changes.
+Two explanatory surfaces, and the split is deliberate. The "How it works" panel
+on the charts page is `labels.EXPLAINER` - what D measures, how the tiers read,
+what the formula cannot see, where the numbers come from - led by the engine
+author's explainer video. `about.html` is `labels.ABOUT`, a page of its own
+because the people who need it are not the people asking what D means: they want
+to know whether this is the official site, whether songs can be downloaded here,
+and who to complain to, and all three answers deserve a URL to point at. Keep its
+independence wording accurate if the relationship to upstream ever changes.
+
+The video iframe is built on first open and never before, so a visitor who does
+not open the panel makes no request to YouTube; it is the no-cookie host, with no
+autoplay. Closing the panel posts a `pauseVideo` command to it - `display:none`
+does not stop an iframe playing audio - which is why the embed URL carries
+`enablejsapi=1` and the command names YouTube's origin rather than `*`.
 
 The footer is assembled in `static/js/main.js` from `labels.FOOTER_LINKS` plus the
 `copyright` / `license_label` / `license_url` strings in `UI`. **The fork is MIT and its

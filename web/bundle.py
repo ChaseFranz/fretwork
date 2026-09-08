@@ -44,7 +44,8 @@ def prune_page(out, files):
     keep = {(out / name).resolve() for name in files}
     stale = [path for path in (out / 'static').rglob('*')
              if path.is_file() and path.resolve() not in keep]
-    stale += [out / name for name in ('index.html', '404.html', 'robots.txt', 'bootstrap.css')
+    stale += [out / name for name in ('index.html', '404.html', 'about.html',
+                                      'robots.txt', 'bootstrap.css')
               if (out / name).is_file() and (out / name).resolve() not in keep]
     for path in stale:
         path.unlink()

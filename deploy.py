@@ -51,7 +51,8 @@ ENV_FILE = '.env'
 AWS_ENV = ('AWS_PROFILE', 'AWS_REGION', 'AWS_DEFAULT_REGION')
 CREDENTIAL_PREFIXES = ('AWS_ACCESS_KEY', 'AWS_SECRET', 'AWS_SESSION')
 BUCKET_RE = re.compile(r'^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$')
-BUNDLE_TOP = {'index.html', '404.html', 'robots.txt', 'bootstrap.css', 'static', 'graph'}
+BUNDLE_TOP = {'index.html', '404.html', 'about.html', 'robots.txt',
+              'bootstrap.css', 'static', 'graph'}
 REQUIRED = ('index.html', 'graph/manifest.json')                   # proof it came from publish
 GRAPHS = 'graph'
 CACHE_PAGE = 'no-cache'                     # revalidate: these are rewritten in place

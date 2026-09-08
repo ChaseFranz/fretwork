@@ -37,12 +37,12 @@ def bootstrap_head(bootstrap_css):
 
 # Description always; the social-preview tags need an absolute URL, so they are
 # emitted only for a published site with config.SITE_URL set.
-def meta_head(public):
+def meta_head(public, canonical=''):
     description = labels.UI['description']
     tags = [f'<meta name="description" content="{html.escape(description)}">']
     if public and config.SITE_URL:
         url = config.SITE_URL.rstrip('/')
-        tags.append(f'<link rel="canonical" href="{html.escape(url)}/">')
+        tags.append(f'<link rel="canonical" href="{html.escape(url)}/{html.escape(canonical)}">')
         for prop, content in (('og:type', 'website'), ('og:url', url),
                               ('og:title', config.SITE_NAME), ('og:description', description),
                               ('og:image', f'{url}/{OG_IMAGE}')):
@@ -85,6 +85,31 @@ def render_404():
         'LINK': html.escape(labels.UI['not_found_link']),
     }
     template = assets.read_text('404.html')
+    return _PLACEHOLDER.sub(lambda m: values[m.group(1)], template).encode('utf-8')
+
+
+# The about page: who runs this, what it does and does not hold, and who owns
+# what. Static text and no scripts, like the 404, so it keeps working when the
+# app around it does not.
+def render_about():
+    body = '\n'.join(
+        f'  <h2>{html.escape(heading)}</h2>\n  <p>{html.escape(text)}</p>'
+        for heading, text in labels.ABOUT)
+    links = '\n'.join(
+        f'    <li><a href="{html.escape(href)}" rel="noopener">{html.escape(text)}</a></li>'
+        for text, href in labels.FOOTER_LINKS)
+    values = {
+        'TITLE': html.escape(f"{labels.UI['about']} - {config.SITE_NAME}"),
+        'META': meta_head(public=True, canonical='about.html'),
+        'BRAND': html.escape(f"{config.SITE_NAME} \u2013 {labels.UI['about']}"),
+        'BACK': html.escape(labels.UI['about_back']),
+        'BODY': body,
+        'LINKS': links,
+        'COPYRIGHT': html.escape(labels.UI['copyright']),
+        'LICENSE': html.escape(labels.UI['license_label']),
+        'LICENSE_URL': html.escape(labels.UI['license_url']),
+    }
+    template = assets.read_text('about.html')
     return _PLACEHOLDER.sub(lambda m: values[m.group(1)], template).encode('utf-8')
 
 

@@ -86,14 +86,28 @@ export function openAbout() {
       EXPLAINER.map(([heading, body]) =>
         "<h2>" + esc(heading) + "</h2><p>" + esc(body) + "</p>").join("") +
       '<p class="more">' + out(UI.explainer_more, FOOTER[0][1]) +
-      '<span class="sep">/</span>' + out(UI.explainer_method, UI.method_url) + "</p>";
+      '<span class="sep">/</span>' + out(UI.explainer_method, UI.method_url) +
+      '<span class="sep">/</span><a href="about.html">' + esc(UI.about) + "</a></p>";
   }
   panel.setAttribute("aria-label", UI.explainer_title);
   panel.classList.add("on");
   panel.focus();
 }
 
+// Hiding the panel does not stop the player: an iframe goes on playing audio
+// while display:none, so closing the panel has to say so. The IFrame API's pause
+// command keeps the viewer's place in the video, which blanking the src would
+// not - reopening would drop them back at the start.
+function pauseVideo() {
+  const frame = el("about").querySelector("iframe");
+  if (!frame || !frame.contentWindow) return;
+  frame.contentWindow.postMessage(
+    JSON.stringify({ event: "command", func: "pauseVideo", args: [] }),
+    "https://www.youtube-nocookie.com");
+}
+
 export function closeAbout() {
+  pauseVideo();
   el("about").classList.remove("on");
   if (opener && opener.isConnected) opener.focus();
   opener = null;

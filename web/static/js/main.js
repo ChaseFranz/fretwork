@@ -26,10 +26,13 @@ const link = (text, href, cls) =>
   '<a class="' + (cls || "") + '" href="' + esc(href) +
   '" target="_blank" rel="noopener">' + esc(text) + "</a>";
 
+// Same site, so it stays in the tab it was opened from.
+const here = (text, href) => '<a href="' + esc(href) + '">' + esc(text) + "</a>";
+
 // The one thing a visitor can ask us for, then attribution, the explainer that
 // says what D means, and the licence.
 function buildFooter() {
-  const links = [link(UI.request, UI.request_url, "req")]
+  const links = [link(UI.request, UI.request_url, "req"), here(UI.about, "about.html")]
     .concat(FOOTER.map(([text, href]) => link(text, href)))
     .join('<span class="sep">/</span>');
   el("foot").innerHTML =
