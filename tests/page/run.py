@@ -68,6 +68,22 @@ def _second_sheet_code(plain):
     return sheet, file["rows"][0][file["columns"].index("Code")]
 
 
+# All levels named, so the opening chips (Official, Expert) do not narrow the view.
+ALL_LEVELS = "&f.Level=Expert,Hard,Medium,Easy"
+
+
+def album_query(plain):
+    """A search for the fixture's comma album, on the sheet that holds it."""
+    data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
+    for sheet in data:
+        file = json.loads((plain.parent / data[sheet]["file"]).read_text(encoding="utf-8"))
+        i = file["columns"].index("Album")
+        row = next((r for r in file["rows"] if "," in str(r[i])), None)
+        if row:
+            return "?" + urllib.parse.urlencode({"sheet": sheet, "q": row[i]}) + ALL_LEVELS
+    raise SystemExit("no album with a comma in the fixture")
+
+
 def bass_code_query(plain):
     return "?code=" + _second_sheet_code(plain)[1]
 
@@ -88,6 +104,7 @@ SUITES = [
     ("launch.js",    {}),
     ("roundtrip.js", {"queries": [roundtrip_query], "storage": {"fw.hidden": '["Artist"]'}}),   # a stale saved hidden set, no fw.v
     ("load.js",      {"queries": [bass_code_query, bass_code_query_with_sheet, ""], "delay": {"data/": 600}}),
+    ("fields.js",    {"queries": ["", "?r.Difficulty=:3", "?r.Year=2000:2010", album_query, "?q=fixture+rock" + ALL_LEVELS]}),
     ("fade.js",      {"windows": ["700,900", "1000,900", "1440,900"]}),
     ("video.js",     {}),
     ("links.js",     {}),

@@ -23,7 +23,7 @@ if (p.get("r.Pct")) {
   say("Percentile header is marked filtered", document.querySelector('#head th[data-c="Pct"]').classList.contains("filtered"));
   say("every visible Percentile is at or above the range floor", cells.length > 0 && cells.every(v => v >= lo), JSON.stringify(cells.slice(0, 8)));
   const want = rows.filter(r => r[cols.indexOf("Level")] === "Hard" && r[cols.indexOf("Pct")] >= lo &&
-    ["Song Title", "Artist", "Charter", "Release", "Code"].some(n => String(r[cols.indexOf(n)] ?? "").toLowerCase().includes(p.get("q")))).length;
+    ["Song Title", "Artist", "Album", "Charter", "Release", "Code"].some(n => String(r[cols.indexOf(n)] ?? "").toLowerCase().includes(p.get("q")))).length;
   say("count equals the rows the query names", shown() === want, shown() + " vs " + want);
 }
 // preference version (section 05): a saved fw.hidden with no fw.v is replaced by the default once

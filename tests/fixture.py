@@ -74,16 +74,16 @@ SONGS = [
          {'name': 'Grid Runner', 'artist': 'The Tessellates', 'charter': 'Fixture', 'diff_guitar': '4', 'diff_bass': '3'},
          bpm=140, notes=600, seconds=120),
     Song('Fixture Pack A', 'A2 - Two Tier', 'chart', {'guitar': 'HX'}, True, PACKS['Fixture Pack A'][1],
-         {'name': '__SHOUT__ Two Tier', 'artist': 'Placeholder Pattern', 'charter': 'Fixture'},
+         {'name': '__SHOUT__ Two Tier', 'artist': 'Placeholder Pattern', 'charter': 'Fixture', 'year': 'Unknown Year'},
          bpm=120, notes=300, seconds=90),
     Song('Fixture Pack A', 'A3 - Midi Mirror', 'mid', {'guitar': 'EMHX', 'bass': 'HX'}, True, PACKS['Fixture Pack A'][1],
-         {'name': 'Midi Mirror', 'artist': 'Reflected Signal', 'charter': 'Fixture', 'diff_guitar': '6'},
+         {'name': 'Midi Mirror', 'artist': 'Reflected Signal', 'charter': 'Fixture', 'diff_guitar': '6', 'year': '2007 (re-issue)'},
          bpm=160, notes=800, seconds=140, encoding='utf-8-sig-crlf'),
     Song('Fixture Pack A', 'A4 - Keys Only Once', 'chart', {'guitar': 'X', 'keys': 'X'}, True, PACKS['Fixture Pack A'][1],
-         {'name': 'Keys Only Once', 'artist': 'Ivory Latch', 'charter': 'Fixture'},
+         {'name': 'Keys Only Once', 'artist': 'Ivory Latch', 'charter': 'Fixture', 'year': 'Vol. 2 (2001)', 'album': 'Latch, Vol. 2'},
          bpm=100, notes=200, seconds=75),
     Song('Fixture Pack B', 'B1 - Half Medium', 'chart', {'guitar': 'MX', 'bass': 'X'}, True, PACKS['Fixture Pack B'][1],
-         {'name': 'Half Medium', 'artist': 'Quarter Rest', 'charter': 'Fixture Two', 'diff_guitar': '-1'},
+         {'name': 'Half Medium', 'artist': 'Quarter Rest', 'charter': 'Fixture Two', 'diff_guitar': '-1', 'genre': '<color=#ff0000>Rock</color>'},
          bpm=130, notes=450, seconds=100),
     Song('Fixture Pack B', 'B2 - Drum Mid', 'mid', {'guitar': 'EMHX', 'drums': 'X'}, True, PACKS['Fixture Pack B'][1],
          {'name': 'Drum Mid', 'artist': 'Kick Pattern', 'charter': 'Fixture Two'},
@@ -210,8 +210,8 @@ def part_streams(rng, song, instrument):
 
 def write_ini(song, folder):
     lines = ['[song]']
-    keys = {**song.ini, 'icon': PACKS[song.pack][0], 'genre': 'Fixture Rock',
-            'year': '2026', 'album': f'{song.pack} Album', 'song_length': str(song.seconds * 1000)}
+    keys = {'genre': 'Fixture Rock', 'year': '2026', 'album': f'{song.pack} Album',
+            'song_length': str(song.seconds * 1000), **song.ini, 'icon': PACKS[song.pack][0]}
     for key in sorted(keys):
         lines.append(f'{key} = {keys[key]}')
     text = '\n'.join(lines) + '\n'

@@ -259,6 +259,13 @@ def run_all(work, header, args):
     st.check(others['RemapDiff'].notna().all() and others['CalcTier'].notna().all(), 'a row lost its anchor')
     st.check(set(total['Code']) <= set(cache['codes']), 'an xlsx code is not in the cache')
     st.check(not any(c.endswith('D') for c in total['Code']), 'a drums code reached the xlsx')
+    # section 08: the three song.ini columns, and the year rule
+    for name, df in sheets.items():
+        st.check(list(df.columns)[6:10] == ['Release', 'Album', 'Year', 'Genre'] and str(df['Year'].dtype) == 'int64', f'{name}: {list(df.columns)[6:10]} {df["Year"].dtype}')
+    by_title = total.drop_duplicates('Song Title').set_index('Song Title')
+    st.check(by_title.loc['__SHOUT__ Two Tier', 'Year'] == -1 and by_title.loc['Midi Mirror', 'Year'] == 2007
+             and by_title.loc['Keys Only Once', 'Year'] == 2001 and by_title.loc['Grid Runner', 'Year'] == 2026, 'the year rule')
+    st.check(by_title.loc['Keys Only Once', 'Album'] == 'Latch, Vol. 2' and by_title.loc['Half Medium', 'Genre'] == 'Rock', 'album with a comma, genre markup stripped')
     st.done(f"{len(total)} rows on {len(sheets)} sheets, columns as COLUMN_ORDER")
 
     # ---- publish without bootstrap -------------------------------------------------

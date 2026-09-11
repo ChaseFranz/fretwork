@@ -35,7 +35,8 @@ from functions import cache as cache_mod
 from functions import density, formula, ini_updater, xlsx_format, timestamp
 
 COLUMN_ORDER = [
-    'Code', 'Song Title', 'Artist', 'Level', 'Type', 'Charter', 'Release', 'Official',
+    'Code', 'Song Title', 'Artist', 'Level', 'Type', 'Charter', 'Release',
+    'Album', 'Year', 'Genre', 'Official',
     'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier', 'SongKey',
     'pNPS', 'aNPS', 'medNPS', 'stdNPS', 'pVPS', 'aVPS', 'medVPS', 'stdVPS',
     'N', 'V', 'COV',
@@ -58,6 +59,9 @@ def song_row(code, meta, notes, instrument_key, level_key, anchor_remap, anchor_
         'Level': instruments.LEVEL_DISPLAY_NAMES[level_key],
         'Difficulty': (meta.get('Difficulty') or {}).get(instrument_key, '-1'),
         'Release': meta.get('Release'),
+        'Album': meta.get('Album', ''),
+        'Year': meta.get('Year', -1),
+        'Genre': meta.get('Genre', ''),
         'Official': meta.get('Official'),
     }
 
@@ -202,6 +206,9 @@ def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=No
 
                 # Difficulty comes from song.ini as a string, convert to numeric and fill missing with -1
                 df['Difficulty'] = pd.to_numeric(df['Difficulty'], errors='coerce').fillna(-1).astype(int)
+                # Year likewise: an int in the cache already, but an old cache has none
+                if 'Year' in df.columns:
+                    df['Year'] = pd.to_numeric(df['Year'], errors='coerce').fillna(-1).astype(int)
 
                 df = df[column_order]
                 float_cols = [c for c in df.columns if c in xlsx_format.FLOAT_COLS or c == 'D']
