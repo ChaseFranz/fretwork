@@ -326,6 +326,9 @@ python deploy.py --no-publish
 ---
 
 ## 8. Fixes/Extension Ideas
+
+The engine ideas below are upstream's list. The fork's own plan for the hosted site, fretladder, is in [`docs/spec/`](docs/spec/README.md): fourteen sections with an implementation order, from the small fixes owed today through client-side graphs, a per-song view and pack ingestion.
+
 **Fixes:**
 - Midi files misbehaving - *possibly parser drift / file corrruption/truncation?*
 

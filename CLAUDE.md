@@ -278,3 +278,9 @@ arrive with every fetch and must not be reused.
 - **No tests, no CI.** After merging parser or metrics changes from upstream, run
   build, analyze and render against `songs/` and compare the terminal summary and
   error CSV with the previous run, since nothing else will catch a regression.
+- **The plan for the site is `docs/spec/`**: fourteen numbered sections, one per
+  piece of work, and a `README.md` index with the implementation order, the
+  cross-section decisions and the follow-ups that wait on information we do not
+  have. Pick up a section by reading the index, then `05-data-model-v2.md` (the
+  data model every section conforms to), then the section. When a section lands,
+  update its status row in the index and keep this file in step with what changed.
