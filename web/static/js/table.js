@@ -74,9 +74,14 @@ export function draw() {
     if (back) back.focus();
   }
 
+  // The hover text says where the chart sits before the click that opens it.
   const codeIdx = cols().indexOf("Code");
+  const pctIdx = cols().indexOf("Pct"), levelIdx = cols().indexOf("Level");
+  const tipFor = r => pctIdx >= 0 && levelIdx >= 0 && typeof r[pctIdx] === "number"
+    ? t("pct_of", { pct: r[pctIdx], level: r[levelIdx], sheet: state.sheet }) + "\n" + UI.row_tip
+    : UI.row_tip;
   el("body").innerHTML = rows.length
-    ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], n + 1)).join("")
+    ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], n + 1, tipFor(r))).join("")
     : emptyRow(vis.length);
 
   // One tab stop for the whole table; the arrow keys move within it.

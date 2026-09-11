@@ -74,13 +74,13 @@ function bodyCell(col, v) {
   return "<td>" + esc(v === null ? "" : v) + "</td>";
 }
 
-export function bodyRow(row, visibleCols, code, rank) {
+export function bodyRow(row, visibleCols, code, rank, tip) {
   const cells = visibleCols
     .map(([col, i]) => col === RANK_COL
       ? '<td class="num rank">' + rank + "</td>"
       : bodyCell(col, row[i]))
     .join("");
-  return '<tr tabindex="-1" title="' + esc(UI.row_tip) + '" data-code="' +
+  return '<tr tabindex="-1" title="' + esc(tip) + '" data-code="' +
     esc(code) + '">' + cells + "</tr>";
 }
 

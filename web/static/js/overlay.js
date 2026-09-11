@@ -1,6 +1,7 @@
 // The graph lightbox and the transient hint, the page's two overlays.
 import { EXPLAINER, FOOTER, UI } from "./boot.js";
 import { el, esc, rich } from "./dom.js";
+import { t } from "./format.js";
 import { cols, rowsAll, state } from "./state.js";
 import { writeUrl } from "./url.js";
 
@@ -27,12 +28,19 @@ function heading(code) {
   // pointing at an exact chart instead of "the Dragonforce one".
   const report = UI.report_url + "&code=" + encodeURIComponent(code) +
     "&song=" + encodeURIComponent(get("Song Title") + " - " + get("Artist"));
+  // "At or above N%": the pool the row is ranked in is the current sheet at the
+  // row's level, and the chart itself is in it, so "harder than" would be wrong.
+  const pct = get("Pct");
+  const place = typeof pct === "number"
+    ? '<span class="text-secondary">' +
+      esc(t("pct_of", { pct: pct, level: get("Level"), sheet: state.sheet })) + "</span>"
+    : "";
   return '<div class="mhead"><strong>' + esc(get("Song Title")) + '</strong>' +
     '<span class="text-secondary">' + esc(get("Artist")) + '</span>' +
     '<span class="badge rounded-pill lvl ' + esc(get("Level")) + '">' +
     esc(get("Level")) + '</span>' +
     '<span class="text-secondary">' + esc(get("Type")) + '</span>' +
-    '<span class="text-secondary">' + esc(get("Charter")) + '</span>' +
+    '<span class="text-secondary">' + esc(get("Charter")) + '</span>' + place +
     '<a class="ms-auto rpt" target="_blank" rel="noopener" href="' + esc(report) +
     '">' + esc(UI.report) + "</a></div>";
 }
