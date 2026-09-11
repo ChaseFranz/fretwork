@@ -63,7 +63,7 @@ page's ES modules. The bucket looks fine from the AWS side when this happens.
 python deploy.py [--env FILE] [--no-publish] [--dry-run]
 ```
 
-Bootstrap 5.3 supplies the base CSS. It is downloaded once into `CACHE_DIR` as `bootstrap-<version>.min.css` (gitignored with the rest of `caches/`) and served same-origin from `/bootstrap.css`, so the page never contacts a CDN at view time and works offline after the first run. If the fetch fails or `--no-bootstrap` is passed, the page inlines `FALLBACK_CSS` instead, which covers layout plus the `d-none` / `dropdown-menu.show` state classes the page's JS toggles. There is no JS framework and no Bootstrap JS; interaction is plain DOM code that toggles Bootstrap's own classes.
+Bootstrap 5.3 supplies the base CSS. It is downloaded once into `OUTPUT_DIRS['cache']` as `bootstrap-<version>.min.css` (gitignored with the rest of `caches/`) and served same-origin from `/bootstrap.css`, so the page never contacts a CDN at view time and works offline after the first run. If the fetch fails or `--no-bootstrap` is passed, the page inlines `FALLBACK_CSS` instead, which covers layout plus the `d-none` / `dropdown-menu.show` state classes the page's JS toggles. There is no JS framework and no Bootstrap JS; interaction is plain DOM code that toggles Bootstrap's own classes.
 
 ### The public site is `fretladder`
 
@@ -143,9 +143,7 @@ baked into the compiled CSS rather than read from `--bs-primary`, so the button
 overrides set `--bs-btn-*` per variant; setting `--bs-primary` alone leaves them
 blue. Everything the page renders as text now measures 5.2:1 or better against
 its own background - keep it there: AA wants 4.5:1 for text and 3:1 for anything
-clickable. The one palette to leave alone is the D/tier colour ramp in
-`static/js/scale.js`, which mirrors the spreadsheet's own scale and is 11.8:1 at
-its worst point.
+clickable.
 
 ### `web/` is the viewer, and only the viewer
 
@@ -166,7 +164,7 @@ Root `serve.py` and `publish.py` are thin entry points in the same shape as the 
 
 The page's markup, CSS and 17 ES modules live under `web/static/`, served from an in-memory dict built by globbing at startup. Keys never derive from a request path, so traversal is impossible by construction rather than by guard. Server data reaches the JS through a `<script type="application/json" id="fw-boot">` island that `boot.js` parses once and re-exports; `boot.py` escapes `</` so spreadsheet text can never close the tag. All mutable page state lives in one exported `state` object because ES module imports are read-only bindings.
 
-Two things must stay off the server's startup import path: matplotlib (via `functions/plot.py`) and openpyxl (via `functions/xlsx_format.py`). `GraphRenderer` imports plot inside its method bodies, and `web/boot.py` keeps a local copy of `SCALED_COLS` rather than importing `xlsx_format` for it.
+Two things must stay off the server's startup import path: matplotlib (via `functions/plot.py`) and openpyxl (via `functions/xlsx_format.py`). `GraphRenderer` imports plot inside its method bodies, and nothing in `web/` imports `xlsx_format`.
 
 Before running Build, `config.SEARCH_PATH` must point at a real song library (the committed value is a Windows placeholder). Build on a ~3k-song library takes several minutes; midi parsing dominates.
 
@@ -183,7 +181,7 @@ python analyze.py --header Local
 
 ### Three-stage pipeline keyed by HEADER + timestamp
 
-`build.py` -> cache `.pkl` -> `analyze.py` -> metrics `.xlsx`; `render.py` reads the same cache to draw PNGs. Every output is named `{header}_{kind}_{timestamp}.{ext}` via `functions/timestamp.py`, and `config.KIND_DIRS` routes each kind to a folder (`caches/` for cache, errors CSV, and backup; `metrics/` for xlsx; `renders/` for PNG). Analyze and Render locate the *newest* cache for a header by parsing the timestamp out of the filename (`timestamp.latest_output`), so filename format is load-bearing. Analyze reuses the cache's timestamp for its xlsx so the pair can be matched.
+`build.py` -> cache `.pkl` -> `analyze.py` -> metrics `.xlsx`; `render.py` reads the same cache to draw PNGs. Every output is named `{header}_{kind}_{timestamp}.{ext}` via `functions/timestamp.py`, and `config.OUTPUT_DIRS` routes each kind to a folder (`caches/` for cache, errors CSV, and backup; `metrics/` for xlsx; `renders/` for PNG). Analyze and Render locate the *newest* cache for a header by parsing the timestamp out of the filename (`timestamp.latest_output`), so filename format is load-bearing. Analyze reuses the cache's timestamp for its xlsx so the pair can be matched.
 
 All of these outputs are gitignored (`*.pkl`, `*.csv`, `*.xlsx`, `*.png`, `caches/`). The `.xlsx` and `.png` files under `metrics/` and `renders/` are committed examples that were force-added; don't expect new outputs to show up in `git status`.
 
@@ -248,7 +246,9 @@ web viewer and, on its own branch, the player rating. `upstream` is
 `github.com/Staycation44/fretwork`, the original project (single maintainer, no CI,
 no branch protection), and the source of parser, instrument and difficulty-formula
 improvements. The viewer was offered upstream as PR #6 and closed unmerged on
-2026-09-07; it is this fork's project now.
+2026-09-07; it is this fork's project now. Releases of the hosted site are tagged
+`fretladder-vX.Y.Z` - a separate namespace from upstream's `vX.Y` tags, which
+arrive with every fetch and must not be reused.
 
 - **`main` on the fork is `upstream/main` plus the viewer.** Feature work branches
   from `main`, is named for the feature (`rank-column`), and merges back with a merge
