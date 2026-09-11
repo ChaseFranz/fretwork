@@ -126,8 +126,14 @@ def stage(site, work, suites):
             continue
         page = src.replace(anchor, storage_script(opts.get("storage")) + anchor +
                            '\n<script type="module" src="' + name + '"></script>')
-        (work / (pathlib.Path(name).stem + ".html")).write_text(page, encoding="utf-8")
+        (work / suite_page(name)).write_text(page, encoding="utf-8")
     return 'href="bootstrap.css"' in src           # False means FALLBACK_CSS is inlined
+
+
+# Injected pages are named apart from the bundle's own files: a suite called
+# about.js must not stage over about.html.
+def suite_page(name):
+    return "suite-" + pathlib.Path(name).stem + ".html"
 
 
 def free_port():
@@ -250,7 +256,7 @@ def main():
                 if opts.get("needs_bootstrap") and not has_bootstrap:
                     print(f"{name}  SKIP  fallback CSS")
                     continue
-                page = name if opts.get("page") else pathlib.Path(name).stem + ".html"
+                page = name if opts.get("page") else suite_page(name)
                 queries = [q(work / "plain.html") if callable(q) else q for q in opts.get("queries", [""])]
                 windows = opts.get("windows", [opts.get("window", "1440,900")])
                 for query in queries:

@@ -13,15 +13,26 @@ function renderDD(query) {
   if (box) { box.oninput = () => renderDD(box.value); box.focus(); }
 }
 
+// The caret's aria-expanded is painted by draw(), which opening does not run,
+// so it is set here as well; a screen reader should not hear "collapsed" while
+// the panel is open.
+const setExpanded = (col, on) => {
+  const flt = document.querySelector('#head .flt[data-flt="' + CSS.escape(col) + '"]');
+  if (flt) flt.setAttribute("aria-expanded", on ? "true" : "false");
+};
+
 export function openDD(col, anchor) {
+  if (state.ddCol) setExpanded(state.ddCol, false);
   state.ddCol = col;
   const dd = el("dd");
   dd.classList.add("show");
   renderDD("");
   placeUnder(dd, anchor);
+  setExpanded(col, true);
 }
 
 export function closeDD() {
+  if (state.ddCol) setExpanded(state.ddCol, false);
   state.ddCol = null;
   el("dd").classList.remove("show");
 }
