@@ -140,6 +140,8 @@ def main():
 def run_all(work, header, args):
     lib = fixture.write(work / 'library')
     registry = fixture.write_registry(work / 'packs.toml', lib)
+    for ini in (work / 'library').rglob('song.ini'):          # audio beside every chart: ingest must drop it, build must not care
+        (ini.parent / 'song.ogg').write_bytes(b'\x00' * 64)
     (work / 'bin').mkdir(exist_ok=True)
     stub = (REPO / 'tests' / 'bin' / 'aws').read_text(encoding='utf-8').splitlines()
     stub[0] = '#!' + args.python
@@ -157,6 +159,36 @@ def run_all(work, header, args):
     (work / 'caches').mkdir(exist_ok=True)
     old_cols = [c for c in ini_updater.BACKUP_COLUMNS if c != 'diff_drums']
     (work / 'caches' / f'{header}_BackupData.csv').write_text(','.join(old_cols) + '\n', encoding='utf-8')
+
+    # ---- ingest (section 09): the three packs one at a time, in its own working directory ----
+    ingest = work / 'ingest'
+    ingest.mkdir()
+    st = Stage('ingest', ingest, env, args.python)
+    charted_so_far = 0
+    for i, pack in enumerate(fixture.PACKS):
+        songs_in_pack = [s for s in lib.songs if s.pack == pack]
+        charted_in_pack = [s for s in songs_in_pack if s.charted]
+        st.run('tools/ingest_pack.py', str(work / 'library' / pack), '--name', pack, '--library', 'library',
+               '--header', header, '--packs', 'packs.toml', '--source', '')
+        before = 'none' if i == 0 else f'{charted_so_far:,}'
+        st.check(re.search(rf'songs\s+{re.escape(before)} ->\s+{charted_so_far + len(charted_in_pack):,}\b', st.out),
+                 f'{pack}: summary songs line')
+        st.check(re.search(rf'song\.ini found\s+{len(songs_in_pack)}\b', st.out) and
+                 re.search(rf'cached\s+{len(charted_in_pack)}\b', st.out) and
+                 re.search(rf'no usable chart or mid\s+{len(songs_in_pack) - len(charted_in_pack)}\b', st.out),
+                 f'{pack}: this-pack block')
+        st.check('packs.toml            appended' in st.out, f'{pack}: entry not appended')
+        charted_so_far += len(charted_in_pack)
+    from functions import packs as packs_mod
+    reg = packs_mod.load(ingest / 'packs.toml')
+    st.check([p.folder for p in reg.packs] == list(fixture.PACKS) and
+             all(p.added == __import__('datetime').date.today() for p in reg.packs), 'ingest registry')
+    with (ingest / 'caches' / f'{header}_BackupData.csv').open(newline='', encoding='utf-8') as f:
+        rows = list(csv.reader(f))
+    st.check(rows[0] == ini_updater.BACKUP_COLUMNS and len(rows) - 1 == len(lib.charted) and all(len(r) == len(rows[0]) for r in rows),
+             f'backup CSV after three appends: {len(rows) - 1} rows, header {rows[0]}')
+    st.check(not list((ingest / 'library').rglob('*.ogg')), 'audio reached the ingest library')
+    st.done(f'three packs ingested one at a time, {charted_so_far} songs, registry and backup CSV consistent')
 
     # ---- build -----------------------------------------------------------------------
     st = Stage('build', work, env, args.python)
