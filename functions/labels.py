@@ -38,6 +38,9 @@ COLUMN_LABELS = {
     'Type':       'Part',
     'Charter':    'Charter',
     'Release':    'Source',
+    'Album':      'Album',
+    'Year':       'Year',
+    'Genre':      'Genre',
     'Added':      'Added',
     'SongKey':    'Song key',
     'Official':   'Official',
@@ -80,6 +83,9 @@ COLUMN_HELP = {
     'Type':       'Which part this row is: Lead, Co-op, Rhythm, Bass or Keys.',
     'Charter':    'Who charted the song, from song.ini.',
     'Release':    'Release or source pack. Officials are matched against the tables in sources/.',
+    'Album':      'Album from song.ini, as the charter wrote it. Empty when the file has none.',
+    'Year':       'Release year from song.ini. A dash means the file has no four-digit year.',
+    'Genre':      'Genre from song.ini, as the charter wrote it. Spellings vary between charters; empty when the file has none.',
     'Added':      'When the pack this chart came in was added to the site, from packs.toml.',
     'SongKey':    'A hash of every chart in the song: the same charts give the same key, whatever folder they came from, so it survives a re-download.',
     'Official':   'True when the source pack is an official Guitar Hero or Rock Band release.',
@@ -119,6 +125,7 @@ COLUMN_HELP = {
 # the same idea for any human-facing surface.
 MISSING_VALUES = {
     'Difficulty': (-1,),
+    'Year': (-1,),
 }
 
 MISSING_TEXT = '\u2014'  # em dash
@@ -128,6 +135,7 @@ MISSING_HELP = {
     'RemapDiff':  'No Expert chart for this instrument to anchor the tier to',
     'CalcTier':   'No Expert chart for this instrument to anchor the tier to',
     'Added':      'Not registered in packs.toml',
+    'Year':       'No four-digit year in song.ini',
 }
 
 
@@ -194,7 +202,7 @@ DOC_PAGES = (('about.html', 'about'), ('changelog.html', 'changelog'))
 # Anything missing from this list keeps its spreadsheet position, at the end.
 DISPLAY_ORDER = (
     'Song Title', 'Artist', 'D', 'Pct', 'CalcTier', 'Level', 'Type',
-    'DurationS', 'NoteCount', 'Charter', 'Release', 'Added',
+    'DurationS', 'NoteCount', 'Charter', 'Release', 'Album', 'Year', 'Genre', 'Added',
     'Difficulty', 'RemapDiff', 'Official', 'Code', 'SongKey',
 )
 
@@ -206,13 +214,16 @@ DISPLAY_ORDER = (
 #   Official    the header has a chip for it, which is the useful form
 #   Code        only means something to render.py
 #   Added       the changelog page tells the same story with names and dates
+#   Album       wraps, and the first view is already full at 390 px
+#   Year        a filter on it works while hidden, which is how it is used
+#   Genre       likewise; 212 spellings make it a filter, not a column to read
 # Charter is deliberately NOT in this list: the people most likely to read this
 # site are the ones who charted what is in it.
-DEFAULT_HIDDEN = ('Difficulty', 'RemapDiff', 'Official', 'Code', 'Added', 'SongKey')
+DEFAULT_HIDDEN = ('Album', 'Year', 'Genre', 'Difficulty', 'RemapDiff', 'Official', 'Code', 'Added', 'SongKey')
 
 # Bump when DEFAULT_HIDDEN changes: a returning visitor's saved column set is
 # replaced by the new default once, and their order and widths are kept.
-PREFS_VERSION = 1
+PREFS_VERSION = 2
 
 
 # The in-page answer to "what is this number?", which until now lived only in a
@@ -321,7 +332,7 @@ UI = {
     'reorder_tip':      'Drag to reorder',
     'resize_tip':       'Drag to resize, double-click to fit',
     'columns_reset_tip':'Back to the default columns, order and widths',
-    'search':           'Search song, artist, charter or source...',
+    'search':           'Search song, artist, album, charter or source...',
     'clear_one':        'Clear 1 filter',
     'clear_many':       'Clear {n} filters',
     'count':            '{shown} of {total} charts',

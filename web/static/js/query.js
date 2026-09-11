@@ -4,7 +4,8 @@ import { el } from "./dom.js";
 import { isMissing, key } from "./format.js";
 import { state, cols, idx, rowsAll } from "./state.js";
 
-const SEARCH_COLS = ["Song Title", "Artist", "Charter", "Release", "Code"];
+// Genre stays out: "rock" alone would match a third of the library through it.
+const SEARCH_COLS = ["Song Title", "Artist", "Album", "Charter", "Release", "Code"];
 
 function isNumeric(col) {
   const i = idx(col);
@@ -54,7 +55,7 @@ function matchesFilter(row, columns, col, filter) {
   if (i < 0) return true;
   const v = row[i];
   if (filter.type === "set") return filter.sel.has(key(v));
-  if (typeof v !== "number") return false;
+  if (typeof v !== "number" || isMissing(col, v)) return false;   // a sentinel is not in any range
   return (filter.lo === null || v >= filter.lo) &&
          (filter.hi === null || v <= filter.hi);
 }

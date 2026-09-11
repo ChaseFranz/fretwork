@@ -42,6 +42,8 @@ const TEXT_CLASS = {
   "Artist": "title artist",
   "Charter": "title",
   "Release": "title",
+  "Album": "title album",
+  "Genre": "genre",
 };
 
 // No conditional-formatting fill. The table is nearly always sorted by D, so a

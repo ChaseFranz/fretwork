@@ -79,6 +79,7 @@
   td.title { max-width:300px; white-space:normal; overflow-wrap:break-word; }
   td.song { min-width:150px; }
   td.artist { max-width:220px; }
+  td.album { max-width:220px; }
   /* The four level colours still come from xlsx_format.py, so the site and the
      spreadsheet agree on which colour means which level - but they are worn as
      an outline rather than as a filled block, which stops four saturated
@@ -168,6 +169,7 @@
     .fw-wrap thead th, .fw-wrap thead th .lbl { white-space:normal; }
     td.title { max-width:128px; }
     td.artist { max-width:100px; }
+    td.album { max-width:100px; }
     td.song { min-width:120px; }
     td.num { font-size:12px; }
     /* a 7px drag target is not a touch target, and it would fight the scroll */
