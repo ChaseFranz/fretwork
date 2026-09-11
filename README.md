@@ -97,6 +97,7 @@ An .xlsx spreadsheet named `{header}_metrics_{timestamp}.xlsx` with:
 - **Retrieval codes** - an 8-digit song hash plus a level letter (`E`/`M`/`H`/`X`) and an instrument letter (`G`/`C`/`R`/`B`/`K`), e.g. `04821993XG` for an Expert Guitar song - used to render graphs
 - Metadata: Song Title, Artist, Level, Type (Lead/Co-op/Rhythm/Bass/Keys), Charter, Release/Source, Album, Year, Genre, Difficulty (song.ini diff tags). Year is the four-digit year found in the `year` tag, `-1` when it holds none
 - The difficulty metrics & updated Remap/CalcTier numbers
+- Two hidden identity columns: `SongKey`, one hash over every chart in the song, and `NotesHash`, a 12-hex hash of one chart's notes. Two folders carrying the same chart share a `NotesHash` whatever they are called; the analyze summary's `Distinct charts` line counts (part, level, hash) once, and a `COUNTIFS` over those three columns is the spreadsheet's own copies count
 
 Each tab is formatted for browsing using `xlsx_format.py`
 
@@ -170,7 +171,8 @@ Open **http://localhost:8000** once it starts. It binds `127.0.0.1` only, so not
 
 - **Sort** by clicking a column header, click again to flip direction. Opens sorted by D, hardest first
 - **Added** (hidden by default) is the date the chart's pack was registered in `packs.toml`, joined when the page is built; the header's "Updated" line links to the "What's new" page, which lists every pack with its counts and the site's own changes
-- **Percentile**, beside D: where the chart sits among the charts on its sheet at the same level, officials and customs together, as a whole number (100 is the hardest). It is computed when the page is built, so it moves as the library grows and is not in the spreadsheet; the graph heading and each row's hover text spell it out
+- **Percentile**, beside D: where the chart sits among the charts on its sheet at the same level, officials and customs together, as a whole number (100 is the hardest). It is computed when the page is built, so it moves as the library grows and is not in the spreadsheet; the graph heading and each row's hover text spell it out. A chart counts once however many packs carry it
+- **Copies** (hidden by default) is how many charts on the sheet have exactly these notes at this level and part, this one included: 1 is unique, 2 means the same chart is in another folder, usually another pack. Rows are never merged, since each copy has its own code, graph and report link; the graph heading lists the other folders under "Same chart in", each a link that opens that copy's graph. `?f.Copies=2` is the view of every duplicated chart
 - **Filter** any column from the caret next to its name - a checkbox list for things like Part or Remap Tier, a min/max box for wide numeric columns like D or Length. Value counts reflect your other active filters
 - **Search** song, artist, album, charter or source from the box in the toolbar
 - **Click a row** to render that chart's graph and see it in a lightbox - the same PNG `render.py` produces, written to your render folder. The copy icon on a Code cell copies the retrieval code instead
