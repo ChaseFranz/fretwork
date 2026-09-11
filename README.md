@@ -30,6 +30,7 @@ In a hurry? [7. Updating the live site, start to finish](#7-updating-the-live-si
 - [6. Publishing a static site](#6-publishing-a-static-site)
 - [7. Updating the live site, start to finish](#7-updating-the-live-site-start-to-finish)
 - [8. Fixes/Extension Ideas](#8-fixesextension-ideas)
+- [9. Tests](#9-tests)
 - [License](#license)
 
 ---
@@ -295,7 +296,7 @@ python deploy.py --dry-run     # lists what would upload; sends nothing
 python deploy.py               # publish, sync, invalidate
 ```
 
-`--dry-run` first is a good habit when the library changed a lot: the upload list is the clearest confirmation that publish produced what you expected. The real run publishes again, syncs to S3 in two passes (graphs with a week of caching, the page and assets with `no-cache`), and invalidates CloudFront so the new page is live immediately.
+`--dry-run` first is a good habit when the library changed a lot (and `python tests/pipeline_test.py` before that, if code changed: it runs this whole sequence on a synthetic library in seconds, see [9. Tests](#9-tests)): the upload list is the clearest confirmation that publish produced what you expected. The real run publishes again, syncs to S3 in two passes (graphs with a week of caching, the page and assets with `no-cache`), and invalidates CloudFront so the new page is live immediately.
 
 ### Step 7 - confirm it landed
 
@@ -387,6 +388,18 @@ The engine ideas below are upstream's list. The fork's own plan for the hosted s
 - DDR Groove Radar style scoring (probably tied to patterns)
 
 ---
+
+## 9. Tests
+
+Three commands, all stdlib plus the venv, and the same three run in GitHub Actions on every push:
+
+```
+python -m unittest discover -s tests -t . -v
+python tests/pipeline_test.py --keep /tmp/fw-ci --bootstrap-css caches/bootstrap-5.3.8.min.css
+python tests/page/run.py --site /tmp/fw-ci/site/Fixture
+```
+
+The first imports every module and checks the small pure functions. The second builds, analyzes, publishes and deploys a synthetic 15-song library from a temporary directory, with a stub `aws` on `PATH` so the deploy path runs without credentials, and asserts every count against the fixture's own table. The third drives the published page in headless Chrome: twelve suites read their expectations out of the page's data island, so `--site site/Local` runs the same checks against the real library. On WSL the runner uses Windows Chrome from `/mnt/c`. `tests/README.md` has the details and the harness gotchas.
 
 ## License
 **MIT** - see LICENSE for details.

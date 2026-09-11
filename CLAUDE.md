@@ -8,7 +8,7 @@ Fretwork computes difficulty scores for 5-fret rhythm-game charts (Guitar/Co-op/
 
 ## Commands
 
-Plain Python 3 scripts, no packaging config, no test suite, no linter. Always work inside the project virtualenv at `.venv/` (gitignored); never install into or run against the system interpreter.
+Plain Python 3 scripts, no packaging config, no linter. Tests are stdlib `unittest` plus two scripts under `tests/` (see below); `.github/workflows/ci.yml` runs them on every push. Always work inside the project virtualenv at `.venv/` (gitignored); never install into or run against the system interpreter.
 
 ```
 python3 -m venv .venv
@@ -172,7 +172,17 @@ Before running Build, `config.SEARCH_PATH` must point at a real song library (th
 
 `--diff-mode CalcTier|RemapDiff` and `config.DIFF_WRITE_MODE` **write to the user's `song.ini` files**. `Restore` rewrites them from the backup CSV and skips analysis entirely. Treat these as destructive to user data.
 
-There are no automated tests. To sanity-check a change to parsing or metrics, build, analyze, and inspect the terminal summary / xlsx / error CSV against a small local library. The convention is a gitignored `songs/` folder at the repo root holding song folders copied from a real library, then stripped to chart-only with `tools/sanitize_songs.py` (it deletes audio, art, video and editor scratch from song folders and leaves `song.ini`, `notes.chart`, `notes.mid` and anything it does not recognise; dry run by default, `--apply` to delete). So do not expect audio in `songs/`, and the pipeline does not need it, since build, analyze and render only ever open those three files. It still must never be committed:
+Three test commands, all stdlib plus the venv, mirrored in `.github/workflows/ci.yml`:
+
+```
+python -m unittest discover -s tests -t . -v
+python tests/pipeline_test.py --keep /tmp/fw-ci --bootstrap-css caches/bootstrap-5.3.8.min.css
+python tests/page/run.py --site /tmp/fw-ci/site/Fixture
+```
+
+`tests/fixture.py` generates a synthetic 15-song library (nothing real, never committed; its `SONGS` table is the interface every count derives from). `tests/pipeline_test.py` runs build, analyze, publish and deploy against it as subprocesses from a temporary directory with a stub `aws` on `PATH`. `tests/page/run.py` stages a published bundle, injects one suite module per page, and drives it in headless Chrome (Windows Chrome from WSL), reading results out of a `<pre id="results">` block; every suite reads its expectations from the boot payload, so `--site site/Local` runs the same twelve suites against the real library. The 390 px layout is measured inside an iframe (`tests/page/narrow.js`) because headless Chrome floors its viewport at 500 px; the spec calls that measurement `frame.html`. `tests/README.md` lists the harness gotchas.
+
+The fixture does not exercise real-library shapes, so a change to parsing or metrics is still checked by building, analyzing and inspecting the terminal summary / xlsx / error CSV against a small local library. The convention is a gitignored `songs/` folder at the repo root holding song folders copied from a real library, then stripped to chart-only with `tools/sanitize_songs.py` (it deletes audio, art, video and editor scratch from song folders and leaves `song.ini`, `notes.chart`, `notes.mid` and anything it does not recognise; dry run by default, `--apply` to delete). So do not expect audio in `songs/`, and the pipeline does not need it, since build, analyze and render only ever open those three files. It still must never be committed:
 
 ```
 python build.py --search-path songs --header Local
@@ -283,9 +293,10 @@ publish time in the message.
   Example outputs under `metrics/` and `renders/` are force-added; if you regenerate
   them, `git add -f` the new files and remove the stale ones in the same commit.
   Never commit caches, backup CSVs, `songs/`, or a real library's metrics.
-- **No tests, no CI.** After merging parser or metrics changes from upstream, run
-  build, analyze and render against `songs/` and compare the terminal summary and
-  error CSV with the previous run, since nothing else will catch a regression.
+- **CI runs the tests on every push**, but the fixture is synthetic. After merging
+  parser or metrics changes from upstream, still run build, analyze and render
+  against `songs/` and compare the terminal summary and error CSV with the previous
+  run, since the fixture cannot see a real library's shapes.
 - **The plan for the site is `docs/spec/`**: fourteen numbered sections, one per
   piece of work, and a `README.md` index with the implementation order, the
   cross-section decisions and the follow-ups that wait on information we do not
