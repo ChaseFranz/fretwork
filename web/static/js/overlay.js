@@ -1,5 +1,5 @@
 // The graph lightbox and the transient hint, the page's two overlays.
-import { EXPLAINER, FOOTER, UI } from "./boot.js";
+import { EXPLAINER, FOOTER, UI, VALUE_LABELS } from "./boot.js";
 import { el, esc, rich } from "./dom.js";
 import { t } from "./format.js";
 import { cols, rowsAll, state } from "./state.js";
@@ -16,6 +16,32 @@ export function toast(message) {
   hintTimer = setTimeout(() => hint.classList.remove("on"), 1400);
 }
 
+// The other rows on this sheet with exactly these notes at this level and
+// part: the same chart in another folder. Copies are always on the chart's own
+// sheet (same instrument), so the loaded sheet is the only place to look.
+function copies(code, row) {
+  const columns = cols();
+  const key = ["Type", "Level", "NotesHash"].map(c => columns.indexOf(c));
+  const codeAt = columns.indexOf("Code");
+  if (row === undefined || key.some(i => i < 0)) return [];
+  const hash = row[key[2]];
+  if (hash === null || hash === undefined || hash === "") return [];
+  return rowsAll().filter(r => r[codeAt] !== code && key.every(i => r[i] === row[i]));
+}
+
+// What a copy is called: its pack and whether it is official. A folder with
+// no matched icon carries the literal default "Custom" as its source, which
+// would read "Custom (Custom)", so the charter stands in there, and the code
+// when that is empty too.
+function copyText(row) {
+  const columns = cols();
+  const get = name => row[columns.indexOf(name)];
+  let release = get("Release");
+  if (release === "Custom") release = get("Charter") || get("Code");
+  const kind = (VALUE_LABELS.Official || {})[String(get("Official"))] ?? String(get("Official"));
+  return esc(release) + " (" + esc(kind) + ")";
+}
+
 // Names the chart being shown, so the graph is never unlabelled.
 function heading(code) {
   const columns = cols();
@@ -24,6 +50,17 @@ function heading(code) {
     const i = columns.indexOf(name);
     return i < 0 || row === undefined ? "" : row[i];
   };
+  // Two folders in one pack read the same, so the code then says which one.
+  const own = row === undefined ? "" : copyText(row);
+  const others = copies(code, row).map(r => {
+    const c = r[columns.indexOf("Code")], text = copyText(r);
+    return '<a href="?code=' + esc(c) + '" data-code="' + esc(c) + '" title="' + esc(UI.copies_tip) + '">' +
+      text + (text === own ? " " + esc(c) : "") + "</a>";
+  });
+  const same = others.length
+    ? '<div class="copies"><span class="text-secondary">' + esc(UI.copies_label) + "</span> " +
+      others.join('<span class="sep">/</span>') + "</div>"
+    : "";
   // The report link carries the code and the song, so a rating complaint arrives
   // pointing at an exact chart instead of "the Dragonforce one".
   const report = UI.report_url + "&code=" + encodeURIComponent(code) +
@@ -42,7 +79,7 @@ function heading(code) {
     '<span class="text-secondary">' + esc(get("Type")) + '</span>' +
     '<span class="text-secondary">' + esc(get("Charter")) + '</span>' + place +
     '<a class="ms-auto rpt" target="_blank" rel="noopener" href="' + esc(report) +
-    '">' + esc(UI.report) + "</a></div>";
+    '">' + esc(UI.report) + "</a>" + same + "</div>";
 }
 
 export function openGraph(code) {
@@ -50,7 +87,9 @@ export function openGraph(code) {
   const head = heading(code);
   const message = text => head + '<div class="text-secondary py-4">' + esc(text) + "</div>";
 
-  opener = document.activeElement;
+  // Swapping to a copy keeps the opener: the link clicked is about to be
+  // replaced with the card, and Escape should still return to the table row.
+  if (!graphIsOpen()) opener = document.activeElement;
   state.graph = code;
   writeUrl();
   modal.setAttribute("aria-label", UI.graph_label + ": " + code);

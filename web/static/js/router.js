@@ -54,6 +54,10 @@ function onClick(e) {
   const row = e.target.closest("tbody tr[data-code]");
   if (row) { holdRow(row); openGraph(row.dataset.code); return; }
 
+  // a copy's link swaps the graph in place; the href is real for a new tab
+  const alt = e.target.closest("#modal .mhead a[data-code]");
+  if (alt) { e.preventDefault(); openGraph(alt.dataset.code); return; }
+
   if (e.target.closest("#modal") && !e.target.closest(".mhead a")) closeGraph();
 }
 
