@@ -131,22 +131,26 @@ def set_headers(bucket, dry_run):
         run(cmd + ['--dryrun'] if dry_run else cmd, dry_run)
 
 
+# One object of each kind, and the Content-Type prefix S3 must answer for it.
+def samples(site_dir):
+    found = {'index.html': 'text/html'}
+    for name, want in (('static/js/main.js', 'text/javascript'),
+                       ('static/css/app.css', 'text/css'),
+                       ('static/favicon.svg', 'image/svg+xml')):
+        found[name] = want
+    graphs = sorted((pathlib.Path(site_dir) / GRAPHS).glob('*.png'))
+    if graphs:
+        found[f"{GRAPHS}/{graphs[0].name}"] = 'image/png'
+    return found
+
+
 # A wrong Content-Type is invisible from this side - the upload succeeds, the
 # bucket looks right, and the browser refuses to run the file. So ask S3 what it
 # will actually serve for one object of each kind before calling the deploy done.
 def verify(bucket, site_dir):
     print("\nChecking what S3 will serve")
-    samples = {'index.html': 'text/html'}
-    for name, want in (('static/js/main.js', 'text/javascript'),
-                       ('static/css/app.css', 'text/css'),
-                       ('static/favicon.svg', 'image/svg+xml')):
-        samples[name] = want
-    graphs = sorted((pathlib.Path(site_dir) / GRAPHS).glob('*.png'))
-    if graphs:
-        samples[f"{GRAPHS}/{graphs[0].name}"] = 'image/png'
-
     wrong = []
-    for key, want in samples.items():
+    for key, want in samples(site_dir).items():
         got = subprocess.run(
             ['aws', 's3api', 'head-object', '--bucket', bucket, '--key', key,
              '--query', 'ContentType', '--output', 'text'],
@@ -158,6 +162,24 @@ def verify(bucket, site_dir):
     if wrong:
         sys.exit(f"\n{len(wrong)} object(s) would be served as the wrong type. "
                  f"Run: python deploy.py --set-headers")
+
+
+# The commands a deploy runs, in order, so a test can read them without an
+# aws on PATH. Graphs first, so a chart's PNG is in place before the page that
+# links it. The page sync excludes graph/, and an AWS CLI filter applies to the
+# destination listing too, so --delete there cannot reach a graph.
+def plan(bucket, distribution, site_dir, dry_run=False):
+    syncs = [
+        ['aws', 's3', 'sync', f"{site_dir}/{GRAPHS}/", f"s3://{bucket}/{GRAPHS}/",
+         '--delete', '--cache-control', CACHE_GRAPHS],
+        ['aws', 's3', 'sync', f"{site_dir}/", f"s3://{bucket}/",
+         '--delete', '--exclude', f"{GRAPHS}/*", '--cache-control', CACHE_PAGE],
+    ]
+    cmds = [cmd + ['--dryrun'] if dry_run else cmd for cmd in syncs]
+    if distribution:
+        cmds.append(['aws', 'cloudfront', 'create-invalidation',
+                     '--distribution-id', distribution, '--paths', '/*'])
+    return cmds
 
 
 def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False, headers_only=False):
@@ -181,19 +203,8 @@ def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False, headers_only=False
         check_site(site_dir, need_output=True)
 
     print(f"\nDeploying {site_dir}/ -> s3://{bucket}/" + ("  (dry run)" if dry_run else ""))
-    # Graphs first, so a chart's PNG is in place before the page that links it.
-    # The page sync excludes graph/, and an AWS CLI filter applies to the
-    # destination listing too, so --delete there cannot reach a graph.
-    for cmd in (
-        ['aws', 's3', 'sync', f"{site_dir}/{GRAPHS}/", f"s3://{bucket}/{GRAPHS}/",
-         '--delete', '--cache-control', CACHE_GRAPHS],
-        ['aws', 's3', 'sync', f"{site_dir}/", f"s3://{bucket}/",
-         '--delete', '--exclude', f"{GRAPHS}/*", '--cache-control', CACHE_PAGE],
-    ):
-        run(cmd + ['--dryrun'] if dry_run else cmd, dry_run)
-    if distribution:
-        run(['aws', 'cloudfront', 'create-invalidation', '--distribution-id', distribution,
-             '--paths', '/*'], dry_run)
+    for cmd in plan(bucket, distribution, site_dir, dry_run):
+        run(cmd, dry_run)
     if not dry_run:
         verify(bucket, site_dir)
     print("\nDry run - nothing was published or sent\n" if dry_run else "\nDone\n")
