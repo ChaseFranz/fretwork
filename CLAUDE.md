@@ -330,9 +330,14 @@ publish time in the message.
   footer links to. The form asks for a link to where a pack is already published
   and refuses attachments: no audio or chart files are ever accepted through it,
   which is the same rule the hosting design runs on.
-- **Never open pull requests against `upstream` for viewer, scores or rating work.**
-  A genuine fix to the shared tooling (parsers, formula) can still go upstream as a
-  fork PR, from a branch cut off `upstream/main` rather than off `main`.
+- **Never open a pull request against any repository without the maintainer's
+  explicit approval for that specific PR.** A blanket "go ahead and implement" does
+  not cover it: opening a PR publishes work under the maintainer's name to someone
+  else's tracker, so ask, name the target repo, branch and what the PR would carry,
+  and wait for a yes. Never open pull requests against `upstream` for viewer, scores
+  or rating work at all. A genuine fix to the shared tooling (parsers, formula) can
+  go upstream as a fork PR once approved, from a branch cut off `upstream/main`
+  rather than off `main`.
 - **`elo` is the rating branch**, secondary to the viewer: `ScoreData.md` and
   `SkillRating.md` so far. Merge `main` into it periodically; it merges to `main`
   only when there is code worth shipping. The rating never touches `web/`.
