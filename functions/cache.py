@@ -24,6 +24,7 @@ Shape:
                                 'time_ms': ndarray,   # sorted
                                 'lanes':   ndarray uint8,  # bitmask, bit N = lane N
                             },
+                            'notes_hash': str,   # 12 hex digits: sha1(stream_bytes(notes))[:12]; same notes, same hash
                         },
                         ...  # only levels actually charted for this instrument
                     },
@@ -70,6 +71,23 @@ def _hash_code(song_path, digits):
 # folders holding the same charts share a key; a pack moved to a new folder
 # keeps its keys while every path-hashed code changes. None when the song has
 # no stream in SONG_KEY_INSTRUMENTS. A parser change moves every key.
+# The bytes a chart's notes hash over: the two arrays back to back for a flat
+# stream (equal length and fixed widths, so no separator is needed), and the
+# two labelled streams for a drums pair. bundle.fingerprint keeps its own
+# two-element form of the same bytes; routing it through here would change
+# every stored fingerprint and re-render every graph.
+def stream_bytes(notes):
+    if 'time_ms' in notes:
+        return notes['time_ms'].tobytes() + notes['lanes'].tobytes()
+    return b'hand' + stream_bytes(notes['hand_mask']) + b'kick' + stream_bytes(notes['kick_mask'])
+
+
+# A chart's identity: the same notes in another folder hash the same, whatever
+# the song is called. Per (song, instrument, level), where song_key is per song.
+def notes_hash(notes):
+    return hashlib.sha1(stream_bytes(notes)).hexdigest()[:12]
+
+
 def song_key(song_instruments):
     parts = sorted(
         (inst, level, notes['notes']['time_ms'].tobytes(), notes['notes']['lanes'].tobytes())

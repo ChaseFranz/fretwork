@@ -94,6 +94,7 @@ def build_cache(search_path=None, header=None, out_dir=None):
                     ))
                     continue
 
+                level_stream['notes_hash'] = cache_mod.notes_hash(notes)
                 song_levels[level_key] = level_stream
                 instrument_counts[instrument_key][level_key] += 1
 
