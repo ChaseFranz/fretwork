@@ -23,7 +23,7 @@ def print_stopped():
     print("\nStopped\n")
 
 
-def print_published(out_dir, page_files, written, removed, counts, graph_files, packs_line=None):
+def print_published(out_dir, page_files, written, removed, counts, graph_files, packs_line=None, preview=None):
     out = pathlib.Path(out_dir)
     paths = [out / name for name in page_files + graph_files]
     size_mb = sum(q.stat().st_size for q in paths if q.is_file()) / 1_048_576
@@ -33,6 +33,12 @@ def print_published(out_dir, page_files, written, removed, counts, graph_files, 
     print(f"    page files: {written} written, {len(page_files) - written} unchanged"
           + (f", {removed} removed" if removed else ""))
     for label, c in (('graphs', counts['png']), ('curves', counts['curves'])):
+        if label == 'graphs' and preview:
+            code, present = preview
+            state = ('rendered' if c['rendered'] else 'unchanged' if c['unchanged'] else 'kept from before' if c['kept']
+                     else 'failed') if present else 'not in this spreadsheet'
+            print(f"    social preview {code}: {state}" + (f", {c['pruned']} pruned" if c['pruned'] else ""))
+            continue
         print(f"    {label}: {c['rendered']} rendered, {c['unchanged']} unchanged, {c['kept']} kept "
               f"from before, {c['no_graph']} without a graph, {c['failed']} failed, {c['pruned']} pruned")
     print(f"    {len(paths)} files, {size_mb:.1f} MB\n")

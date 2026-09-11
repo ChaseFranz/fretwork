@@ -196,14 +196,14 @@ Stop the server with Ctrl+C.
 
 `python publish.py`
 
-`publish.py` writes the same page `serve.py` serves into a folder - `site/<header>/` by default - as plain files: `index.html` with the table's data baked in, the scripts and styles, Bootstrap, and **every chart's graph pre-rendered** under `graph/<code>.png`. The result needs no server-side code, and its URLs are relative, so it works from a domain root, a sub-path like `user.github.io/fretwork/`, or any static file host. It reads the **spreadsheet** for the table and the **cache** for the graphs, so run Analyze first; it stops if the two are from different builds, unless you pass `--allow-mismatch` on purpose.
+`publish.py` writes the same page `serve.py` serves into a folder - `site/<header>/` by default - as plain files: `index.html` and the sheet files, the scripts and styles, Bootstrap, and **every chart's curve file** under `graph/<code>.json`, from which the page draws the graph itself; the one PNG it renders is the social-preview chart (`page.OG_IMAGE`) that link previews need. The result needs no server-side code, and its URLs are relative, so it works from a domain root, a sub-path like `user.github.io/fretwork/`, or any static file host. It reads the **spreadsheet** for the table and the **cache** for the graphs, so run Analyze first; it stops if the two are from different builds, unless you pass `--allow-mismatch` on purpose.
 
-The first publish of a large library takes a while - measured at about 0.12 seconds per chart, so around ten minutes for 4,600 charts. After that it is incremental:
+The first publish of a large library takes seconds (the curve files are about 4 KB each, 48 MB for 12,000 charts). After that it is incremental:
 
 - files whose bytes did not change are left alone, so a sync to your host uploads only what moved
-- a chart whose notes, header numbers, the metadata the graph header prints, curve settings and render theme are unchanged skips its render, tracked in `graph/manifest.json`
-- a chart that cannot be rendered this time keeps the graph an earlier publish made
-- only graphs an earlier publish recorded are ever removed; nothing else in the folder is touched
+- a chart whose notes, Expert anchor and difficulty block are unchanged keeps its curve file, tracked in `graph/curves-manifest.json`; the preview PNG's own inputs (those plus the metadata the graph header prints, and the render theme) are tracked in `graph/manifest.json`
+- a chart that cannot be written this time keeps the file an earlier publish made
+- only files an earlier publish recorded are ever removed; nothing else in the folder is touched. A library without the preview chart publishes no PNG and removes none
 
 **Optional arguments:**
 - `--header` / `--xlsx`: pick which library's spreadsheet to publish
@@ -211,7 +211,7 @@ The first publish of a large library takes a while - measured at about 0.12 seco
 - `--out-dir`: the folder to write (default `site/<header>/`, from `site_dir` in `config.py`)
 - `--no-bootstrap`: skip the Bootstrap download and inline the built-in styles instead
 - `--packs`: the pack registry to join and list (default `packs.toml` in the repo root)
-- `--force`: re-render every graph and rewrite every curve file. Needed after a change to `functions/plot.py` or a matplotlib upgrade, which the manifest cannot see
+- `--force`: re-render the preview PNG and rewrite every curve file. Needed after a change to `functions/density.py`'s windowing, which the manifests cannot see; a change to the page's drawing or the theme needs nothing, since the page draws
 - `--allow-mismatch`: publish even though the spreadsheet and the cache carry different build timestamps. Without it the run stops, because a table computed from one build beside graphs rendered from another is not a site anyone meant to publish
 
 To check a bundle locally, serve the folder with any static server, for example `python -m http.server 8000 --directory site/Main`, and open **http://localhost:8000**. Opening `index.html` straight from the filesystem will not work: the page uses ES modules, which browsers refuse to load from `file://`.
@@ -268,9 +268,9 @@ Opens the same viewer the website runs, against your local spreadsheet, at http:
 python publish.py --header Local
 ```
 
-Writes `site/Local/` - `index.html` with the table baked in, `404.html`, `about.html`, `robots.txt`, the assets, Bootstrap, and a PNG per chart under `graph/`. The first run on a large library takes around ten minutes; after that only charts whose inputs changed are re-rendered, so it is usually seconds. Add `--force` only after changing `functions/plot.py`, the render theme, or upgrading matplotlib - the manifest cannot see code changes. A change that only touches metadata the graph header does not print (album, year, genre) re-renders no graphs.
+Writes `site/Local/` - `index.html` and the sheet files, `404.html`, `about.html`, `changelog.html`, `robots.txt`, the assets, Bootstrap, a curve file per chart under `graph/` and the one preview PNG. Seconds, first run or not; only charts whose notes changed get a new curve file. The summary's `social preview <code>:` line says whether the PNG was rendered, unchanged or (for a library without that chart) not published.
 
-Publish stops if the spreadsheet and the cache carry different build timestamps (`spreadsheet is from X but the cache is from Y`), because that means Analyze has not run since the last Build; run it and publish again. `--allow-mismatch` exists for the deliberate exception, and `deploy.py` does not take it: a mismatched bundle is published by hand and then sent with `deploy.py --no-publish`, so the decision is taken twice. One more thing that looks like a fault and is not: a commit that changes what the manifest fingerprint is made of (as `69b5a8f` did, when upstream dropped star-power spans from the cache) invalidates every stored hash, so the next publish re-renders every chart once, about 24 minutes for 12,000 charts.
+Publish stops if the spreadsheet and the cache carry different build timestamps (`spreadsheet is from X but the cache is from Y`), because that means Analyze has not run since the last Build; run it and publish again. `--allow-mismatch` exists for the deliberate exception, and `deploy.py` does not take it: a mismatched bundle is published by hand and then sent with `deploy.py --no-publish`, so the decision is taken twice. One more thing that looks like a fault and is not: a commit that changes what a manifest fingerprint is made of invalidates every stored hash, so the next publish rewrites every curve file once (seconds; the bytes are compared before writing, so the sync uploads only what changed).
 
 You can skip this step: `deploy.py` publishes first anyway. Run it separately when you want to look at the bundle before it goes anywhere.
 
@@ -350,7 +350,8 @@ Run the same call with `--metric-name BytesDownloaded` for bytes. CloudFront's m
 | `deploy.py` refuses: "holds files publish did not write" | `FRETWORK_SITE_DIR` points at the wrong folder | Point it at `site/<header>` |
 | `deploy.py` refuses: a credential in `.env` | Keys were pasted into `.env` | Remove them; use an AWS profile or SSO |
 | Cache headers wrong on files already in the bucket | `sync` only sets headers on files it uploads | `python deploy.py --set-headers` |
-| A code rollback to before the `data/` split | The old `deploy.py` refuses `data/` as a stray and the old `prune_page` does not know the curve files | `rm -rf site/Local/data site/Local/graph/*.json site/Local/graph/curves-manifest.json`, then the old `publish.py` and `deploy.py`; `graph/manifest.json` kept its shape, so no PNG re-renders |
+| A code rollback to before the `data/` split | The old `deploy.py` refuses `data/` as a stray and the old `prune_page` does not know the curve files | `rm -rf site/Local/data site/Local/graph/*.json site/Local/graph/curves-manifest.json`, then the old `publish.py` and `deploy.py` |
+| A code rollback to the PNG-per-chart page (before `fretladder-v1.6.0`) | `graph/manifest.json` records only the preview PNG now, so the old publish would render all 11,903 others (about 24 minutes, a 2.2 GB upload) | `cp caches/Local_manifest_pre06.json site/Local/graph/manifest.json` first (saved when the PNGs were pruned), so only files that are actually missing render |
 | Blank page, console says "Expected a JavaScript-or-Wasm module script" | Objects are served as `binary/octet-stream` | `python deploy.py --set-headers`, then hard-reload |
 
 **Rolling back:** every build's outputs are kept, so the previous site is one command away. Point publish at the older pair and deploy that:

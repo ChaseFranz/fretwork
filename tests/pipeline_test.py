@@ -339,12 +339,18 @@ def run_all(work, header, args):
     st.check(singles and all(r[gcols.index('Copies')] == 1 for r in singles), 'Hard = Expert or Lead = Rhythm counted as a copy')
     st.check(all(isinstance(r[gcols.index('Copies')], int) and r[gcols.index('Copies')] >= 1 for r in guitar['rows']), 'a Copies value is not a positive integer')
     st.check({k: v['rows'] for k, v in boot['data'].items()} == lib.rows_by_sheet, 'manifest row counts')
+    # section 06: the page draws from the curve JSON; the only PNG publish makes is the
+    # social preview, which this library lacks, so none is written and the manifest is empty
     manifest = json.loads((site / 'graph' / 'manifest.json').read_text())
     codes = frames.codes_in(sheets)
-    st.check(sorted(manifest) == sorted(codes), f'manifest has {len(manifest)} entries, expected {len(codes)}')
-    for code in codes:
-        st.check((site / 'graph' / f'{code}.png').read_bytes()[:4] == b'\x89PNG', f'{code}.png is not a PNG')
-    st.check(re.search(rf'graphs: {len(codes)} rendered, 0 unchanged', st.out), 'graph banner')
+    st.check(manifest == {}, f'PNG manifest has {len(manifest)} entries, expected none')
+    st.check(not list((site / 'graph').glob('*.png')), f'PNGs were written: {list((site / "graph").glob("*.png"))}')
+    st.check(f'social preview chart {page.OG_CODE} is not in this spreadsheet' in st.out, 'the social-preview warning')
+    st.check(f'social preview {page.OG_CODE}: not in this spreadsheet' in st.out, 'the social-preview banner line')
+    curves_manifest = json.loads((site / 'graph' / 'curves-manifest.json').read_text())
+    st.check(sorted(curves_manifest) == sorted(codes) and all((site / 'graph' / f'{c}.json').is_file() for c in codes),
+             f'curves manifest has {len(curves_manifest)} entries, expected {len(codes)}')
+    st.check(re.search(rf'curves: {len(codes)} rendered, 0 unchanged', st.out), 'curves banner')
     about = (site / 'about.html').read_text(encoding='utf-8')
     a = Anchors(); a.feed(about)
     st.check(a.scripts == 0 and a.h2 == len(labels.ABOUT), f'about.html: {a.scripts} scripts, {a.h2} h2')
@@ -373,7 +379,8 @@ def run_all(work, header, args):
         st.check(f'href="static/{boot_files[0].name}"' in index and '<style>' not in index, 'index.html should link bootstrap')
         st.check(not (site / 'bootstrap.css').exists(), 'a top-level bootstrap.css survived')
         st.check(len(index) < 18000, f'index.html is {len(index)} bytes; the rows should be in data/')
-        st.check(re.search(rf'graphs: 0 rendered, {len(codes)} unchanged', st.out), 'graphs re-rendered on a no-op')
+        st.check(re.search(rf'curves: 0 rendered, {len(codes)} unchanged', st.out), 'curves re-rendered on a no-op')
+        st.check(not list((site / 'graph').glob('*.png')), 'a PNG appeared on the second publish')
         st.check(sorted(os.listdir(site)) == sorted(deploy.BUNDLE_TOP), f'site holds {sorted(os.listdir(site))}')
         st.done('bootstrap linked, 0 graphs re-rendered')
     else:
@@ -403,7 +410,9 @@ def run_all(work, header, args):
     st.check(lines[5] == 'cloudfront wait invalidation-completed --distribution-id E1FIXTURE0000 --id I1FIXTURE0000', lines[5])
     heads = [re.search(r'--key (\S+)', l).group(1) for l in lines[8:]]
     st.check(heads == list(samples), f'head-object keys {heads} vs {list(samples)}')
-    st.check(len(samples) == 8 and st.out.count('ok  ') >= len(samples) and 'Done' in st.out, f'verify: {len(samples)} samples')
+    # seven kinds: the fixture publishes no PNG (section 06), so the graph/*.png sample is skipped
+    st.check(len(samples) == 7 and 'graph/' not in ''.join(k for k in samples if k.endswith('.png'))
+             and st.out.count('ok  ') >= len(samples) and 'Done' in st.out, f'verify: {len(samples)} samples')
     st.done(f'four syncs, invalidation and wait, two deletes, {len(samples)} head-objects all ok')
 
     # ---- deploy guards ---------------------------------------------------------------------

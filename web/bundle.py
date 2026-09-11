@@ -192,10 +192,13 @@ class GraphRun:
             self.counts['kept'] += 1
 
     # Only after a completed pass, and only files a previous publish recorded.
-    def prune(self):
+    # A pass that resolved nothing keeps everything: a cache/xlsx mismatch, or
+    # a PNG list that was empty on purpose (the caller has already said so).
+    def prune(self, expected_empty=False):
         if not self.resolved:
-            tqdm.write("  no spreadsheet code was found in the cache - are the xlsx and "
-                       "cache from the same build? Nothing pruned.")
+            if not expected_empty:
+                tqdm.write("  no spreadsheet code was found in the cache - are the xlsx and "
+                           "cache from the same build? Nothing pruned.")
             self.fresh = {**self.prior, **self.fresh}
             return
         for code in set(self.prior) - set(self.fresh):
@@ -203,27 +206,33 @@ class GraphRun:
             self.counts['pruned'] += 1
 
 
-def _run_product(graph_dir, codes, renderer, force, product, label):
+def _run_product(graph_dir, codes, renderer, force, product, label, expected_empty=False):
     with tempfile.TemporaryDirectory(prefix=TMP_PREFIX) as scratch:
         run = GraphRun(graph_dir, renderer, scratch, force, product)
         try:
-            for i, code in enumerate(tqdm(codes, desc=label, unit="chart"), 1):
+            for i, code in enumerate(tqdm(codes, desc=label, unit="chart", disable=not codes), 1):
                 run.one(code)
                 if i % FLUSH_EVERY == 0:
                     _save_manifest(graph_dir, {**run.prior, **run.fresh}, product.manifest)
         finally:
             _save_manifest(graph_dir, {**run.prior, **run.fresh}, product.manifest)
-    run.prune()
+    run.prune(expected_empty)
     _save_manifest(graph_dir, run.fresh, product.manifest)
     files = [f"{GRAPH_DIR}/{code}{product.suffix}" for code in sorted(run.fresh)] + [f"{GRAPH_DIR}/{product.manifest}"]
     return run.counts, files
 
 
-# Renders graph/<code>.png and writes graph/<code>.json for every code.
-# Returns ({'png': counts, 'curves': counts}, relative file names).
-def render_graphs(out_dir, codes, renderer, force=False):
+# Writes graph/<code>.json for every code, and graph/<code>.png for png_codes
+# only: the page draws from the JSON, so the one PNG left is the social
+# preview. None means every code, which render-only callers may still want.
+# With an empty png_codes the PNG pass resolves nothing, so the zero-resolved
+# rule keeps every PNG an earlier publish recorded (the warning is the
+# caller's to print). Returns ({'png': counts, 'curves': counts}, file names).
+def render_graphs(out_dir, codes, renderer, force=False, png_codes=None):
     graph_dir = pathlib.Path(out_dir) / GRAPH_DIR
     graph_dir.mkdir(parents=True, exist_ok=True)
-    png_counts, png_files = _run_product(graph_dir, codes, renderer, force, PNG, "Rendering graphs")
+    png_codes = list(codes) if png_codes is None else list(png_codes)
+    png_counts, png_files = _run_product(graph_dir, png_codes, renderer, force, PNG, "Rendering graphs",
+                                         expected_empty=not png_codes)
     curve_counts, curve_files = _run_product(graph_dir, codes, renderer, force, CURVES, "Writing curves")
     return {'png': png_counts, 'curves': curve_counts}, png_files + curve_files

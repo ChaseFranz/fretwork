@@ -109,9 +109,15 @@ def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
 
     print(f"\nPublishing {built.xlsx_path}")
     page_files, written, removed = bundle.write_page(out_dir, built.files)
-    counts, graph_files = bundle.render_graphs(out_dir, frames.codes_in(built.sheets), renderer, force)
+    codes = frames.codes_in(built.sheets)
+    # one PNG, the social preview; every other graph is the curve JSON the page draws
+    png_codes = [page.OG_CODE] if page.OG_CODE in codes else []
+    if not png_codes:
+        print(f"  social preview chart {page.OG_CODE} is not in this spreadsheet; no PNG published, previous PNGs kept")
+    counts, graph_files = bundle.render_graphs(out_dir, codes, renderer, force, png_codes=png_codes)
     banner.print_published(out_dir, page_files, written, removed, counts, graph_files,
-                           packs_line=f"packs: {len(resolved.registry.packs)} registered from {resolved.registry.path.name}")
+                           packs_line=f"packs: {len(resolved.registry.packs)} registered from {resolved.registry.path.name}",
+                           preview=(page.OG_CODE, bool(png_codes)))
 
 
 def main():

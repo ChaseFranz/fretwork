@@ -19,6 +19,7 @@ _PLACEHOLDER = re.compile(r'__([A-Z][A-Z_]*)__')
 
 # a chart whose graph reads well as a link preview
 OG_IMAGE = 'graph/10145439XG.png'
+OG_CODE = OG_IMAGE.rsplit('/', 1)[-1].rsplit('.', 1)[0]   # the one chart publish still renders as a PNG
 
 # Crawlers are welcome on the page and not in the graph folder: it is ~12,000
 # PNGs and a couple of gigabytes, none of it meaningful out of context, and all
