@@ -49,6 +49,7 @@ COLUMN_LABELS = {
     'D':          'Difficulty (D)',
     'RemapDiff':  'Remap Tier',
     'CalcTier':   'Calc Tier',
+    'Pct':        'Percentile',
 
     # note density
     'pNPS':       'Peak notes/sec',
@@ -86,6 +87,7 @@ COLUMN_HELP = {
     'D':          'Calculated difficulty, D = N x V x CoV. The main output. Higher is harder, uncapped.',
     'RemapDiff':  'D binned to 0-6, calibrated per instrument so the spread matches official tiers. From the Expert chart only.',
     'CalcTier':   'Log-scaled tier, one step per 0.44 increase in ln(D) above 7.6. Uncapped, so hard customs reach 10+. From the Expert chart only.',
+    'Pct':        'Sits at or above N% of the charts on this sheet at the same level, officials and customs together. Ties share a value and the top chart reads 100. The Guitar sheet pools Lead, Rhythm and Co-op, which share one calibration group.',
 
     'pNPS':       'Busiest one-second window, in notes per second.',
     'aNPS':       'Notes per second across the whole chart, including rests.',
@@ -181,7 +183,7 @@ FOOTER_LINKS = (
 # the site is for, so it sits beside the song instead of past the right edge.
 # Anything missing from this list keeps its spreadsheet position, at the end.
 DISPLAY_ORDER = (
-    'Song Title', 'Artist', 'D', 'CalcTier', 'Level', 'Type',
+    'Song Title', 'Artist', 'D', 'Pct', 'CalcTier', 'Level', 'Type',
     'DurationS', 'NoteCount', 'Charter', 'Release',
     'Difficulty', 'RemapDiff', 'Official', 'Code',
 )
@@ -214,7 +216,9 @@ EXPLAINER = (
      'so it keeps climbing past 10 for the hardest customs. Remap Tier is the same '
      'value binned into the 0\u20136 range the games use, calibrated per instrument. Both '
      'are computed from the Expert chart and then shown on every difficulty of that '
-     'song, because song.ini carries only one rating per instrument.'),
+     'song, because song.ini carries only one rating per instrument. Percentile is '
+     'where a chart\u2019s D sits among the charts on its sheet at the same level, so it '
+     'moves as the library grows.'),
     ('What it does not know',
      'Strum, HOPO and tap state are discarded, so how a chart flows does not change '
      'its score. There is no pattern recognition \u2013 trills, anchoring and chord '
@@ -359,6 +363,7 @@ UI = {
 
     # row / graph interaction
     'row_tip':          'Click for the difficulty graph',
+    'pct_of':           'At or above {pct}% of {level} {sheet} charts',
     'graph_label':      'Difficulty graph',
     'grid_label':       'Charts, sortable and filterable by column',
     'copy_code_tip':    'Copy this code',
