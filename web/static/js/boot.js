@@ -4,9 +4,14 @@ const BOOT = JSON.parse(document.getElementById("fw-boot").textContent);
 
 export const DATA = BOOT.data;
 export const LABELS = BOOT.labels;
+export const ORDER = BOOT.order;
+export const HIDDEN_DEFAULT = BOOT.hiddenDefault;
+export const VALUE_ORDER = BOOT.valueOrder;
+export const VALUE_LABELS = BOOT.valueLabels;
+export const FOOTER = BOOT.footer;
 export const HELP = BOOT.help;
+export const EXPLAINER = BOOT.explainer;
 export const UI = BOOT.ui;
-export const SCALED = new Set(BOOT.scaled);
 export const TIMECOLS = new Set(BOOT.timecols);
 export const MISSING = BOOT.missing;
 export const MISS_TEXT = BOOT.missText;

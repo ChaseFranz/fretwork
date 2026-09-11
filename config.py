@@ -21,13 +21,16 @@ AND which backup file Analyze will use to restore song.ini diff_guitar values (o
 # ------
 
 # Library to scan. set here or override on the command line with --search-path.
-SEARCH_PATH = r"C:\Users\user\Documents\Clone Hero\Songs" # edit to your library path before running Build
+SEARCH_PATH = r"C:\Users\[user]\Documents\Clone Hero\Songs" # edit to your library path before running Build
 
 # Identifies the run. Overridable with --header.
 HEADER = "Test" # edit to title your cache before running Build/Analyze/Render
 
 # the name the web viewer shows; fretwork stays the name of the engine underneath
-SITE_NAME = 'fretladder'
+SITE_NAME = 'Fretladder'
+
+# public URL of the published site, used for social-preview links; blank to omit them
+SITE_URL = 'https://fretladder.com'
 
 #-----------------
 # Analyze Options
@@ -62,9 +65,7 @@ DIFF_WRITE_MODE = None # None | "CalcTier" | "RemapDiff" | "Restore"
 # Render settings
 # Edit to select theme, change colors, etc
 # ----------------
-# Light/dark themes change background/text/solo colors - selected via 'mode' in DEFAULTS
-# the accent palette (color_d, color_nps, color_vps, color_star_power) stay in DEFAULTS and is shared
-# read by plot.py
+# 'mode' in RENDER_DEFAULT picks theme, read by plot.py
 
 RENDER_THEMES = {
     "light": {
@@ -74,7 +75,6 @@ RENDER_THEMES = {
         "muted_text_color": "#555555",
         "grid_color": "#000000",
         "spine_color": "#333333",
-        "color_solo": "#9A9A9A",
     },
     "dark": {
         "figure_bg": "#1E1E1E",
@@ -83,7 +83,6 @@ RENDER_THEMES = {
         "muted_text_color": "#AAAAAA",
         "grid_color": "#FFFFFF",
         "spine_color": "#CCCCCC",
-        "color_solo": "#000000", #previously #3A3A3A
     },
 }
  
@@ -96,35 +95,39 @@ RENDER_DEFAULT = {
     "color_d": "#B71FB7",
     "color_nps": "#127BC1",
     "color_vps": "#DD6C1B",
- 
-    "color_star_power": "#66A6EA",
-    "span_alpha": 0.22,
- 
+
     "linewidth": 1.5,
     "grid_alpha": 0.25,
     "title_size": 13,
     "label_size": 10,
     "tick_size": 9,
  
+    "title_pad": 22,   # room for the metadata line between the title and the axes
+
     "fill_curves": True,
     "fill_alpha": 0.12,
-
-    "show_solo_spans": True,
-    "show_star_power_spans": False,
 }
 
 #------------------------------
-# RENDER output directory - DON'T NEED TO EDIT, these dump to the tool's folder
+# parallelization control 
+#------------------------------
+# Caps how many worker processes mid_loop/chart_loop spawn to parse your library in parallel.
+# best to leave this alone, it runs really fast now and you don't need to use this as a CPU benchmark  
+PARSE_MAX_WORKERS = None
+
+#------------------------------
+# Output directories - DON'T NEED TO EDIT, these dump to the tool's folder
 #------------------------------
 RENDER_DIR = 'renders'
 
-# fix for cache/metrics folders 
-OUTPUT_DIR = '.'
-CACHE_DIR = 'caches'
-METRICS_DIR = 'metrics'
+# PUBLISH output directory - the static site lands in SITE_DIR/<header>/
+SITE_DIR = 'site'
 
-KIND_DIRS = {
-    'cache': CACHE_DIR,
-    'errors': CACHE_DIR,
-    'metrics': METRICS_DIR,
+# where each kind of output lands, relative to the tool's folder
+# cache / errors / backup deliberately share one folder
+OUTPUT_DIRS = {
+    'cache':   'caches',
+    'errors':  'caches',
+    'backup':  'caches',
+    'metrics': 'metrics',
 }

@@ -1,13 +1,16 @@
 // The two bodies the filter panel can show: a min/max box, or a value list.
-import { UI, MISSING, MISS_TEXT, TIMECOLS } from "./boot.js";
+import { UI, MISSING, MISS_TEXT, TIMECOLS, VALUE_LABELS } from "./boot.js";
 import { esc } from "./dom.js";
 import { lab, t, mmss, key } from "./format.js";
 import { distinct, passing } from "./query.js";
 import { state, idx, rowsAll } from "./state.js";
 
-// A sentinel reads as the em dash but still matches on its raw key.
+// A sentinel reads as the em dash, and true/false reads as what it means, but
+// both still match on the raw key underneath.
 const shown = (col, k) =>
-  (MISSING[col] || []).indexOf(parseFloat(k)) >= 0 ? MISS_TEXT : k;
+  (MISSING[col] || []).indexOf(parseFloat(k)) >= 0
+    ? MISS_TEXT
+    : ((VALUE_LABELS[col] || {})[k] ?? k);
 
 export function rangeBody(col) {
   const f = state.filters[col], i = idx(col);

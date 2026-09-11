@@ -1,17 +1,69 @@
   /* project-specific only - Bootstrap handles layout, controls, table, dropdown, modal */
-  :root { --fw-accent:#b71fb7; --fw-code:#4aa3e0; }
+  /* Two magentas, not one. b71fb7 is a fill: white on it clears AA at 5.4:1, but
+     as text on the dark page it is only 2.9:1, so anything the accent colours as
+     TEXT uses the lighter tint instead (5.3:1 on the header, 6.1:1 on the body).
+     --fw-dim replaces Bootstrap's #6c757d, which its .text-secondary utility and
+     its outline buttons hardcode in both themes and which is 3.3:1 here.
+     Ratios are against #212529 body / #2b3035 header; keep anything that is text
+     above 4.5:1, and anything you can click above 3:1. */
+  :root { --fw-accent:#b71fb7; --fw-accent-text:#e879e8;
+          --fw-code:#4aa3e0; --fw-dim:#9ba3ab; }
   [data-bs-theme="dark"] { --bs-primary:#b71fb7; --bs-link-color-rgb:74,163,224; }
-  body { font-size:13px; }
-  .fw-accent { color:var(--fw-accent); }
+  html, body { height:100%; }
+  body { font-size:13px; margin:0; display:flex; flex-direction:column; }
+  .fw-accent { color:var(--fw-accent-text); }
+  :focus-visible { outline:2px solid var(--fw-accent-text); outline-offset:2px; }
+  .fw-wrap tbody tr:focus-visible, .fw-wrap thead th .lbl:focus-visible {
+    outline:2px solid var(--fw-accent-text); outline-offset:-2px; }
+  #modal:focus-visible { outline:none; }
+  .text-secondary { color:var(--fw-dim)!important; }
   .btn-check:checked + .btn, .btn-fw.active { background:var(--fw-accent); border-color:var(--fw-accent); color:#fff; }
-  .fw-head { position:sticky; top:0; z-index:1030; }
-  .fw-wrap { overflow:auto; height:calc(100vh - 118px); }
+  /* Bootstrap bakes its button colours into the compiled CSS rather than reading
+     --bs-primary, so overriding that variable alone leaves the buttons blue. */
+  .btn-outline-secondary { --bs-btn-color:var(--fw-dim); --bs-btn-border-color:#495057;
+    --bs-btn-hover-color:#fff; --bs-btn-hover-bg:#3d444b; --bs-btn-hover-border-color:var(--fw-dim); }
+  .btn-outline-primary { --bs-btn-color:var(--fw-accent-text); --bs-btn-border-color:var(--fw-accent);
+    --bs-btn-hover-color:#fff; --bs-btn-hover-bg:var(--fw-accent); --bs-btn-hover-border-color:var(--fw-accent); }
+  .btn-primary { --bs-btn-bg:var(--fw-accent); --bs-btn-border-color:var(--fw-accent);
+    --bs-btn-hover-bg:#9c1a9c; --bs-btn-hover-border-color:#9c1a9c; }
+  .fw-head { flex:0 0 auto; z-index:1030; }
+  .fw-wrap { flex:1 1 auto; min-height:0; overflow:auto; }
+  /* .more is set from scroll.js, only while something is past the right edge */
+  .more { mask-image:linear-gradient(to right, #000 calc(100% - 40px), transparent);
+    -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+  .fw-foot { flex:0 0 auto; font-size:11px; color:var(--bs-secondary-color); }
+  .fw-foot a { color:var(--bs-secondary-color); text-decoration:none; }
+  .fw-foot a:hover { color:var(--fw-code); text-decoration:underline; }
+  .sep { opacity:.35; margin:0 .35rem; }
+  #src2 { display:none; }
+  /* an underlined text link, not another chip: it opens an explanation, it does
+     not change what the table shows */
+  .fw-head .info { background:none; border:0; padding:0; font-size:12px; cursor:pointer;
+    color:var(--fw-accent-text); text-decoration:underline; text-underline-offset:2px; }
+  .fw-head .info:hover { color:var(--bs-body-color); }
+  .beta { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--fw-accent-text); border:1px solid var(--fw-accent-text); border-radius:10px;
+    padding:1px 6px; vertical-align:2px; }
+  /* no measure cap: one footer line beats three, and it is a single sentence */
+  .fw-foot .beta-note { color:var(--bs-body-color); }
+  .fw-foot a.req { color:var(--fw-accent-text); font-weight:600; }
+  .fw-foot a.req:hover { color:var(--fw-accent-text); }
   .fw-wrap table { margin-bottom:0; }
   .fw-wrap thead th { position:sticky; top:0; z-index:2; background:var(--bs-tertiary-bg);
     padding:0; font-size:11px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
-  .fw-wrap thead th .thw { display:flex; align-items:center; gap:2px; padding:6px 6px 6px 10px; }
-  .fw-wrap thead th .lbl { cursor:pointer; user-select:none; flex:1; }
-  .fw-wrap thead th.sorted .lbl, .fw-wrap thead th.filtered .flt { color:var(--fw-accent); }
+  .fw-wrap thead th .thw { display:flex; align-items:center; gap:2px;
+    padding:6px 6px 6px 10px; position:relative; }
+  .fw-wrap thead th .lbl { cursor:pointer; user-select:none; flex:1;
+    overflow:hidden; text-overflow:ellipsis;
+    background:none; border:0; padding:0; margin:0; text-align:left;
+    color:inherit; font:inherit; letter-spacing:inherit; text-transform:inherit; }
+  /* the drag target for column width: invisible until the header is hovered */
+  .fw-wrap thead th .rz { position:absolute; top:0; right:0; width:7px; height:100%;
+    cursor:col-resize; touch-action:none; opacity:0; background:var(--fw-accent-text); }
+  .fw-wrap thead th:hover .rz { opacity:.45; }
+  .fw-wrap thead th .rz:hover { opacity:1; }
+  body.resizing { cursor:col-resize; user-select:none; }
+  .fw-wrap thead th.sorted .lbl, .fw-wrap thead th.filtered .flt { color:var(--fw-accent-text); }
   .fw-wrap thead th.filtered { background:#2b2233; }
   .fw-wrap td { padding:5px 10px; white-space:nowrap; vertical-align:middle; }
   td.num { text-align:right; font-variant-numeric:tabular-nums; }
@@ -20,11 +72,18 @@
   td.rank { color:var(--bs-secondary-color); }
   td.code { font-family:var(--bs-font-monospace); color:var(--fw-code); cursor:pointer; }
   td.code:hover { text-decoration:underline; }
-  td.title { max-width:320px; overflow:hidden; text-overflow:ellipsis; }
-  /* level + difficulty colors carried over from xlsx_format.py so the two views read alike */
-  .lvl { color:#1a1a1c; font-weight:600; }
-  .Easy{background:#c6efce}.Medium{background:#bdd7ee}.Hard{background:#ffe5b4}.Expert{background:#ffc7ce}
-  .scale { border-radius:4px; padding:1px 6px; color:#1a1a1c; font-weight:600; }
+  td.title { max-width:300px; white-space:normal; overflow-wrap:break-word; }
+  td.song { min-width:150px; }
+  td.artist { max-width:220px; }
+  /* The four level colours still come from xlsx_format.py, so the site and the
+     spreadsheet agree on which colour means which level - but they are worn as
+     an outline rather than as a filled block, which stops four saturated
+     rectangles per row competing with the song titles. */
+  .lvl { background:none; border:1px solid currentColor; font-weight:600; padding:0 7px; }
+  .Easy{color:#c6efce}.Medium{color:#bdd7ee}.Hard{color:#ffe5b4}.Expert{color:#ffc7ce}
+  /* D is the number the site exists for; weight says so without a colour ramp.
+     Not called .lead - that is a Bootstrap utility and it is 1.25rem. */
+  td.headline { font-weight:600; color:var(--bs-emphasis-color); }
   .blank { color:var(--bs-secondary-color); }
   #dd { position:fixed; width:255px; max-height:min(420px,70vh); overflow:auto;
         z-index:1050; text-transform:none; letter-spacing:normal; font-size:12px; }
@@ -41,14 +100,75 @@
   tr:hover td.code .cp { visibility:visible; }
   td.code .cp:hover { opacity:1; }
   #cd { position:fixed; width:230px; max-height:min(420px,70vh); overflow:auto; z-index:1050; font-size:12px; }
-  #cd .form-check { margin-bottom:0; padding:2px 4px 2px 1.6rem; border-radius:4px; }
-  #cd .form-check:hover { background:var(--bs-tertiary-bg); }
-  #modal { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
+  #cd .cc { display:flex; align-items:center; gap:4px; border-radius:4px; }
+  #cd .cc:hover { background:var(--bs-tertiary-bg); }
+  #cd .cc.dragging { opacity:.4; }
+  #cd .cc .grip { cursor:grab; opacity:.6; padding:0 2px; user-select:none; }
+  #cd .cc .grip:active { cursor:grabbing; }
+  #cd .form-check { flex:1; margin-bottom:0; padding:2px 4px 2px 1.5rem; }
+  #modal, #about { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
            align-items:center; justify-content:center; z-index:1060; padding:24px; }
-  #modal.on { display:flex; }
-  #modal .mcard { max-width:100%; max-height:92vh; overflow:auto; }
+  #modal.on, #about.on { display:flex; }
+  #modal .mcard, #about .mcard { max-width:100%; max-height:92vh; overflow:auto; }
+  #about .mcard { max-width:min(680px, 100%); background:var(--bs-body-bg);
+    border:1px solid var(--bs-border-color); border-radius:8px; padding:20px 22px; }
+  /* the card is wide enough for the video; the prose is not, so it keeps a measure */
+  #about .vid { position:relative; aspect-ratio:16/9; margin:.9rem 0 .45rem; }
+  #about .vid iframe { position:absolute; inset:0; width:100%; height:100%;
+    border:0; border-radius:6px; }
+  #about p.cap { font-size:11px; color:var(--fw-dim); }
+  #about h2 { font-size:12px; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--fw-accent-text); margin:1.1rem 0 .3rem; }
+  #about p { margin:0; font-size:13px; line-height:1.55; max-width:62ch; }
+  #about .mhead { margin-bottom:0; align-items:center; justify-content:space-between; }
+  #about .x { background:none; border:0; color:var(--fw-dim); font-size:22px;
+    line-height:1; padding:0 2px; cursor:pointer; }
+  #about .x:hover { color:var(--bs-body-color); }
+  #about p.more { margin-top:1.4rem; font-size:11px; }
+  #about p.more a { color:var(--fw-accent-text); }
+  .mhead .rpt { font-size:11px; white-space:nowrap; }
   #modal img { max-width:100%; max-height:86vh; border-radius:8px; display:block; }
-  #modal .mhead { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  /* both overlays use this header, so it is not scoped to either one */
+  .mhead { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  /* narrow screens: tighten everything so the difficulty column is on screen
+     without a sideways swipe, and give the strapline its own line */
+  @media (max-width:640px) {
+    /* The header was four wrapped rows and a quarter of a phone screen. Now it
+       is three: the name, then search beside the count, then one strip of
+       controls that scrolls sideways rather than wrapping. The strapline moves
+       to the footer, where there is room for it. */
+    .fw-head { padding-left:.5rem!important; padding-right:.5rem!important; }
+    .fw-head #brand { white-space:nowrap; }
+    .fw-head #src { display:none; }
+    #src2 { display:block; }
+    /* the search may not take the whole line, or the count is orphaned onto one
+       of its own and the header grows back by a row */
+    .fw-head #q { flex:1 1 55%; min-width:0!important; }
+    .fw-head #count { order:1; }
+    #tools { order:2; flex:1 1 100%; overflow-x:auto; scrollbar-width:none;
+      scroll-padding-right:28px; }
+    #tools::-webkit-scrollbar { display:none; }
+    #tools > * { flex:0 0 auto; }
+    /* the strip is short, so its fade is narrower than the table's */
+    #tools.more { mask-image:linear-gradient(to right, #000 calc(100% - 34px), transparent);
+      -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 34px), transparent); }
+    /* the attribution row scrolls sideways too, rather than wrapping to three
+       lines and taking the screen back from the table */
+    .fw-foot .d-flex { flex-wrap:nowrap!important; overflow-x:auto; scrollbar-width:none; }
+    .fw-foot .d-flex::-webkit-scrollbar { display:none; }
+    .fw-foot .d-flex > * { flex:0 0 auto; }
+    .fw-wrap td { padding:5px 6px; }
+    .fw-wrap thead th .thw { padding:6px 4px 6px 6px; gap:0; }
+    /* a two-line header costs one row and buys the width that puts the
+       difficulty column on screen without a sideways swipe */
+    .fw-wrap thead th, .fw-wrap thead th .lbl { white-space:normal; }
+    td.title { max-width:128px; }
+    td.artist { max-width:100px; }
+    td.song { min-width:120px; }
+    td.num { font-size:12px; }
+    /* a 7px drag target is not a touch target, and it would fight the scroll */
+    .fw-wrap thead th .rz { display:none; }
+  }
   #hint { position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
           z-index:1070; opacity:0; transition:opacity .18s; pointer-events:none; }
   #hint.on { opacity:1; }

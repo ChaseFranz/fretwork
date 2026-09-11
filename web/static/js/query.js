@@ -1,5 +1,5 @@
 // Selecting and ordering rows: what the active filters and sort resolve to.
-import { RANGE_MIN_DISTINCT } from "./boot.js";
+import { RANGE_MIN_DISTINCT, VALUE_ORDER } from "./boot.js";
 import { el } from "./dom.js";
 import { isMissing, key } from "./format.js";
 import { state, cols, idx, rowsAll } from "./state.js";
@@ -12,10 +12,21 @@ function isNumeric(col) {
          rowsAll().every(r => r[i] === null || typeof r[i] === "number");
 }
 
-// Every distinct value in a column, numerically ordered where possible.
+// Where a column's values are declared to have an order of their own, that is
+// the order; anything the list does not name falls in after it, alphabetically.
+const rank = (order, v) => {
+  const at = order.indexOf(v);
+  return at < 0 ? order.length : at;
+};
+
+// Every distinct value in a column, in the order it should be read.
 export function distinct(col) {
   const i = idx(col);
-  return [...new Set(rowsAll().map(r => key(r[i])))].sort((a, b) => {
+  const values = [...new Set(rowsAll().map(r => key(r[i])))];
+  const order = VALUE_ORDER[col];
+  if (order)
+    return values.sort((a, b) => rank(order, a) - rank(order, b) || a.localeCompare(b));
+  return values.sort((a, b) => {
     const x = parseFloat(a), y = parseFloat(b);
     return !isNaN(x) && !isNaN(y) ? x - y : a.localeCompare(b);
   });
@@ -56,6 +67,11 @@ export function passing(exceptCol) {
 export function compare(a, b) {
   const am = isMissing(state.sortCol, a), bm = isMissing(state.sortCol, b);
   if (am || bm) return am && bm ? 0 : (am ? 1 : -1);
+  const order = VALUE_ORDER[state.sortCol];
+  if (order) {
+    const d = rank(order, key(a)) - rank(order, key(b));
+    return state.sortAsc ? d : -d;
+  }
   if (typeof a === "number" && typeof b === "number")
     return state.sortAsc ? a - b : b - a;
   return state.sortAsc

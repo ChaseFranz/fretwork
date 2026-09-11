@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="fretladder">
+  <rect width="64" height="64" rx="13" fill="#161618"/>
+  <g fill="#b71fb7">
+    <rect x="8"  y="40" width="9" height="15" rx="2.5"/>
+    <rect x="22" y="31" width="9" height="24" rx="2.5"/>
+    <rect x="36" y="21" width="9" height="34" rx="2.5"/>
+    <rect x="50" y="10" width="9" height="45" rx="2.5"/>
+  </g>
+</svg>

@@ -14,9 +14,10 @@ STATIC_DIR = pathlib.Path(__file__).resolve().parent / 'static'
 STATIC_GLOBS = (
     ('js/*.js', 'text/javascript; charset=utf-8'),
     ('css/*.css', 'text/css; charset=utf-8'),
+    ('*.svg', 'image/svg+xml'),
 )
 
-REQUIRED = ('index.html', 'js/main.js', 'css/app.css')
+REQUIRED = ('index.html', '404.html', 'about.html', 'js/main.js', 'css/app.css')
 
 
 def read_text(name):

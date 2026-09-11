@@ -7,10 +7,20 @@ to the song's Expert chart - see Methodology.md.
 
 from functions import density, formula
 
+SCORED_KEYS = ('time_ms', 'lanes')
 
-# None when the entry has no usable notes; RemapDiff/CalcTier are None when the
-# instrument has no Expert chart to anchor against.
+
+# True for the five-fret stream shape every metric understands; a drums entry
+# carries {'hand_mask', 'kick_mask'} and is not scored yet.
+def scorable(notes):
+    return isinstance(notes, dict) and all(k in notes for k in SCORED_KEYS)
+
+
+# None when the entry has no usable notes or is not scored yet; RemapDiff/CalcTier
+# are None when the instrument has no Expert chart to anchor against.
 def entry_difficulty(entry):
+    if not scorable(entry['notes']):
+        return None
     metrics = density.calc_metrics(entry['notes'])
     if metrics is None:
         return None

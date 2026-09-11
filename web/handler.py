@@ -15,15 +15,20 @@ CSS_TYPE = 'text/css; charset=utf-8'
 
 GRAPH_PREFIX = '/graph/'
 PAGE_PATHS = ('/', '/index.html')
+PAGE_TYPES = {'.html': HTML_TYPE, '.txt': TEXT_TYPE}
+NOT_FOUND = '/404.html'
 
 
 class MetricsHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
+        pages = self.server.pages
 
         if path in PAGE_PATHS:
-            return self._send(200, HTML_TYPE, self.server.body)
+            return self._send(200, HTML_TYPE, pages['/index.html'])
+        if path in pages:
+            return self._send(200, PAGE_TYPES[pathlib.PurePosixPath(path).suffix], pages[path])
         if path == '/bootstrap.css':
             return self._send_bootstrap()
         if path in self.server.static:
@@ -31,7 +36,8 @@ class MetricsHandler(http.server.BaseHTTPRequestHandler):
             return self._send(200, content_type, data)
         if path.startswith(GRAPH_PREFIX):
             return self._send_graph(path)
-        return self._send(404, TEXT_TYPE, b'not found')
+        # the same 404 page S3 serves for an unknown key; a direct GET /404.html is 200 there too
+        return self._send(404, HTML_TYPE, pages[NOT_FOUND])
 
     def _send_bootstrap(self):
         css = self.server.bootstrap_css

@@ -1,0 +1,42 @@
+name: A rating looks wrong
+description: Tell us a chart is scored higher or lower than it plays
+title: "[rating] "
+labels: ["rating"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Disagreements are useful here - they are what the calibration gets fixed
+        from. Before filing, it is worth reading **How it works** on the site: the
+        score comes from note density and fret movement only, so charts that are
+        hard because of *flow* (strum/HOPO patterns, anchoring, awkward shapes)
+        are expected to read lower than they play. Those are still worth
+        reporting; they are the cases that show where the formula needs work.
+  - type: input
+    id: song
+    attributes:
+      label: Which chart
+      description: Song and artist. If you opened it from the site this is filled in for you.
+      placeholder: Through The Fire & Flames - Dragonforce
+    validations:
+      required: true
+  - type: input
+    id: code
+    attributes:
+      label: Retrieval code
+      description: >
+        The code shown on the chart's graph, e.g. 10145439XG. Turn on the Code
+        column in Columns if you need to find it by hand.
+      placeholder: 10145439XG
+  - type: textarea
+    id: expected
+    attributes:
+      label: What looks wrong
+      description: What the site says, what you would expect instead, and what makes the chart harder or easier than the number suggests.
+    validations:
+      required: true
+  - type: input
+    id: evidence
+    attributes:
+      label: Anything to back it up
+      description: A score, a video, a chart it should sit near in the list. Optional, but it helps a lot.

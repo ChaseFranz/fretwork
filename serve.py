@@ -22,13 +22,16 @@ it and falls back to the built-in styles.
 Reads the spreadsheet, not the cache - run analyze.py first. The cache is only
 touched (lazily) the first time a graph is requested.
 
+Serves exactly the four pages publish.py writes (index.html, about.html,
+404.html, robots.txt); an unknown path gets the 404 page with status 404.
+
 The page itself lives in web/ - see web/static/ for its markup and scripts.
 """
 
 import argparse
 
 import config
-from web import assets, banner, boot, bootstrap, frames, page
+from web import assets, banner, bootstrap, page
 from web.graph import GraphRenderer
 from web.server import MetricsServer
 
@@ -38,16 +41,11 @@ def serve(header=None, xlsx_path=None, cache_path=None, port=8000, out_dir=None,
     header = header or config.HEADER
     bootstrap_css = bootstrap.ensure_bootstrap(use_bootstrap)
 
-    xlsx_path, sheets = frames.load_frames(header, xlsx_path)
-    total = sum(len(df) for df in sheets.values())
-    source = f"{xlsx_path.name}  -  {total} rows  -  {', '.join(sheets)}"
-
-    body = page.render_page(
-        f"{config.SITE_NAME} - {header}", source, bootstrap_css,
-        boot.boot_json(frames.frames_payload(sheets)))
+    xlsx_path, sheets, total, body = page.build(header, xlsx_path, bootstrap_css)
+    pages = {'/' + name: data for name, data in page.site_pages(body).items()}
 
     httpd = MetricsServer(
-        port, body, assets.load_static(), bootstrap_css,
+        port, pages, assets.load_static(), bootstrap_css,
         GraphRenderer(header, cache_path, out_dir))
 
     with httpd:
