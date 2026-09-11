@@ -7,6 +7,7 @@ const BOOT = JSON.parse(document.getElementById("fw-boot").textContent);
 export const SHEETS = BOOT.data;
 export const SHEET_OF_CODE = BOOT.sheetOfCode || {};   // instrument letter -> sheet
 export const PREFS_VERSION = BOOT.prefsVersion || 0;
+export const RENDER = BOOT.render;      // the graph palette, plot.resolve_profile()'s canvas keys
 export const LABELS = BOOT.labels;
 export const ORDER = BOOT.order;
 export const HIDDEN_DEFAULT = BOOT.hiddenDefault;

@@ -284,7 +284,7 @@ ABOUT = (
     ('What is stored here, and what is not',
      'The site hosts no audio and no chart files, and nothing can be downloaded from it. '
      'What it holds is numbers calculated from charts, the song, artist, charter and pack '
-     'names those charts already carry, and one rendered graph per chart. It is not a '
+     'names those charts already carry, and one graph per chart, drawn from its note density. It is not a '
      'place to get songs.'),
     ('Ownership',
      'Guitar Hero, Rock Band and Clone Hero, and the names and marks that go with them, '
@@ -395,6 +395,34 @@ UI = {
     # the graph heading's list of other folders carrying the same notes
     'copies_label':     'Same chart in:',
     'copies_tip':       'The same notes in another folder. Opens that copy\u2019s graph.',
+
+    # the graph itself, drawn on a canvas from graph/<code>.json; the first
+    # five mirror literals in functions/plot.py, which is upstream's
+    'graph_d':          '~D',
+    'graph_nps':        'Notes',
+    'graph_vps':        'Variability',
+    'graph_y':          'per second',
+    'graph_x':          'Time (m:ss)',
+    'graph_source':     '.{source} file',
+    'graph_readout':    '{t}  ~D {d}  notes/s {nps}  changes/s {vps}',
+    'graph_readout_part': '{letter} {d}',
+    'graph_readout_many': '{t}  {parts}',
+    'graph_legend':     '{title} - {artist}, {level} {type}',
+    'graph_hint':       'Hover or use the arrow keys to read values',
+    'graph_alt':        'Difficulty graph of {song}: notes per second, fret changes per second and their geometric mean over time',
+    'compare':          'Compare',
+    'compare_search':   'Song, artist or code to compare with...',
+    'compare_same_song': 'Other charts of this song',
+    'compare_loading':  'Loading charts...',
+    'compare_none':     'No matching chart',
+    'compare_pick':     'Pick from the table',
+    'compare_picking':  'Choosing a chart to compare with {song}. Click a row, or press Esc to go back.',
+    'compare_cancel':   'Back to the graph',
+    'compare_full':     'Three charts is the most the graph will hold',
+    'compare_dup':      'That chart is already on the graph',
+    'compare_remove':   'Remove {code} from the graph',
+    'song_compare':     'Compare all levels',
+    'save_png':         'Save as PNG',
 
     # the page CloudFront serves for a path that is not in the bucket
     'not_found_title':  'Page not found',
