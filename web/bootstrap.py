@@ -65,7 +65,7 @@ FALLBACK_CSS = """<style>
 
 
 def bootstrap_path():
-    return pathlib.Path(config.CACHE_DIR) / f"bootstrap-{BOOTSTRAP_VERSION}.min.css"
+    return pathlib.Path(config.OUTPUT_DIRS['cache']) / f"bootstrap-{BOOTSTRAP_VERSION}.min.css"
 
 
 # returns the cached CSS bytes, downloading once if needed, or None if unavailable

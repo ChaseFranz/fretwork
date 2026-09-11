@@ -69,5 +69,5 @@ class GraphRenderer:
         from functions import ini_updater
 
         if self._diffs is None:
-            self._diffs = ini_updater.load_backup_diffs(self.header, config.CACHE_DIR)
+            self._diffs = ini_updater.load_backup_diffs(self.header)
         return self._diffs.get(entry['song_path'], {}).get(entry['instrument'])
