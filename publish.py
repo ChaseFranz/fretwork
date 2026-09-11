@@ -18,8 +18,10 @@ graphs a previous publish recorded are ever pruned. --force re-renders
 everything, which a change to functions/plot.py or a matplotlib upgrade needs.
 
 Reads the spreadsheet for the table and the cache for the graphs, so run
-analyze.py first. Measured at about 0.12 s per chart: a 4,600-chart library
-takes around ten minutes the first time and seconds after that.
+analyze.py first: a spreadsheet and cache from different builds stop the run
+unless --allow-mismatch is passed. Measured at about 0.12 s per chart: a
+4,600-chart library takes around ten minutes the first time and seconds after
+that.
 """
 
 import argparse
@@ -31,20 +33,50 @@ from web import assets, banner, bootstrap, bundle, frames, page
 from web.graph import GraphRenderer
 
 
-# analyze pairs each spreadsheet with its cache by timestamp; say so if they differ
-def check_pair(header, xlsx_path, cache_path):
+# latest_output picks the newest file by mtime while the pairing below compares
+# filename stamps; when the two orders disagree (a copied or touched old file),
+# name both files rather than leave it to be inferred from the pairing message.
+def warn_mtime_order(kind, header, ext):
+    try:
+        by_mtime = timestamp.latest_output(kind, header, ext=ext)
+    except FileNotFoundError:
+        return
+    stamped = []
+    for path in by_mtime.parent.glob(f"{header}_{kind}_*.{ext}"):
+        try:
+            stamped.append((timestamp.ext_ts(path, kind, header), path))
+        except ValueError:
+            continue
+    if stamped:
+        _stamp, by_name = max(stamped)
+        if by_name != by_mtime:
+            print(f"Warning: {kind} newest by mtime is {by_mtime.name} but newest by name is {by_name.name}")
+
+
+# analyze pairs each spreadsheet with its cache by timestamp; a table computed
+# from one build beside graphs rendered from another is refused unless asked for
+def check_pair(header, xlsx_path, cache_path, allow_mismatch=False):
+    for kind, ext in (('metrics', 'xlsx'), ('cache', 'pkl')):
+        warn_mtime_order(kind, header, ext)
     try:
         xlsx_ts = timestamp.ext_ts(xlsx_path, 'metrics', header)
         cache_ts = timestamp.ext_ts(cache_path, 'cache', header)
     except ValueError:
+        print("Note: the spreadsheet or cache name does not carry a build timestamp; "
+              "not checking that they are from the same build.")
         return
-    if xlsx_ts != cache_ts:
-        print(f"Note: spreadsheet is from {xlsx_ts} but the cache is from {cache_ts}; "
-              f"run analyze.py so the table and graphs come from the same build.")
+    if xlsx_ts == cache_ts:
+        return
+    first = f"spreadsheet is from {xlsx_ts} but the cache is from {cache_ts}."
+    if allow_mismatch:
+        print(f"Note: {first[:-1]}; publishing anyway (--allow-mismatch)")
+        return
+    raise SystemExit(f"{first}\nRun `python analyze.py --header {header}` so the table and "
+                     f"graphs come from the same build, or pass --allow-mismatch.")
 
 
 def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
-            use_bootstrap=True, force=False):
+            use_bootstrap=True, force=False, allow_mismatch=False):
     header = header or config.HEADER
     out_dir = pathlib.Path(out_dir).expanduser() if out_dir else pathlib.Path(config.SITE_DIR) / header
 
@@ -52,7 +84,7 @@ def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
     renderer.cache()   # a missing cache fails here, before anything is written
     bootstrap_css = bootstrap.ensure_bootstrap(use_bootstrap)
     xlsx_path, sheets, _total, body = page.build(header, xlsx_path, bootstrap_css, public=True)
-    check_pair(header, xlsx_path, renderer.cache_path)
+    check_pair(header, xlsx_path, renderer.cache_path, allow_mismatch)
 
     print(f"\nPublishing {xlsx_path}")
     page_files, written, removed = bundle.write_page(
@@ -71,10 +103,13 @@ def main():
     parser.add_argument('--no-bootstrap', action='store_true',
                         help="skip the Bootstrap fetch and use the built-in styles")
     parser.add_argument('--force', action='store_true', help="re-render every graph")
+    parser.add_argument('--allow-mismatch', action='store_true',
+                        help="publish even if the spreadsheet and cache are from different builds")
     args = parser.parse_args()
 
     publish(header=args.header, xlsx_path=args.xlsx, cache_path=args.cache,
-            out_dir=args.out_dir, use_bootstrap=not args.no_bootstrap, force=args.force)
+            out_dir=args.out_dir, use_bootstrap=not args.no_bootstrap, force=args.force,
+            allow_mismatch=args.allow_mismatch)
 
 
 if __name__ == '__main__':

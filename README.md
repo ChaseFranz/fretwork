@@ -191,7 +191,7 @@ Stop the server with Ctrl+C.
 
 `python publish.py`
 
-`publish.py` writes the same page `serve.py` serves into a folder - `site/<header>/` by default - as plain files: `index.html` with the table's data baked in, the scripts and styles, Bootstrap, and **every chart's graph pre-rendered** under `graph/<code>.png`. The result needs no server-side code, and its URLs are relative, so it works from a domain root, a sub-path like `user.github.io/fretwork/`, or any static file host. It reads the **spreadsheet** for the table and the **cache** for the graphs, so run Analyze first; it will tell you if the two are from different builds.
+`publish.py` writes the same page `serve.py` serves into a folder - `site/<header>/` by default - as plain files: `index.html` with the table's data baked in, the scripts and styles, Bootstrap, and **every chart's graph pre-rendered** under `graph/<code>.png`. The result needs no server-side code, and its URLs are relative, so it works from a domain root, a sub-path like `user.github.io/fretwork/`, or any static file host. It reads the **spreadsheet** for the table and the **cache** for the graphs, so run Analyze first; it stops if the two are from different builds, unless you pass `--allow-mismatch` on purpose.
 
 The first publish of a large library takes a while - measured at about 0.12 seconds per chart, so around ten minutes for 4,600 charts. After that it is incremental:
 
@@ -206,6 +206,7 @@ The first publish of a large library takes a while - measured at about 0.12 seco
 - `--out-dir`: the folder to write (default `site/<header>/`, from `site_dir` in `config.py`)
 - `--no-bootstrap`: skip the Bootstrap download and inline the built-in styles instead
 - `--force`: re-render every graph. Needed after a change to `functions/plot.py` or a matplotlib upgrade, which the manifest cannot see
+- `--allow-mismatch`: publish even though the spreadsheet and the cache carry different build timestamps. Without it the run stops, because a table computed from one build beside graphs rendered from another is not a site anyone meant to publish
 
 To check a bundle locally, serve the folder with any static server, for example `python -m http.server 8000 --directory site/Main`, and open **http://localhost:8000**. Opening `index.html` straight from the filesystem will not work: the page uses ES modules, which browsers refuse to load from `file://`.
 
