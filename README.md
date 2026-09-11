@@ -105,7 +105,7 @@ Using `XLSX_LEVELS` in the config you can adjust the mix of Easy/Medium/Hard/Exp
 
 The raw NPS/VPS details and N/V/COV formula components are dropped, but they can be included as hidden columns by using `EXTRA_METRICS = True` in the config for diagnostics/comparison.
 
-**Full D formula, Remap tables, & CalcTier detail in `Methodology.md`**
+**Full D formula, Remap tables, & CalcTier detail in `Methodology.md`** (also published as the site's methodology page, checked against `formula.py` at every publish)
 
 In the metrics spreadsheet / render header, you'll see D translated two ways:
 - **RemapDiff (0–6):** A manual grouping, calibrated to roughly match the percentage of official releases across the seven tiers. Roughly, how would this have been tiered in a Rock Band game (capped at 6). Guitar (plus Co-op/Rhythm), Bass, and Keys each have their own bin edges, fit against that instrument's own `diff_*` distribution.
@@ -269,7 +269,7 @@ Opens the same viewer the website runs, against your local spreadsheet, at http:
 python publish.py --header Local
 ```
 
-Writes `site/Local/` - `index.html` and the sheet files, `404.html`, `about.html`, `changelog.html`, `robots.txt`, the assets, Bootstrap, a curve file per chart under `graph/` and the one preview PNG. Seconds, first run or not; only charts whose notes changed get a new curve file. The summary's `social preview <code>:` line says whether the PNG was rendered, unchanged or (for a library without that chart) not published.
+Writes `site/Local/` - `index.html` and the sheet files, `404.html`, `about.html`, `changelog.html`, `methodology.html` (the engine's `Methodology.md`, rendered), `robots.txt`, the assets, Bootstrap, a curve file per chart under `graph/` and the one preview PNG. Publish stops with `MethodologyDrift` if a calibration table in `Methodology.md` disagrees with `functions/formula.py`, and with `MarkdownError` naming the line if the file uses a markdown construct the renderer does not know; both are fixed in the source, never by loosening the check. Seconds, first run or not; only charts whose notes changed get a new curve file. The summary's `social preview <code>:` line says whether the PNG was rendered, unchanged or (for a library without that chart) not published.
 
 Publish stops if the spreadsheet and the cache carry different build timestamps (`spreadsheet is from X but the cache is from Y`), because that means Analyze has not run since the last Build; run it and publish again. `--allow-mismatch` exists for the deliberate exception, and `deploy.py` does not take it: a mismatched bundle is published by hand and then sent with `deploy.py --no-publish`, so the decision is taken twice. One more thing that looks like a fault and is not: a commit that changes what a manifest fingerprint is made of invalidates every stored hash, so the next publish rewrites every curve file once (seconds; the bytes are compared before writing, so the sync uploads only what changed).
 
@@ -342,6 +342,8 @@ Run the same call with `--metric-name BytesDownloaded` for bytes. CloudFront's m
 | Publish stops: "spreadsheet is from X but the cache is from Y" | Analyze has not run since the last Build | `python analyze.py --header Local`, then publish again (`--allow-mismatch` only if you mean it) |
 | Publish warns: "newest by mtime is A but newest by name is B" | An older cache or spreadsheet was copied or touched, so it looks newest | Delete or re-date the copy, or name the file you want with `--cache` / `--xlsx` |
 | Publish stops: "folder(s) not registered in packs.toml" | A pack folder under the library has no `[[pack]]` entry | Add the entry (step 0), then publish again |
+| Publish or serve stops: `MethodologyDrift: ... in Methodology.md but ... in formula.py` | An upstream merge changed the bins or constants in one file and not the other | Fix whichever is wrong (the code is usually right; the table then goes upstream as a fork PR), `python -m web.methodology` to confirm |
+| Publish or serve stops: `MarkdownError: Methodology.md: line N: ...` | Upstream used a markdown construct `web/markdown.py` does not render | Extend the renderer for that construct, deliberately, and add the case to `tests/test_methodology.py` |
 | Publish stops: "registered folder(s) with no songs in this cache" | A `folder` in `packs.toml` is misspelled, or the cache is another library's | Fix the spelling, or point `--packs` at that library's registry |
 | `refused: ... not a direct download` | The link is a Google Drive, Mega or Discord page, not an archive | Download it in a browser and pass the file to `ingest_pack.py` |
 | `refused: found 0 song folders and N .sng files` | Enchor serves `.sng`, a single-file format the parsers cannot read yet | Get the pack from its release thread as song folders, or convert it |

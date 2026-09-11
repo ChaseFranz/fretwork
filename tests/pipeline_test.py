@@ -357,6 +357,12 @@ def run_all(work, header, args):
     same_site = {'./'} | {name for name in deploy.BUNDLE_TOP if name.endswith('.html')}
     st.check(all(h in same_site or urllib.parse.urlparse(h).netloc in ('github.com', 'www.youtube.com', 'youtu.be')
                  for h in a.hrefs), f'about.html anchors {a.hrefs}')
+    st.check('methodology.html' in a.hrefs, 'about.html does not link the methodology page')
+    # section 12: Methodology.md rendered, its tables checked, no scripts and nothing left unrendered
+    method = (site / 'methodology.html').read_text(encoding='utf-8')
+    st.check(not PLACEHOLDER.search(method) and method.count('<table') == 4 and method.count('<math display="block"') == 7
+             and '<script' not in method and method.count('<h1') == 1 and '$$' not in method and '**' not in method,
+             f'methodology.html: {method.count("<table")} tables, {method.count(chr(36) * 2)} $$')
     st.check(not PLACEHOLDER.search(about) and not PLACEHOLDER.search((site / '404.html').read_text()), 'placeholders')
     st.check((site / 'robots.txt').read_text() == page.ROBOTS, 'robots.txt')
     static = sorted(str(p.relative_to(site / 'static')) for p in (site / 'static').rglob('*') if p.is_file())

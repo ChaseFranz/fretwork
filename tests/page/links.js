@@ -13,11 +13,19 @@ say("a relative target is plain text too", rich("[x](../y.html)") === "x", rich(
 say("balanced parentheses stay in the url", rich("[p](https://x.test/a_(b))") === '<a href="https://x.test/a_(b)" target="_blank" rel="noopener">p</a>',
     rich("[p](https://x.test/a_(b))"));
 say("leaves plain text alone", rich("no links here") === "no links here");
+// a same-site document page (section 12): a same-tab anchor, no target, no rel
+say("a document page is a same-tab anchor", rich("[x](methodology.html)") === '<a href="methodology.html">x</a>', rich("[x](methodology.html)"));
+say("with an anchor inside it", rich("[x](methodology.html#calctier-calibration)") === '<a href="methodology.html#calctier-calibration">x</a>');
+say("but not a path, a query or an upper-case name", rich("[x](a/b.html)") === "x" && rich("[x](b.html?q=1)") === "x" && rich("[x](B.html)") === "x");
 
 click(document.getElementById("how"));
 await wait(400);
 const named = el => [...el.querySelectorAll("a")].map(a => [a.textContent, a.getAttribute("href") || ""]);
 const panel = named(document.getElementById("about"));
+const methodInPanel = [...document.querySelectorAll('#about a[href="methodology.html"]')];
+say("the explainer links the methodology page twice, in the same tab", methodInPanel.length === 2 && methodInPanel.every(a => !a.target), methodInPanel.length);
+const methodInFoot = document.querySelector('#foot a[href="methodology.html"]');
+say("the footer links the methodology page in the same tab", !!methodInFoot && !methodInFoot.target);
 const foot = named(document.getElementById("foot"));
 const head = named(document.querySelector(".fw-head"));
 const all = panel.concat(foot, head);

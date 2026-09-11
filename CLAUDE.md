@@ -84,7 +84,7 @@ timestamp), and it emits Open Graph / Twitter tags, which need `SITE_URL` becaus
 social preview cannot use a relative image. `page.OG_IMAGE` picks the chart that serves
 as that preview.
 
-Two explanatory surfaces, and the split is deliberate. The "How it works" panel
+Three explanatory surfaces, and the split is deliberate. The "How it works" panel
 on the charts page is `labels.EXPLAINER` - what D measures, how the tiers read,
 what the formula cannot see, where the numbers come from - led by the engine
 author's explainer video. `about.html` is `labels.ABOUT`, a page of its own
@@ -92,6 +92,14 @@ because the people who need it are not the people asking what D means: they want
 to know whether this is the official site, whether songs can be downloaded here,
 and who to complain to, and all three answers deserve a URL to point at. Keep its
 independence wording accurate if the relationship to upstream ever changes.
+`methodology.html` is upstream's `Methodology.md` itself, rendered at publish (and
+at serve start) by `web/markdown.py`, a stdlib subset renderer that supports
+exactly the constructs the file uses and raises `MarkdownError` naming the line
+on anything else (a list, a link, fenced code, an unknown LaTeX command), so an
+upstream edit fails publish loudly rather than shipping literal asterisks; the
+seven display formulas become MathML Core through its own typesetter, no CDN. The
+page names the upstream file as the source of truth (`labels.METHODOLOGY_SOURCE`)
+and this fork never edits `Methodology.md`; a correction goes upstream.
 
 The video iframe is built on first open and never before, so a visitor who does
 not open the panel makes no request to YouTube; it is the no-cookie host, with no
@@ -103,9 +111,11 @@ Every mention of fretwork or its author in the prose is a link, to the engine's
 repository or to the channel. Those strings carry a minimal `[text](url)` markup
 rather than HTML: `rich()` in `static/js/dom.js` and `rich_text()` in
 `web/page.py` are the two renderers, they escape every character, they build the
-anchors themselves, and they emit an anchor only for an `http(s)` target. Keep
-them in step - the same strings go through both, one for the panel and one for
-`about.html`. The four URLs are named once at the top of `labels.py`
+anchors themselves, and they emit an anchor only for an `http(s)` target (a new
+tab) or a bare same-site page name such as `methodology.html#calctier-calibration`
+(the same tab; never a path or a query, so data could not smuggle `javascript:`).
+Keep them in step - the same strings go through both, one for the panel and one
+for `about.html`. The four URLs are named once at the top of `labels.py`
 (`ENGINE_REPO`, `CHANNEL`, `FORK_REPO`, `VIDEO`).
 
 The footer is assembled in `static/js/main.js` from `labels.FOOTER_LINKS` plus the
@@ -178,7 +188,9 @@ Root `serve.py` and `publish.py` are thin entry points in the same shape as the 
 |---|---|
 | `web/frames.py` | Reads the metrics `.xlsx` into JSON-safe rows, and lists its codes. Adds the page-built `Pct` column (a per-sheet, per-level percentile of `D`, `rank(method='max')` floored to 0-100, `Int64`), which exists on the site and in serve and never in the spreadsheet. The only pandas importer. |
 | `web/boot.py` | Builds the JSON payload the page reads (the sheet manifest, never the rows), and escapes `</` in it. |
-| `web/page.py` | `build()` composes a header's page; substitutes `index.html`'s placeholders in one regex pass. `render_doc()` fills `doc.html` for the document pages (`about.html`, `changelog.html`); `site_pages()` is the dict of files a site is. |
+| `web/page.py` | `build()` composes a header's page; substitutes `index.html`'s placeholders in one regex pass. `render_doc()` fills `doc.html` for the document pages (`about.html`, `changelog.html`, `methodology.html`); `site_pages()` is the dict of files a site is. |
+| `web/markdown.py` | The markdown subset renderer behind `methodology.html`: block and inline allow-lists, the LaTeX-to-MathML typesetter, `MarkdownError` on anything else. `python -m web.markdown FILE`. |
+| `web/methodology.py` | `load()` parses `Methodology.md` and `check_tables()` compares its calibration tables to `formula.py`, raising `MethodologyDrift`. `python -m web.methodology` for CI and after an upstream merge. |
 | `web/bootstrap.py` | Bootstrap fetch/cache plus `FALLBACK_CSS`, its own fallback branch. |
 | `web/assets.py` | `load_assets()`: the bundle, stylesheet, favicon and Bootstrap under hashed names; the content-type table and `cache_class()`. |
 | `web/bundler.py` | Concatenates the ES modules into one file, refusing any import or export form outside its whitelist. |
@@ -257,7 +269,7 @@ The abbreviated keys (`pNPS`, `medVPS`, `COV`, `DurationS`) are the data contrac
 
 **Expert anchoring**: `D` is computed per level, but `RemapDiff` (0-6 bins, per calibration group) and `CalcTier` (uncapped log tier) are computed once per (song, instrument) from the **Expert** level's D via `formula.anchor_remap_tier`, and that pair is shown on every E/M/H/X row. If an instrument has no Expert chart, both are `None`/NaN. This is because `song.ini` only has one `diff_*` tag per instrument. Guitar, Co-op, and Rhythm share the `guitar` calibration group.
 
-The bin edges and CalcTier constants in `formula.py` are mirrored as tables in `Methodology.md`; update both together.
+The bin edges and CalcTier constants in `formula.py` are mirrored as tables in `Methodology.md`; update both together. `web/methodology.check_tables` enforces it with exact equality on every publish and serve start (`python -m web.methodology` runs it alone), and `labels.py` prints the CalcTier constants from `formula.BASE_D` and `formula.LN_INC` rather than as literals, so the page and the explainer cannot drift from the code either.
 
 ### Render path (`functions/curves.py` -> `functions/plot.py`)
 

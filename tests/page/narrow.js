@@ -52,6 +52,19 @@ export async function narrowFrame(src) {
 const f = await narrowFrame("plain.html");
 measure(f.contentDocument, f.contentWindow);
 
+// The methodology page at 390px (section 12): nothing scrolls sideways, the
+// tables and formulas fit their wrappers, and the headings keep their order.
+const m = await narrowFrame("methodology.html");
+const md = m.contentDocument, mw = m.contentWindow;
+say("methodology.html: the body does not scroll sideways", md.documentElement.scrollWidth <= 390, md.documentElement.scrollWidth);
+say("every table and formula fits at 390px", [...md.querySelectorAll(".tbl, .eq")].every(e => e.scrollWidth <= e.clientWidth),
+    [...md.querySelectorAll(".tbl, .eq")].map(e => e.scrollWidth + "/" + e.clientWidth).join(" "));
+const px = sel => parseFloat(mw.getComputedStyle(md.querySelector(sel)).fontSize);
+say("heading sizes step down h2 > h3 > h4 > h5", px(".md h2") > px(".md h3") && px(".md h3") > px(".md h4") && px(".md h4") > px(".md h5"),
+    [".md h2", ".md h3", ".md h4", ".md h5"].map(px).join(" > "));
+say("it holds the four tables and seven formulas", md.querySelectorAll(".md table").length === 4 && md.querySelectorAll('math[display="block"]').length === 7);
+m.remove();
+
 // The graph on a phone (section 06): the card takes the full width, the canvas
 // is 358px, the close button and the tools are on screen, the readout wraps to
 // at most two lines, and picking from the table widens nothing.

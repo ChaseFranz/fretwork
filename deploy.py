@@ -62,7 +62,7 @@ CREDENTIAL_PREFIXES = ('AWS_ACCESS_KEY', 'AWS_SECRET', 'AWS_SESSION')
 BUCKET_RE = re.compile(r'^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$')
 # the entry pages publish writes, plus the three directories; a new page joins
 # this set and bundle.PAGE_TOP in the same change
-BUNDLE_TOP = {'index.html', '404.html', 'about.html', 'changelog.html', 'robots.txt',
+BUNDLE_TOP = {'index.html', '404.html', 'about.html', 'changelog.html', 'methodology.html', 'robots.txt',
               'static', 'data', 'graph'}
 REQUIRED = ('index.html', 'graph/manifest.json')                   # proof it came from publish
 GRAPHS = assets.GRAPH_DIR

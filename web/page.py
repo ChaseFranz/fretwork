@@ -13,7 +13,7 @@ import re
 
 import config
 from functions import instruments, labels, packs, timestamp
-from web import assets, boot, bootstrap, frames
+from web import assets, boot, bootstrap, frames, markdown, methodology
 
 _PLACEHOLDER = re.compile(r'__([A-Z][A-Z_]*)__')
 
@@ -117,13 +117,23 @@ def render_page(title, source, names, boot_json, public=False, linked=False):
 _LINK = re.compile(r'\[([^\]]+)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)')
 
 
+# A same-site document page (about.html, methodology.html#calctier-calibration)
+# gets a plain same-tab anchor; the pattern is a bare page name so a string
+# that ever came from data could not smuggle javascript: or a path.
+_PAGE = re.compile(r'[a-z0-9-]+\.html(#[a-z0-9-]+)?')
+
+
 def rich_text(text):
     out, at = [], 0
     for found in _LINK.finditer(text):
         out.append(html.escape(text[at:found.start()]))
         href, label = found.group(2), html.escape(found.group(1))
-        out.append(f'<a href="{html.escape(href)}" rel="noopener">{label}</a>'
-                   if href.startswith(('http://', 'https://')) else label)
+        if href.startswith(('http://', 'https://')):
+            out.append(f'<a href="{html.escape(href)}" rel="noopener">{label}</a>')
+        elif _PAGE.fullmatch(href):
+            out.append(f'<a href="{html.escape(href)}">{label}</a>')
+        else:
+            out.append(label)
         at = found.end()
     out.append(html.escape(text[at:]))
     return ''.join(out)
@@ -164,6 +174,16 @@ def render_doc(name, title, body, names):
         'LICENSE_URL': html.escape(labels.UI['license_url']),
     }
     return fill(assets.read_text('doc.html'), values)
+
+
+# The engine's Methodology.md, rendered through the subset renderer with every
+# heading one level down (the brand is the page's h1), after its tables have
+# been checked against formula.py; drift stops publish and serve here.
+def render_methodology(names):
+    blocks = methodology.load()
+    body = (f'<p class="source">{rich_text(labels.METHODOLOGY_SOURCE)}</p>\n'
+            f'<div class="md">\n{markdown.render(blocks, shift=1)}\n</div>')
+    return render_doc('methodology.html', labels.UI['methodology'], body, names)
 
 
 # Who runs this, what it does and does not hold, and who owns what.
@@ -256,6 +276,7 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None):
                                       public, linked=resolved is not None)
     files['404.html'] = render_404(names)
     files['about.html'] = render_about(names)
+    files['methodology.html'] = render_methodology(names)
     files['robots.txt'] = ROBOTS.encode('utf-8')
     files.update(changelog_pages(resolved, sheets, names))
     return Built(xlsx_path, sheets, total, files)

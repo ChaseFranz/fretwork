@@ -44,7 +44,7 @@ def write_if_changed(path, data):
 # page's own territory is swept: the top-level files it writes and everything
 # under static/ and data/, plus a directory that sweep has emptied. graph/ has
 # its own pruning, with its own rules, and is never touched from here.
-PAGE_TOP = ('index.html', '404.html', 'about.html', 'changelog.html', 'robots.txt', 'bootstrap.css')
+PAGE_TOP = ('index.html', '404.html', 'about.html', 'changelog.html', 'methodology.html', 'robots.txt', 'bootstrap.css')
 
 
 def prune_page(out, files):

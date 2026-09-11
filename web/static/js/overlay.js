@@ -378,7 +378,7 @@ export function openAbout() {
       EXPLAINER.map(([heading, body]) =>
         "<h2>" + esc(heading) + "</h2><p>" + rich(body) + "</p>").join("") +
       '<p class="more">' + out(UI.explainer_more, FOOTER[0][1]) +
-      '<span class="sep">/</span>' + out(UI.explainer_method, UI.method_url) +
+      '<span class="sep">/</span><a href="' + esc(UI.method_url) + '">' + esc(UI.explainer_method) + "</a>" +
       '<span class="sep">/</span><a href="about.html">' + esc(UI.about) + "</a></p>";
   }
   panel.setAttribute("aria-label", UI.explainer_title);

@@ -22,7 +22,7 @@ Formula terms are spelled out in Methodology.md; the help text here is the short
 version of the same thing.
 """
 
-from functions import instruments
+from functions import formula, instruments
 
 # NPS/VPS get spelled out - "notes/sec" and "fret changes/sec" are what they
 # actually measure, and that reads better than the acronym in a column header
@@ -100,7 +100,7 @@ COLUMN_HELP = {
     'Difficulty': 'The diff_* tier already in song.ini. -1 means the tag is missing.',
     'D':          'Calculated difficulty, D = N x V x CoV. The main output. Higher is harder, uncapped.',
     'RemapDiff':  'D binned to 0-6, calibrated per instrument so the spread matches official tiers. From the Expert chart only.',
-    'CalcTier':   'Log-scaled tier, one step per 0.44 increase in ln(D) above 7.6. Uncapped, so hard customs reach 10+. From the Expert chart only.',
+    'CalcTier':   f'Log-scaled tier, one step per {formula.LN_INC} increase in ln(D) above {formula.BASE_D}. Uncapped, so hard customs reach 10+. From the Expert chart only.',
     'Pct':        'Sits at or above N% of the charts on this sheet at the same level, officials and customs together. Each distinct chart counts once, however many packs carry it. Ties share a value and the top chart reads 100. The Guitar sheet pools Lead, Rhythm and Co-op, which share one calibration group.',
 
     'pNPS':       'Busiest one-second window, in notes per second.',
@@ -199,7 +199,15 @@ FOOTER_LINKS = (
 # The site's document pages, in footer order: the published file name and the UI
 # key of its title. page.render_doc links each to the others; the footer lists them
 # after the request link; the boot payload carries the names so a test can count.
-DOC_PAGES = (('about.html', 'about'), ('changelog.html', 'changelog'))
+DOC_PAGES = (('about.html', 'about'), ('changelog.html', 'changelog'), ('methodology.html', 'methodology'))
+
+# The line above the rendered Methodology.md, naming the upstream file as the
+# source of truth. A module constant rather than a UI key: every UI key rides
+# in the charts page's boot island, and nothing there reads this sentence.
+METHODOLOGY_SOURCE = (
+    f'Rendered at publish from [Methodology.md]({ENGINE_REPO}/blob/main/Methodology.md) in the '
+    f'fretwork engine repository, which is the reference for the formula and its calibration '
+    f'tables. The tables on this page are checked against the code that scored every chart here.')
 
 # Left-to-right order on the page, which is not the spreadsheet's order: D is what
 # the site is for, so it sits beside the song instead of past the right edge.
@@ -243,7 +251,7 @@ EXPLAINER = (
      'changes), and how unevenly that work is spread across the song (CoV). Higher '
      'is harder, and the scale has no ceiling \u2013 the hardest charts here run past 1000.'),
     ('Reading the tiers',
-     'Calc Tier is D on a log scale: one step for every 0.44 rise in ln(D) above 7.6, '
+     f'Calc Tier is D on a log scale: one step for every {formula.LN_INC} rise in ln(D) above {formula.BASE_D}, '
      'so it keeps climbing past 10 for the hardest customs. Remap Tier is the same '
      'value binned into the 0\u20136 range the games use, calibrated per instrument. Both '
      'are computed from the Expert chart and then shown on every difficulty of that '
@@ -259,7 +267,7 @@ EXPLAINER = (
      f'Every chart here was parsed and scored by [fretwork]({ENGINE_REPO}), an '
      f'open-source project by [Staycation44]({CHANNEL}). This site runs that engine '
      f'unchanged and only displays the result. The full method, including the '
-     f'calibration tables, is in [Methodology.md]({ENGINE_REPO}/blob/main/Methodology.md).'),
+     f'calibration tables, is on the [methodology page](methodology.html).'),
 )
 
 
@@ -273,7 +281,8 @@ ABOUT = (
      '\u2013 Guitar Hero, Rock Band, Clone Hero, and the custom charts made for them. '
      'Every rating is computed from the chart file itself. None of it is hand-assigned, '
      'voted on, or edited afterwards. How the calculation works is explained under '
-     '\u201cHow it works\u201d on the charts page.'),
+     '\u201cHow it works\u201d on the charts page, and in full on the '
+     '[methodology page](methodology.html).'),
     ('An independent project',
      f'Fretladder is not affiliated with, endorsed by, or run by '
      f'[Staycation44]({CHANNEL}), and it is not the [fretwork]({ENGINE_REPO}) project '
@@ -368,6 +377,7 @@ UI = {
     'about':            'About this site',
     'about_back':       'Back to the charts',
     'changelog':        'What\u2019s new',
+    'methodology':      'Methodology',
     'changelog_tip':    'Every pack on the site, and when it was added',
     'changelog_intro':  'Every pack on the site, newest first, with the date it was added and where it is '
                         'published, and what changed on the site itself. The date in the charts page '
@@ -385,8 +395,8 @@ UI = {
     'video_caption':    f'Solving Guitar Hero\u2019s Difficulty Problem \u2013 '
                         f'[Staycation44]({CHANNEL})',
     'explainer_more':   'Watch it on YouTube',
-    'explainer_method': 'The full method (Methodology.md)',
-    'method_url':       f'{ENGINE_REPO}/blob/main/Methodology.md',
+    'explainer_method': 'The full method',
+    'method_url':       'methodology.html',
 
     # reporting a rating that looks wrong, from the chart's own graph
     'report':           'Report this rating',
