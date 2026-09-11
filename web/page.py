@@ -31,14 +31,18 @@ ROBOTS = ('User-agent: *\n'
 BOOTSTRAP_LINK = '<link rel="stylesheet" href="bootstrap.css">'
 
 
-# Substitutes in one pass, then checks its work: a placeholder that survives is
-# a typo or a missing value, and it would otherwise be published as visible text.
+# Checks the template against the values before substituting: every placeholder
+# must have a value (a typo or a missing value) and every value must be named by
+# the template (a placeholder the regex cannot see, which is how __LICENSE_URL__
+# once shipped as text). Substitution is one pass, so a value is inserted verbatim
+# and never re-scanned; with both checks passing no placeholder can survive, and
+# the output, which carries the whole data island, is never scanned at all.
 def fill(template, values):
-    page = _PLACEHOLDER.sub(lambda m: values[m.group(1)], template)
-    left = _PLACEHOLDER.findall(page)
-    if left:
-        raise KeyError(f"unfilled placeholder(s) in the page: {', '.join(sorted(set(left)))}")
-    return page.encode('utf-8')
+    names = set(_PLACEHOLDER.findall(template))
+    missing, unused = sorted(names - values.keys()), sorted(values.keys() - names)
+    if missing or unused:
+        raise KeyError(f"placeholders and values disagree: missing {missing}, unused {unused}")
+    return _PLACEHOLDER.sub(lambda m: values[m.group(1)], template).encode('utf-8')
 
 
 def bootstrap_head(bootstrap_css):
