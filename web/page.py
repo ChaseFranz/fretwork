@@ -234,12 +234,14 @@ def sheet_of_code(sheets):
 # what tells you which library and which run you are looking at.
 # `resolved` is packs.resolve()'s answer, or None when there is no cache to
 # join: then the Added column is absent and the strapline is plain text. The
-# page-build columns are appended in a fixed order: Added, then Pct.
+# page-build columns are appended in a fixed order: Added, Copies, then Pct.
 def build(header, xlsx_path, bootstrap_css, public=False, resolved=None):
     xlsx_path, sheets = frames.load_frames(header, xlsx_path)
     if resolved is not None:
         sheets = frames.with_added(sheets, resolved.added_by_code)
-    frames.add_percentiles(sheets)
+    # the page-build columns, in this order: Added, Copies, Pct
+    sheets = {name: frames.add_copies(df) for name, df in sheets.items()}
+    frames.add_percentiles(sheets, distinct=frames.COPY_KEY)
     total = sum(len(df) for df in sheets.values())
     if public:
         title, source = config.SITE_NAME, public_source(header, xlsx_path, total)

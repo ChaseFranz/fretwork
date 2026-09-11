@@ -43,6 +43,8 @@ COLUMN_LABELS = {
     'Genre':      'Genre',
     'Added':      'Added',
     'SongKey':    'Song key',
+    'NotesHash':  'Notes hash',
+    'Copies':     'Copies',
     'Official':   'Official',
 
     # shape of the chart
@@ -88,6 +90,8 @@ COLUMN_HELP = {
     'Genre':      'Genre from song.ini, as the charter wrote it. Spellings vary between charters; empty when the file has none.',
     'Added':      'When the pack this chart came in was added to the site, from packs.toml.',
     'SongKey':    'A hash of every chart in the song: the same charts give the same key, whatever folder they came from, so it survives a re-download.',
+    'NotesHash':  'Fingerprint of the notes. Two charts with the same hash play identically, whatever they are called.',
+    'Copies':     'How many charts on this sheet have exactly these notes at this level and part, this one included. 1 is unique; 2 means the same chart is in another folder, usually another pack.',
     'Official':   'True when the source pack is an official Guitar Hero or Rock Band release.',
 
     'NoteCount':  'Total notes in this chart. Frets played together count as one note, same as the games score it.',
@@ -97,7 +101,7 @@ COLUMN_HELP = {
     'D':          'Calculated difficulty, D = N x V x CoV. The main output. Higher is harder, uncapped.',
     'RemapDiff':  'D binned to 0-6, calibrated per instrument so the spread matches official tiers. From the Expert chart only.',
     'CalcTier':   'Log-scaled tier, one step per 0.44 increase in ln(D) above 7.6. Uncapped, so hard customs reach 10+. From the Expert chart only.',
-    'Pct':        'Sits at or above N% of the charts on this sheet at the same level, officials and customs together. Ties share a value and the top chart reads 100. The Guitar sheet pools Lead, Rhythm and Co-op, which share one calibration group.',
+    'Pct':        'Sits at or above N% of the charts on this sheet at the same level, officials and customs together. Each distinct chart counts once, however many packs carry it. Ties share a value and the top chart reads 100. The Guitar sheet pools Lead, Rhythm and Co-op, which share one calibration group.',
 
     'pNPS':       'Busiest one-second window, in notes per second.',
     'aNPS':       'Notes per second across the whole chart, including rests.',
@@ -202,8 +206,8 @@ DOC_PAGES = (('about.html', 'about'), ('changelog.html', 'changelog'))
 # Anything missing from this list keeps its spreadsheet position, at the end.
 DISPLAY_ORDER = (
     'Song Title', 'Artist', 'D', 'Pct', 'CalcTier', 'Level', 'Type',
-    'DurationS', 'NoteCount', 'Charter', 'Release', 'Album', 'Year', 'Genre', 'Added',
-    'Difficulty', 'RemapDiff', 'Official', 'Code', 'SongKey',
+    'DurationS', 'NoteCount', 'Charter', 'Release', 'Album', 'Year', 'Genre', 'Added', 'Copies',
+    'Difficulty', 'RemapDiff', 'Official', 'Code', 'SongKey', 'NotesHash',
 )
 
 # Off by default, so a first visit is the ten columns worth reading rather than
@@ -219,11 +223,12 @@ DISPLAY_ORDER = (
 #   Genre       likewise; 212 spellings make it a filter, not a column to read
 # Charter is deliberately NOT in this list: the people most likely to read this
 # site are the ones who charted what is in it.
-DEFAULT_HIDDEN = ('Album', 'Year', 'Genre', 'Difficulty', 'RemapDiff', 'Official', 'Code', 'Added', 'SongKey')
+DEFAULT_HIDDEN = ('Album', 'Year', 'Genre', 'Difficulty', 'RemapDiff', 'Official', 'Code', 'Added', 'Copies',
+                  'SongKey', 'NotesHash')
 
 # Bump when DEFAULT_HIDDEN changes: a returning visitor's saved column set is
 # replaced by the new default once, and their order and widths are kept.
-PREFS_VERSION = 2
+PREFS_VERSION = 3
 
 
 # The in-page answer to "what is this number?", which until now lived only in a
@@ -244,7 +249,7 @@ EXPLAINER = (
      'are computed from the Expert chart and then shown on every difficulty of that '
      'song, because song.ini carries only one rating per instrument. Percentile is '
      'where a chart\u2019s D sits among the charts on its sheet at the same level, so it '
-     'moves as the library grows.'),
+     'moves as the library grows, counting a chart once however many packs carry it.'),
     ('What it does not know',
      'Strum, HOPO and tap state are discarded, so how a chart flows does not change '
      'its score. There is no pattern recognition \u2013 trills, anchoring and chord '
@@ -386,6 +391,10 @@ UI = {
     # reporting a rating that looks wrong, from the chart's own graph
     'report':           'Report this rating',
     'report_url':       f'{FORK_REPO}/issues/new?template=rating.yml',
+
+    # the graph heading's list of other folders carrying the same notes
+    'copies_label':     'Same chart in:',
+    'copies_tip':       'The same notes in another folder. Opens that copy\u2019s graph.',
 
     # the page CloudFront serves for a path that is not in the bucket
     'not_found_title':  'Page not found',
