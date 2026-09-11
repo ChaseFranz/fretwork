@@ -10,6 +10,7 @@ import { openDD, closeDD } from "./dropdown.js";
 import { toggleCD, closeCD } from "./chooser.js";
 import { openGraph, closeGraph, graphIsOpen, openAbout, closeAbout, aboutIsOpen,
          toast, addCompare, stopPicking } from "./overlay.js";
+import { openSong, closeSong, songIsOpen } from "./song.js";
 import { state, idx } from "./state.js";
 import { draw } from "./table.js";
 
@@ -29,6 +30,38 @@ function onClick(e) {
   if (e.target.closest("#dd") || e.target.closest("#cd")) return;
 
   if (e.target.closest("#how")) { closeDD(); closeCD(); openAbout(); return; }
+
+  // the song panel's compare button: an instrument's levels on one graph
+  const cmp = e.target.closest("[data-cmp]");
+  if (cmp) {
+    const codes = cmp.dataset.cmp.split(",").filter(Boolean);
+    if (codes.length) openGraph(codes[0], codes.slice(1));
+    return;
+  }
+  // the song panel, from a graph heading or a title pip; the href is real, so no navigation
+  const song = e.target.closest("[data-song]");
+  if (song) {
+    e.preventDefault();
+    const from = graphIsOpen() ? state.graph : (song.closest("tr[data-code]") || {}).dataset?.code;
+    if (graphIsOpen()) closeGraph();
+    openSong(song.dataset.song, { from });
+    return;
+  }
+  // the dialogs, topmost first: the graph covers everything when it is open
+  if (graphIsOpen()) {
+    // a copy's link swaps the graph in place; the href is real for a new tab
+    const alt = e.target.closest("#modal .mhead a[data-code]");
+    if (alt) { e.preventDefault(); openGraph(alt.dataset.code); return; }
+    // the card has controls, so only the backdrop itself and the close button close
+    if (e.target.closest('#modal [data-act="close"]') || e.target === el("modal")) closeGraph();
+    return;
+  }
+  if (songIsOpen()) {
+    const cell = e.target.closest("#song .cell[data-code]");
+    if (cell) { openGraph(cell.dataset.code); return; }
+    if (e.target.closest('#song [data-act="close"]') || !e.target.closest("#song .mcard")) closeSong();
+    return;
+  }
   if (aboutIsOpen()) {
     if (!e.target.closest(".mcard") || e.target.dataset.act === "close") closeAbout();
     return;
@@ -54,12 +87,6 @@ function onClick(e) {
   const row = e.target.closest("tbody tr[data-code]");
   if (row) { holdRow(row); chooseRow(row.dataset.code); return; }
 
-  // a copy's link swaps the graph in place; the href is real for a new tab
-  const alt = e.target.closest("#modal .mhead a[data-code]");
-  if (alt) { e.preventDefault(); openGraph(alt.dataset.code); return; }
-
-  // the card has controls now, so only the backdrop itself and the close button close
-  if (e.target.closest('#modal [data-act="close"]') || e.target === el("modal")) closeGraph();
 }
 
 // A row opens its graph, or, while a comparison is being picked, joins the
@@ -117,17 +144,21 @@ function onGridKey(e) {
   return false;
 }
 
+// Tab stays in the topmost dialog; Escape closes one layer at a time, so a
+// graph over the song panel takes two presses back to the table.
 function onKeydown(e) {
   if (e.key === "Tab") {
     if (graphIsOpen()) { trapTab(el("modal"), e); return; }
+    if (songIsOpen()) { trapTab(el("song"), e); return; }
     if (aboutIsOpen()) { trapTab(el("about"), e); return; }
   }
   if (e.key === "Escape") {
     closeDD();
     closeCD();
     if (state.picking) { stopPicking(true); return; }
-    closeGraph();
-    closeAbout();
+    if (graphIsOpen()) closeGraph();
+    else if (songIsOpen()) closeSong();
+    else closeAbout();
     return;
   }
   onGridKey(e);

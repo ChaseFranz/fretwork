@@ -111,10 +111,47 @@
   #cd .cc .grip { cursor:grab; opacity:.6; padding:0 2px; user-select:none; }
   #cd .cc .grip:active { cursor:grabbing; }
   #cd .form-check { flex:1; margin-bottom:0; padding:2px 4px 2px 1.5rem; }
-  #modal, #about { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
+  #modal, #about, #song { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
            align-items:center; justify-content:center; z-index:1060; padding:24px; }
-  #modal.on, #about.on { display:flex; }
-  #modal .mcard, #about .mcard { max-width:100%; max-height:92vh; overflow:auto; }
+  #modal.on, #about.on, #song.on { display:flex; }
+  #modal .mcard, #about .mcard, #song .mcard { max-width:100%; max-height:92vh; overflow:auto; }
+  /* the song panel sits under the graph, so a graph opened from a cell draws over it */
+  #song { z-index:1055; }
+  #song:focus-visible { outline:none; }
+  #song .mcard { position:relative; width:min(680px, 100%); background:var(--bs-body-bg);
+    border:1px solid var(--bs-border-color); border-radius:8px; padding:20px 22px; }
+  #song .x { position:absolute; top:8px; right:8px; background:none; border:0; color:var(--fw-dim);
+    font-size:22px; line-height:1; padding:0 2px; cursor:pointer; }
+  #song .x:hover { color:var(--bs-body-color); }
+  #song .mhead { padding-right:28px; }
+  #song p.meta, #song p.also { margin:0 0 6px; font-size:12px; color:var(--fw-dim); }
+  #song p.meta a { color:var(--fw-accent-text); }
+  #song p.also { color:var(--bs-body-color); }
+  .sgrid { display:grid; grid-template-columns:auto repeat(4, 1fr); gap:4px; margin-top:10px; font-size:12px; }
+  .sgrid .lvlh { text-align:center; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.4px;
+    padding:2px 0; }
+  .sgrid .inst { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding:0 8px 0 0; font-weight:600; }
+  .sgrid .tier { font-weight:400; color:var(--fw-dim); }
+  .sgrid .cmp { background:none; border:1px solid #495057; border-radius:4px; color:var(--fw-dim); font-size:11px;
+    padding:1px 6px; cursor:pointer; }
+  .sgrid .cmp:hover { color:#fff; border-color:var(--fw-dim); }
+  .sgrid .cell { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:44px;
+    border:1px solid var(--bs-border-color); border-radius:6px; background:none; color:var(--bs-body-color);
+    font-variant-numeric:tabular-nums; padding:4px 2px; }
+  .sgrid button.cell { cursor:pointer; }
+  .sgrid button.cell:hover { background:rgba(255,255,255,.06); }
+  .sgrid .cell b { font-weight:600; }
+  .sgrid .cell small { color:var(--fw-dim); font-size:11px; }
+  .sgrid .cell.here { border-color:var(--fw-accent-text); box-shadow:inset 0 0 0 1px var(--fw-accent-text); }
+  .sgrid .cell.none { color:var(--fw-dim); border-style:dashed; }
+  .mhead .lnk { display:flex; align-items:baseline; gap:0; font-size:11px; white-space:nowrap; }
+  .mhead .lnk a { color:var(--fw-accent-text); }
+  /* the title cell's pip to the song panel: out of flow, revealed on hover like the code pip */
+  td.song { position:relative; padding-right:18px; }
+  td.song .sp { position:absolute; right:2px; top:5px; visibility:hidden; opacity:.7; cursor:pointer;
+    color:var(--fw-accent-text); font-size:13px; line-height:1; }
+  tr:hover td.song .sp { visibility:visible; }
+  td.song .sp:hover { opacity:1; }
   #about .mcard { max-width:min(680px, 100%); background:var(--bs-body-bg);
     border:1px solid var(--bs-border-color); border-radius:8px; padding:20px 22px; }
   /* the card is wide enough for the video; the prose is not, so it keeps a measure */
@@ -210,6 +247,11 @@
     /* the graph takes the whole width of a phone: 8px of padding and no card border */
     #modal { padding:8px; }
     #modal .mcard { padding:8px; border:0; border-radius:0; }
+    /* the song grid: the instrument heading on its own line, four cells across the card */
+    #song { padding:8px; }
+    .sgrid { grid-template-columns:repeat(4, 1fr); }
+    .sgrid .corner { display:none; }
+    .sgrid .inst { grid-column:1 / -1; margin-top:6px; }
   }
   #hint { position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
           z-index:1070; opacity:0; transition:opacity .18s; pointer-events:none; }

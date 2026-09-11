@@ -6,6 +6,7 @@ import { cols, state, findRow } from "./state.js";
 import { writeUrl } from "./url.js";
 import { loadSheet, loadAll } from "./load.js";
 import { loadCurves, mountGraph, exportPng, outputFilename } from "./graph.js";
+import { songIsOpen, closeSong } from "./song.js";
 
 let hintTimer = null;
 let opener = null;      // what to hand focus back to when the graph closes
@@ -79,14 +80,20 @@ function heading(code) {
     ? '<div class="copies"><span class="text-secondary">' + esc(UI.copies_label) + "</span> " +
       others.join('<span class="sep">/</span>') + "</div>"
     : "";
+  // the song panel's link: a real href, so a copied link works; router opens it in place
+  const key = get("SongKey");
+  const song = typeof key === "string" && key
+    ? '<a class="sng" href="?song=' + esc(key) + '" data-song="' + esc(key) + '">' + esc(UI.song_view) + "</a>"
+    : "";
   return '<div class="mhead"><strong>' + esc(row === undefined ? code : get("Song Title")) + '</strong>' +
     '<span class="text-secondary">' + esc(get("Artist")) + '</span>' +
     '<span class="badge rounded-pill lvl ' + esc(get("Level")) + '">' +
     esc(get("Level")) + '</span>' +
     '<span class="text-secondary">' + esc(get("Type")) + '</span>' +
     '<span class="text-secondary">' + esc(get("Charter")) + '</span>' + place +
-    '<a class="ms-auto rpt" target="_blank" rel="noopener" href="' + esc(report) +
-    '">' + esc(UI.report) + "</a>" + same + "</div>";
+    '<span class="ms-auto lnk">' + song + (song ? '<span class="sep">/</span>' : "") +
+    '<a class="rpt" target="_blank" rel="noopener" href="' + esc(report) +
+    '">' + esc(UI.report) + "</a></span>" + same + "</div>";
 }
 
 // Line 2, what the PNG's metadata line said: the difficulty numbers, the
@@ -294,6 +301,7 @@ function togglePicker(button) {
 export function startPicking() {
   const found = findRow(state.graph);
   const song = found ? found.row[found.columns.indexOf("Song Title")] : state.graph;
+  if (songIsOpen()) closeSong();     // the panel would cover the table the picker needs
   state.picking = true;
   el("modal").classList.remove("on");
   if (controller) { controller.destroy(); controller = null; }

@@ -1,9 +1,10 @@
 // Entry module: label the chrome, wire the panels, then first paint.
-import { DOC_PAGES, FOOTER, UI } from "./boot.js";
+import { DOC_PAGES, FOOTER, UI, SHEETS, SHEET_OF_CODE } from "./boot.js";
 import { el, esc, rich } from "./dom.js";
 import { initDropdown } from "./dropdown.js";
 import { initChooser } from "./chooser.js";
 import { openGraph, initGraphModal } from "./overlay.js";
+import { openSong } from "./song.js";
 import { initRouter, render } from "./router.js";
 import { edgeFade } from "./scroll.js";
 import { loadSheet, prefetchIdle } from "./load.js";
@@ -64,13 +65,20 @@ state.filters["Official"] = { type: "set", sel: new Set(["true"]) };
 
 // A shared link describes a view, so whatever it names wins over those defaults.
 // The header, chips and controls paint at once; the rows follow their fetch,
-// and a shared graph opens only once its row is here to name it. state.graph is
-// set first so the first draw's writeUrl keeps the code in the address bar.
+// and a shared graph opens only once its row is here to name it (its own
+// sheet is loaded too, in case the link names another) and, when a song
+// panel is named as well, once that panel has filled, so the graph's opener is
+// the cell it belongs to. state.graph and state.song are set first so the
+// first draw's writeUrl keeps them in the address bar.
 const shared = readUrl();
-if (shared) state.graph = shared;
+if (shared.code) state.graph = shared.code;
+if (shared.song) state.song = shared.song;
 render();           // the loading row; draw() refreshes both fades once there is content to measure
-loadSheet(state.sheet).then(() => {
-  render();
-  if (shared) openGraph(shared);
-  prefetchIdle();
-}, () => { state.loadError = true; render(); });
+const panel = shared.song ? openSong(shared.song, { from: shared.code }) : Promise.resolve();
+const codeSheet = shared.code ? SHEET_OF_CODE[shared.code.slice(-1).toUpperCase()] : null;
+Promise.all([loadSheet(state.sheet), codeSheet && codeSheet in SHEETS ? loadSheet(codeSheet) : null, panel])
+  .then(() => {
+    render();
+    if (shared.code) openGraph(shared.code);
+    prefetchIdle();
+  }, () => { state.loadError = true; render(); });

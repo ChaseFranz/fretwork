@@ -100,6 +100,15 @@ def compare_query(plain):
     return "?" + urllib.parse.urlencode({"code": rows[0][at("Code")], "vs": rows[1][at("Code")]})
 
 
+def song_query(plain):
+    """?song=<the first SongKey in the first sheet>&code=<that row's Code>."""
+    data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
+    sheet = list(data)[0]
+    file = json.loads((plain.parent / data[sheet]["file"]).read_text(encoding="utf-8"))
+    cols, row = file["columns"], file["rows"][0]
+    return "?" + urllib.parse.urlencode({"song": row[cols.index("SongKey")], "code": row[cols.index("Code")]})
+
+
 def genre_query(plain):
     """A search for a genre that no searched column on the first sheet contains."""
     data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
@@ -137,6 +146,8 @@ SUITES = [
     ("copies.js",    {"queries": ["", "?f.Copies=2" + ALL_LEVELS]}),
     ("graph.js",     {"queries": ["", "?code=00000000XD"]}),
     ("compare.js",   {"queries": [compare_query]}),
+    ("song.js",      {}),
+    ("song_url.js",  {"queries": [song_query, "?song=000000000000"]}),
     ("fade.js",      {"windows": ["700,900", "1000,900", "1440,900"]}),
     ("video.js",     {}),
     ("links.js",     {}),
@@ -181,22 +192,9 @@ def stage(site, work, suites):
     shutil.copytree(site / "static", work / "static")
     if (site / "data").is_dir():
         shutil.copytree(site / "data", work / "data")
-    (work / "graph").mkdir()
-    for name in ("manifest.json", "curves-manifest.json"):
-        if (site / "graph" / name).is_file():
-            shutil.copy(site / "graph" / name, work / "graph" / name)
-    # the graphs of the first 40 rows of every sheet: the curve JSON the page
-    # draws from, and the PNG when publish still made one (only the social
-    # preview, after section 06)
-    data = json.loads(ISLAND.search(src).group(1))["data"]
-    for sheet in data.values():
-        file = json.loads((site / sheet["file"]).read_text(encoding="utf-8"))
-        at = file["columns"].index("Code")
-        for row in file["rows"][:40]:
-            for ext in (".json", ".png"):
-                f = site / "graph" / (str(row[at]) + ext)
-                if f.is_file():
-                    shutil.copy(f, work / "graph" / f.name)
+    # every graph file: the curve JSON the page draws from (about 4 KB each, 48 MB
+    # for the Local library) and the one PNG, the social preview
+    shutil.copytree(site / "graph", work / "graph")
     (work / "src").mkdir()
     shutil.copy(REPO / "web" / "static" / "js" / "dom.js", work / "src" / "dom.js")   # links.js tests rich()
     (work / "plain.html").write_text(src.replace(anchor, storage_script(None) + anchor), encoding="utf-8")
@@ -209,18 +207,6 @@ def stage(site, work, suites):
                            '\n<script type="module" src="' + name + '"></script>')
         (work / suite_page(name)).write_text(page, encoding="utf-8")
     return 'static/bootstrap.' in src              # False means FALLBACK_CSS is inlined
-
-
-# The graphs a query string names (?code=, ?vs=) join the staged copy too, since
-# a compare partner is rarely among a sheet's first 40 rows.
-def stage_query_graphs(site, work, query):
-    got = urllib.parse.parse_qs(query.lstrip("?"))
-    codes = [c for key in ("code", "vs") for value in got.get(key, []) for c in value.split(",")]
-    for code in codes:
-        for ext in (".json", ".png"):
-            f = site / "graph" / (code + ext)
-            if f.is_file() and not (work / "graph" / f.name).exists():
-                shutil.copy(f, work / "graph" / f.name)
 
 
 # Injected pages are named apart from the bundle's own files: a suite called
@@ -353,7 +339,6 @@ def main():
                 queries = [q(work / "plain.html") if callable(q) else q for q in opts.get("queries", [""])]
                 windows = opts.get("windows", [opts.get("window", "1440,900")])
                 for query in queries:
-                    stage_query_graphs(site, work, query)
                     for window in windows:
                         lines = run_suite(chrome, f"{base}/{page}{query}", args.budget, window, profile)
                         label = name + (f" @{window}" if len(windows) > 1 else "") + (f" {query}" if len(queries) > 1 else "")

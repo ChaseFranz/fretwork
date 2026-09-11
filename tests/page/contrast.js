@@ -105,6 +105,21 @@ if (firstRow) {
   check("pick bar button", document.querySelector("#pick button"), true);
   key("Escape");
   await wait(300);
+  // the song panel (section 07)
+  const sng = modal.querySelector(".mhead a.sng");
+  check("graph heading song link", sng, true);
+  if (sng) {
+    click(sng);
+    await wait(700);
+    const panel = document.getElementById("song");
+    check("song meta line", panel.querySelector("p.meta"));
+    check("song tier", panel.querySelector(".sgrid .tier") || panel.querySelector(".sgrid .inst"));
+    check("song compare button", panel.querySelector(".sgrid .cmp") || panel.querySelector(".sgrid .inst"), true);
+    check("song cell D", panel.querySelector(".sgrid .cell b"), true);
+    check("song cell percentile", panel.querySelector(".sgrid .cell small") || panel.querySelector(".sgrid .cell b"));
+    check("song blank cell", panel.querySelector(".sgrid .cell.none") || panel.querySelector(".sgrid .cell b"));
+    for (const h of panel.querySelectorAll(".sgrid .lvlh")) check("level heading " + h.textContent, h);
+  }
   key("Escape");
   await wait(100);
 }

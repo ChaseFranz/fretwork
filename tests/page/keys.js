@@ -42,9 +42,10 @@ await wait(400);
 const inModal = () => here() && modal.contains(here());
 modal.focus();                                   // as it is when the graph opens
 key("Tab");
-say("the first Tab lands on the heading's link", inModal() && here().matches(".mhead a"), here().tagName + "." + here().className);
-key("Tab");
-say("then the close button", inModal() && here().matches(".x"), here().className);
+say("the first Tab lands on a heading link", inModal() && here().matches(".mhead a"), here().tagName + "." + here().className);
+let walked = 0;
+while (inModal() && here().matches(".mhead a") && walked < 4) { key("Tab"); walked++; }
+say("after the heading's links comes the close button", inModal() && here().matches(".x"), here().className + " after " + walked);
 key("Tab");
 say("then the canvas", inModal() && here().tagName === "CANVAS", here().tagName);
 say("the canvas is an application", here().getAttribute("role") === "application");
@@ -52,10 +53,11 @@ const before = modal.querySelector(".readout").textContent;
 key("ArrowRight", here());
 say("Right on the canvas changes the readout", modal.querySelector(".readout").textContent !== before, modal.querySelector(".readout").textContent);
 const inside = [...modal.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter(e => e.offsetParent !== null);
+const at = inside.indexOf(here());
 for (let i = 0; i < inside.length; i++) key("Tab");
-say("Tab wraps inside the dialog after every stop", inModal() && here() === inside[2], here().tagName + " after " + inside.length);
+say("Tab wraps inside the dialog after every stop", inModal() && here() === inside[at], here().tagName + " after " + inside.length);
 key("Tab", here(), true);
-say("Shift+Tab goes back the other way", inModal() && here() === inside[1], here().className);
+say("Shift+Tab goes back the other way", inModal() && here() === inside[at - 1], here().className);
 key("Escape");
 await wait(200);
 say("Escape closes it", !modal.classList.contains("on"));

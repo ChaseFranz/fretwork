@@ -85,5 +85,35 @@ if (canvas) {
   d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   await wait(600);
   say("Escape brings the graph back", modal.classList.contains("on"));
+  d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await wait(300);
+}
+
+// The song panel on a phone (section 07): a 374px card, four cells across it,
+// the instrument heading on its own line, nothing clipped; and the title
+// pip is out of flow, so the rows are no taller for it.
+const rowsBefore = [...d.querySelectorAll("#body tr[data-code]")].slice(0, 40).reduce((a, tr) => a + tr.getBoundingClientRect().height, 0);
+d.querySelectorAll("td.song .sp").forEach(e => e.remove());
+const rowsAfter = [...d.querySelectorAll("#body tr[data-code]")].slice(0, 40).reduce((a, tr) => a + tr.getBoundingClientRect().height, 0);
+say("the title pip adds no height to the rows", Math.abs(rowsBefore - rowsAfter) < 1, rowsBefore + " vs " + rowsAfter);
+const link = (() => { const tr = d.querySelector("#body tr[data-code]"); return tr; })();
+link.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+await wait(600);
+const sng = d.querySelector("#modal .mhead a.sng");
+if (!sng) {
+  say("song link in the heading", false, "no a.sng");
+} else {
+  sng.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+  await wait(700);
+  const panel = d.getElementById("song");
+  const card = panel.querySelector(".mcard").getBoundingClientRect();
+  say("the song panel opens at 390px within the viewport", panel.classList.contains("on") && card.left >= 0 && card.right <= 390, Math.round(card.left) + " -> " + Math.round(card.right));
+  const grid = panel.querySelector(".sgrid");
+  say("the grid does not scroll sideways", grid.scrollWidth <= grid.clientWidth, grid.scrollWidth + " vs " + grid.clientWidth);
+  say("the instrument heading spans the grid", [...panel.querySelectorAll(".sgrid .inst")].every(e => Math.abs(e.getBoundingClientRect().width - grid.clientWidth) <= 2),
+      [...panel.querySelectorAll(".sgrid .inst")].map(e => Math.round(e.getBoundingClientRect().width)).join() + " vs " + grid.clientWidth);
+  say("every cell is at least 44px tall", [...panel.querySelectorAll(".sgrid .cell")].every(c => c.getBoundingClientRect().height >= 44));
+  say("no value is clipped", [...panel.querySelectorAll(".sgrid .cell b")].every(b => b.scrollWidth <= b.clientWidth + 1));
+  note("cells " + [...panel.querySelectorAll(".sgrid .cell")].slice(0, 4).map(c => Math.round(c.getBoundingClientRect().width) + "x" + Math.round(c.getBoundingClientRect().height)).join(" "));
 }
 done();

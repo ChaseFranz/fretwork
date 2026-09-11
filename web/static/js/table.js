@@ -75,7 +75,7 @@ export function draw() {
   }
 
   // The hover text says where the chart sits before the click that opens it.
-  const codeIdx = cols().indexOf("Code");
+  const codeIdx = cols().indexOf("Code"), keyIdx = cols().indexOf("SongKey");
   const pctIdx = cols().indexOf("Pct"), levelIdx = cols().indexOf("Level");
   const tipFor = r => pctIdx >= 0 && levelIdx >= 0 && typeof r[pctIdx] === "number"
     ? t("pct_of", { pct: r[pctIdx], level: r[levelIdx], sheet: state.sheet }) + "\n" + UI.row_tip
@@ -84,7 +84,7 @@ export function draw() {
   el("body").innerHTML = pending
     ? loadingRow(vis.length, state.loadError)
     : rows.length
-      ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], n + 1, tipFor(r))).join("")
+      ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], n + 1, tipFor(r), keyIdx < 0 ? undefined : r[keyIdx])).join("")
       : emptyRow(vis.length);
 
   // One tab stop for the whole table; the arrow keys move within it.

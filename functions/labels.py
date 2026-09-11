@@ -423,6 +423,16 @@ UI = {
     'compare_remove':   'Remove {code} from the graph',
     'compare_missing':  'No graph for {code}',
     'song_compare':     'Compare all levels',
+
+    # the per-song panel (?song=<key>)
+    'song_view':        'All charts of this song',
+    'song_label':       'Song',
+    'song_grid_label':  'Charts by instrument and level',
+    'song_loading':     'Loading every sheet...',
+    'song_not_found':   'No song has that key.',
+    'song_tier':        'Tier {n}',
+    'song_also_in':     'Also in',
+    'song_no_level':    'No {level} chart',
     'save_png':         'Save as PNG',
 
     # the page CloudFront serves for a path that is not in the bucket

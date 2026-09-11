@@ -54,7 +54,13 @@ function numberCell(col, v) {
   return '<td class="num' + (col === "D" ? " headline" : "") + '">' + text + "</td>";
 }
 
-function bodyCell(col, v) {
+// The title cell's pip opens the song panel; out of flow, so a title that
+// fills its last line is not pushed onto another. Only when the sheet has a
+// SongKey column, since the panel is keyed on it.
+function bodyCell(col, v, songKey) {
+  if (col === "Song Title" && typeof songKey === "string")
+    return '<td class="' + TEXT_CLASS[col] + '" title="' + esc(v ?? "") + '">' + esc(v ?? "") +
+      '<span class="sp" data-song="' + esc(songKey) + '" title="' + esc(UI.song_view) + '">&#8862;</span></td>';
   if (col === "Code")
     return '<td class="code" title="' + esc(UI.copy_code_tip) + '">' + esc(v) +
       '<span class="cp" data-copy="' + esc(v) + '">&#128203;</span></td>';
@@ -76,11 +82,11 @@ function bodyCell(col, v) {
   return "<td>" + esc(v === null ? "" : v) + "</td>";
 }
 
-export function bodyRow(row, visibleCols, code, rank, tip) {
+export function bodyRow(row, visibleCols, code, rank, tip, songKey) {
   const cells = visibleCols
     .map(([col, i]) => col === RANK_COL
       ? '<td class="num rank">' + rank + "</td>"
-      : bodyCell(col, row[i]))
+      : bodyCell(col, row[i], songKey))
     .join("");
   return '<tr tabindex="-1" title="' + esc(tip) + '" data-code="' +
     esc(code) + '">' + cells + "</tr>";

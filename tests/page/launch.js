@@ -162,8 +162,11 @@ if (row) {
       !!modal.querySelector(".gbody canvas") && !modal.querySelector("img"), modal.querySelector(".gbody") && modal.querySelector(".gbody").innerHTML.slice(0, 60));
   if (col("Pct") >= 0) {
     const sentence = new RegExp(UI.pct_of.replace(/\{\w+\}/g, ".+?"));
-    say("heading says where the chart sits, before the report link",
-        sentence.test(modal.querySelector(".mhead").textContent) && modal.querySelector(".mhead").lastElementChild === rpt,
+    const links = rpt.closest(".lnk") || rpt;
+    say("heading says where the chart sits, before the link group",
+        sentence.test(modal.querySelector(".mhead").textContent) && links.previousElementSibling &&
+        sentence.test(links.previousElementSibling.textContent) && (modal.querySelector(".mhead").lastElementChild === links ||
+        modal.querySelector(".mhead").lastElementChild.classList.contains("copies")),
         modal.querySelector(".mhead").textContent);
   }
   key("Escape");
