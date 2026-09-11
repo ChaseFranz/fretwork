@@ -43,6 +43,11 @@ DISPLAY_NAMES = {
     'drums':  'Drums',
 }
 
+# the instruments analyze scores today: the five 5-fret keys. Drums is cached
+# but skipped until its calcs land; anything that counts "charts on the site"
+# filters through this rather than spelling an instrument name.
+SCORED_INSTRUMENTS = ('guitar', 'coop', 'rhythm', 'bass', 'keys')
+
 # canonical level keys, in a stable display/iteration order
 LEVEL_KEYS = ['easy', 'medium', 'hard', 'expert']
 
