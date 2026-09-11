@@ -266,6 +266,21 @@ def run_all(work, header, args):
     st.check(by_title.loc['__SHOUT__ Two Tier', 'Year'] == -1 and by_title.loc['Midi Mirror', 'Year'] == 2007
              and by_title.loc['Keys Only Once', 'Year'] == 2001 and by_title.loc['Grid Runner', 'Year'] == 2026, 'the year rule')
     st.check(by_title.loc['Keys Only Once', 'Album'] == 'Latch, Vol. 2' and by_title.loc['Half Medium', 'Genre'] == 'Rock', 'album with a comma, genre markup stripped')
+    # section 10: NotesHash hidden in Excel, read back as text even on the one-row Keys sheet
+    import openpyxl
+    wb = openpyxl.load_workbook(xlsxs[0], read_only=False)
+    for name, df in sheets.items():
+        letter = openpyxl.utils.get_column_letter(list(df.columns).index('NotesHash') + 1)
+        st.check(wb[name].column_dimensions[letter].hidden, f'{name}: NotesHash column {letter} is not hidden')
+    st.check(total['NotesHash'].str.fullmatch('[0-9a-f]{12}').all(), 'a NotesHash is not 12 hex digits')
+    _, loaded = frames.load_frames(header, xlsxs[0])
+    st.check(all(pd.api.types.is_string_dtype(df['NotesHash']) and pd.api.types.is_string_dtype(df['SongKey']) for df in loaded.values()),
+             'a hash column did not load as text')
+    a1 = total[(total['Song Title'] == 'Grid Runner') & (total['Level'] == 'Expert') & (total['Type'] == 'Lead')]['NotesHash'].item()
+    b5 = total[total['Song Title'] == 'Grid Runner (Live)']['NotesHash'].item()
+    st.check(a1 == b5, f'B5 should hash as A1: {a1} vs {b5}')
+    # only the cross-pack pair collapses: Hard = Expert differ in Level, Lead = Rhythm in Type
+    st.check(re.search(rf'Distinct charts\s+{len(total) - 1:,} of {len(total):,}', st.out), 'the distinct-charts summary line')
     st.done(f"{len(total)} rows on {len(sheets)} sheets, columns as COLUMN_ORDER")
 
     # ---- publish without bootstrap -------------------------------------------------
@@ -312,7 +327,17 @@ def run_all(work, header, args):
     st.check(len(c4) >= 1, 'C4 row missing from the sheet file')
     st.check(b'Less < More' in (site / manifest_sheets['Guitar']['file']).read_bytes(), 'the sheet file is not escaped (it need not be)')
     st.check('Added' in gcols and c4[0][gcols.index('Added')] == '2026-09-09', f"C4 Added {c4[0][gcols.index('Added')] if 'Added' in gcols else None}")
-    st.check(gcols[-1] == 'Pct' and gcols.index('Added') < gcols.index('Pct'), f'page-build column order {gcols[-3:]}')
+    st.check(gcols[-3:] == ['Added', 'Copies', 'Pct'], f'page-build column order {gcols[-3:]}')
+    # section 10: the planted pair counts as one chart; the within-song repeats are not copies
+    def rows_titled(title):
+        return [r for r in guitar['rows'] if r[gcols.index('Song Title')] == title]
+    pair = rows_titled('Grid Runner (Live)') + [r for r in rows_titled('Grid Runner')
+                                                if r[gcols.index('Level')] == 'Expert' and r[gcols.index('Type')] == 'Lead']
+    st.check(len(pair) == 2 and all(r[gcols.index('Copies')] == 2 for r in pair) and len({r[gcols.index('Pct')] for r in pair}) == 1,
+             f'the B5/A1 pair: {[(r[gcols.index("Copies")], r[gcols.index("Pct")]) for r in pair]}')
+    singles = rows_titled('__SHOUT__ Two Tier') + rows_titled('Less < More')
+    st.check(singles and all(r[gcols.index('Copies')] == 1 for r in singles), 'Hard = Expert or Lead = Rhythm counted as a copy')
+    st.check(all(isinstance(r[gcols.index('Copies')], int) and r[gcols.index('Copies')] >= 1 for r in guitar['rows']), 'a Copies value is not a positive integer')
     st.check({k: v['rows'] for k, v in boot['data'].items()} == lib.rows_by_sheet, 'manifest row counts')
     manifest = json.loads((site / 'graph' / 'manifest.json').read_text())
     codes = frames.codes_in(sheets)

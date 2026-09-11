@@ -36,22 +36,22 @@ class FixtureTest(unittest.TestCase):
 
     def test_totals_from_the_table(self):
         lib = self.lib
-        self.assertEqual(lib.ini_count, 15)
-        self.assertEqual(len(lib.charted), 13)
+        self.assertEqual(lib.ini_count, 16)
+        self.assertEqual(len(lib.charted), 14)
         self.assertEqual(len(lib.unusable), 2)          # the ini-only song and the broken mid
         self.assertEqual(len(lib.errors), 1)
-        self.assertEqual(lib.codes, 49)                  # 47 five-fret + 2 drums
-        self.assertEqual(lib.rows_by_sheet, {'Guitar': 35, 'Bass': 11, 'Keys': 1})
-        self.assertEqual(lib.official_rows, 25)
+        self.assertEqual(lib.codes, 50)                  # 48 five-fret + 2 drums
+        self.assertEqual(lib.rows_by_sheet, {'Guitar': 36, 'Bass': 11, 'Keys': 1})
+        self.assertEqual(lib.official_rows, 26)
         self.assertEqual(sum(lib.rows_by_sheet.values()) - lib.official_rows, 22)
         landing = sum(1 for s in lib.charted if s.official
                       for i in ('guitar', 'coop', 'rhythm') if 'X' in s.parts.get(i, ''))
-        self.assertEqual(landing, 8)
+        self.assertEqual(landing, 9)
 
     def test_files_are_only_the_three_the_parsers_read(self):
         names = {p.name for p in pathlib.Path(self.tmp.name).rglob('*') if p.is_file()}
         self.assertEqual(names, {'song.ini', 'notes.chart', 'notes.mid'})
-        self.assertEqual(len(list(pathlib.Path(self.tmp.name).rglob('song.ini'))), 15)
+        self.assertEqual(len(list(pathlib.Path(self.tmp.name).rglob('song.ini'))), 16)
         both = [s for s in self.lib.songs if s.fmt == 'both']
         self.assertEqual(len(both), 1)
         folder = pathlib.Path(self.tmp.name) / both[0].pack / both[0].folder
@@ -106,9 +106,10 @@ class FixtureTest(unittest.TestCase):
         self.assertTrue(any(int(v) & 0x80 for v in lanes))
         self.assertFalse(any(int(v) & 0x60 for v in lanes))     # bits 5-6 never set
 
-    # 35 Guitar-sheet rows must give more than RANGE_MIN_DISTINCT (25) distinct D
-    # values after the 2-place rounding analyze applies, so the page's range box
-    # appears; the test wants 30 so a small drift cannot land on the threshold.
+    # 36 Guitar-sheet rows, three of them repeats by design, must give more than
+    # RANGE_MIN_DISTINCT (25) distinct D values after the 2-place rounding analyze
+    # applies, so the page's range box appears; the test wants 30 so a small
+    # drift cannot land on the threshold.
     def test_guitar_d_values_distinct(self):
         seen = set()
         for song in self.lib.charted:

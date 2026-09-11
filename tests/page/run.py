@@ -118,6 +118,7 @@ SUITES = [
     ("roundtrip.js", {"queries": [roundtrip_query], "storage": {"fw.hidden": '["Artist"]'}}),   # a stale saved hidden set, no fw.v
     ("load.js",      {"queries": [bass_code_query, bass_code_query_with_sheet, ""], "delay": {"data/": 600}}),
     ("fields.js",    {"queries": ["", "?r.Difficulty=:3", "?r.Year=2000:2010", album_query, genre_query]}),
+    ("copies.js",    {"queries": ["", "?f.Copies=2" + ALL_LEVELS]}),
     ("fade.js",      {"windows": ["700,900", "1000,900", "1440,900"]}),
     ("video.js",     {}),
     ("links.js",     {}),

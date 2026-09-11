@@ -1,11 +1,14 @@
 """
 FIXTURE - a small synthetic song library, generated the same way every time.
 
-Fifteen song folders across three packs, nothing real in any of them: every
+Sixteen song folders across three packs, nothing real in any of them: every
 title, artist and charter is invented and every note stream comes from a seeded
-random generator. Thirteen carry a chart the parsers accept (nine notes.chart
+random generator. Fourteen carry a chart the parsers accept (ten notes.chart
 written as text, four notes.mid written with mido), one has only a song.ini,
 and one has a song.ini beside a truncated notes.mid so the errors path runs.
+Three of the charts repeat notes on purpose, for the Copies column: B5 is A1's
+Expert guitar in another pack under another title (a cross-pack pair), A2's
+Hard equals its Expert, and C4's Rhythm equals its Lead (neither is a copy).
 The table in SONGS is the interface: test_fixture.py pins its totals and
 pipeline_test.py derives every expected count from it.
 
@@ -49,6 +52,9 @@ class Song:
     seconds: int
     encoding: str = 'utf-8'      # 'utf-8' | 'utf-8-sig-crlf' | 'cp1252'
     enhanced_opens: bool = False
+    copy_of: str = None          # folder whose Expert guitar this song repeats note for note
+    flat_levels: bool = False    # every level is the Expert stream (Hard = Expert)
+    mirror_lead: tuple = ()      # instruments whose streams are the guitar's (Lead = Rhythm)
 
     @property
     def charted(self):
@@ -75,7 +81,7 @@ SONGS = [
          bpm=140, notes=600, seconds=120),
     Song('Fixture Pack A', 'A2 - Two Tier', 'chart', {'guitar': 'HX'}, True, PACKS['Fixture Pack A'][1],
          {'name': '__SHOUT__ Two Tier', 'artist': 'Placeholder Pattern', 'charter': 'Fixture', 'year': 'Unknown Year'},
-         bpm=120, notes=300, seconds=90),
+         bpm=120, notes=300, seconds=90, flat_levels=True),
     Song('Fixture Pack A', 'A3 - Midi Mirror', 'mid', {'guitar': 'EMHX', 'bass': 'HX'}, True, PACKS['Fixture Pack A'][1],
          {'name': 'Midi Mirror', 'artist': 'Reflected Signal', 'charter': 'Fixture', 'diff_guitar': '6', 'year': '2007 (re-issue)'},
          bpm=160, notes=800, seconds=140, encoding='utf-8-sig-crlf'),
@@ -94,6 +100,10 @@ SONGS = [
     Song('Fixture Pack B', 'B4 - Ini Only', 'none', {}, True, PACKS['Fixture Pack B'][1],
          {'name': 'Ini Only', 'artist': 'No Notes', 'charter': 'Fixture Two'},
          bpm=120, notes=0, seconds=60),
+    # A1's Expert guitar again: same bpm, length and target, no bass, another title
+    Song('Fixture Pack B', 'B5 - Grid Runner (Live)', 'chart', {'guitar': 'X'}, True, PACKS['Fixture Pack B'][1],
+         {'name': 'Grid Runner (Live)', 'artist': 'The Tessellates', 'charter': 'Fixture Two'},
+         bpm=140, notes=600, seconds=120, copy_of='A1 - Grid Runner'),
     Song('Fixture Pack C', 'C1 - Legacy Bass', 'chart', {'guitar': 'MHX', 'bass': 'X', 'drums': 'X'}, False, 'Custom',
          {'name': 'Legacy Bass', 'artist': 'Old Section', 'charter': 'Custom Charter'},
          bpm=170, notes=700, seconds=130),
@@ -106,7 +116,7 @@ SONGS = [
     Song('Fixture Pack C', 'C4 - Less Than More', 'chart', {'guitar': 'X', 'rhythm': 'X', 'bass': 'X'}, False, 'Custom',
          {'name': '<b>Less</b> < More', 'artist': 'René Escapé', 'charter': 'Custom Charter',
           'loading_phrase': '100% = one hundred percent'},
-         bpm=135, notes=550, seconds=115, encoding='cp1252'),
+         bpm=135, notes=550, seconds=115, encoding='cp1252', mirror_lead=('rhythm',)),
     Song('Fixture Pack C', 'C5 - Every Level', 'chart', {'guitar': 'EMHX', 'bass': 'EMHX'}, False, 'Custom',
          {'name': 'Every Level', 'artist': 'Full Ladder', 'charter': 'Custom Charter', 'diff_guitar': '2'},
          bpm=180, notes=900, seconds=150),
@@ -194,16 +204,33 @@ def expert_ticks(rng, song):
     return out
 
 
-def level_ticks(expert, level):
-    return expert[::STRIDE[level]]
+def level_ticks(expert, level, flat=False):
+    return expert[::1 if flat else STRIDE[level]]
 
 
-def part_streams(rng, song, instrument):
-    expert = expert_ticks(rng, song)
-    if instrument != 'guitar':
-        # another part of the same song plays a different line
-        expert = [(t, [(lane + 1 + i) % 5 for i, lane in enumerate(lanes)]) for t, lanes in expert[::2]]
-    return {level: level_ticks(expert, level) for level in song.levels(instrument)}
+def part_streams(rng, song, instrument, expert=None):
+    if expert is None:
+        expert = expert_ticks(rng, song)
+        if instrument != 'guitar':
+            # another part of the same song plays a different line
+            expert = [(t, [(lane + 1 + i) % 5 for i, lane in enumerate(lanes)]) for t, lanes in expert[::2]]
+    return {level: level_ticks(expert, level, song.flat_levels) for level in song.levels(instrument)}
+
+
+# A song's streams: its own from its own generator, or, for a copy, the guitar
+# stream its source drew, so the two charts parse to the same notes and hash
+# the same. A mirrored instrument is given the guitar's Expert and draws nothing.
+def song_streams(song, seed):
+    if song.copy_of:
+        source = next(s for s in SONGS if s.folder == song.copy_of)
+        expert = expert_ticks(random.Random(f'{seed}:{source.folder}'), source)
+        return {'guitar': part_streams(None, song, 'guitar', expert)}
+    rng = random.Random(f'{seed}:{song.folder}')
+    streams = {}
+    for instrument in song.parts:
+        mirrored = instrument in song.mirror_lead
+        streams[instrument] = part_streams(rng, song, instrument, streams['guitar']['expert'] if mirrored else None)
+    return streams
 
 
 # --- writers ----------------------------------------------------------------------------
@@ -250,7 +277,7 @@ def write_chart(rng, song, folder, streams):
             base = 'SingleBass' if (instrument == 'bass' and song.folder.startswith('C1')) \
                 else instruments.CHART_BASE_SECTIONS[instrument][0]
             extras = []
-            if song.folder.startswith('A1') and level == 'expert':
+            if (song.folder.startswith('A1') or song.copy_of == 'A1 - Grid Runner') and level == 'expert':
                 # an open note, a tap/force modifier pair on a real note, a star-power
                 # phrase and a solo marker: the parser folds the first and ignores the rest
                 first = ticks[0][0]
@@ -322,7 +349,7 @@ def write(dest, seed=SEED):
         write_ini(song, folder)
         if song.fmt == 'none':
             continue
-        streams = {instrument: part_streams(rng, song, instrument) for instrument in song.parts}
+        streams = song_streams(song, seed)
         if song.fmt == BROKEN:
             write_mid(rng, song, folder, streams, truncate=True)
         elif song.fmt == 'chart':

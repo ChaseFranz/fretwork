@@ -1,6 +1,6 @@
 // Keyboard access: one tab stop for the table, arrows inside it, Enter opens,
 // Escape returns focus, and the chrome reports its state to a screen reader.
-import { say, done, wait, key, click, chip, ready } from "./lib.js";
+import { BOOT, rows as sheetRows, say, skip, done, wait, key, click, chip, ready, params } from "./lib.js";
 await ready();
 
 const here = () => document.activeElement;
@@ -41,6 +41,32 @@ key("Escape");
 await wait(200);
 say("Escape closes it", !modal.classList.contains("on"));
 say("focus returns to the row you opened", here() === first, here().tagName);
+
+// --- a copy's link swaps the graph in place (section 10) ---------------------------
+const sheet = Object.keys(BOOT.data)[0];
+const rows = await sheetRows(sheet);
+const columns = BOOT.data[sheet].columns;
+const onScreen = new Set([...document.querySelectorAll("#body tr[data-code]")].map(tr => tr.dataset.code));
+const dup = columns.includes("Copies") && rows.find(r => r[columns.indexOf("Copies")] > 1 && onScreen.has(r[columns.indexOf("Code")]));
+if (!dup) {
+  skip("copies link", "no duplicated chart on the opening view");
+} else {
+  const row = document.querySelector('#body tr[data-code="' + dup[columns.indexOf("Code")] + '"]');
+  row.focus();
+  key("Enter");
+  await wait(200);
+  const link = modal.querySelector(".mhead .copies a[data-code]");
+  say("the heading lists the other copy", !!link && link.getAttribute("href") === "?code=" + link.dataset.code, link && link.outerHTML);
+  click(link);
+  await wait(300);
+  say("clicking it keeps the dialog open on the other code", modal.classList.contains("on") &&
+      (modal.getAttribute("aria-label") || "").endsWith(": " + link.dataset.code), modal.getAttribute("aria-label"));
+  say("the URL's code follows", params().get("code") === link.dataset.code, location.search);
+  say("the new heading points back", !!modal.querySelector('.mhead .copies a[data-code="' + row.dataset.code + '"]'));
+  key("Escape");
+  await wait(200);
+  say("Escape still returns focus to the row you started from", !modal.classList.contains("on") && here() === row, here().tagName);
+}
 
 // --- sorting from the keyboard keeps your place --------------------------------------
 const sortBtn = () => document.querySelector('#head th[data-c="CalcTier"] .lbl');
