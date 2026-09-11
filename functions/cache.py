@@ -22,16 +22,19 @@ Shape:
                                 'time_ms': ndarray,   # sorted
                                 'lanes':   ndarray uint8,  # bitmask, bit N = lane N
                             },
-                            'spans': {'star_power': [(ms, ms)...], 'solo': [...]},
                         },
                         ...  # only levels actually charted for this instrument
                     },
                     ...  # only instruments actually present for this song
+                    # 'drums' entries have two different streams (hands and kick)
+                    #     'notes': {
+                    #         'hand_mask': {'time_ms': ndarray, 'lanes': ndarray uint8},
+                    #         'kick_mask': {'time_ms': ndarray, 'lanes': ndarray uint8},
+                    #     }
                 },
             },
             ...
         },
-        'dropped':  {counter_name: int, ...},
     }
 
 Every level charted for an instrument is cached (whatever combination of E/M/H/X)
@@ -43,23 +46,16 @@ When generated with errors, a CSV is produced alongside the cache with details
 Retrieval codes are per the 8-digit song hash + a level (E/M/H/X) + instrument (G/C/R/B/K)
 '04821993' + Expert + Bass -> '04821993XB'. 
 Render uses the code to define the instrument/level
-
-Since the 8-digit part is already unique per song before any suffix is added,
-appending suffixes can't introduce a new collision between two different songs
 """
 
 import hashlib
 import pickle
-from datetime import datetime
 
 from functions import instruments
 
 # Hash-derived retrieval codes digit length (pre level/instrument suffix)
 CODE_LEN = 8
 SUFFIX_LEN = 2  # level letter + instrument letter
-
-def gen_ts():
-    return datetime.now().strftime("%m%d%Y-%H%M")
 
 # Retrieval codes
 def _hash_code(song_path, digits):

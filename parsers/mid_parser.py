@@ -6,43 +6,54 @@ MID_PARSER - Parses notes.mid files into per-instrument, per-level note streams:
         'resolution': int,
         'instruments': {
             instrument_key: {
-                'levels': {
-                    level_key: {
-                        'notes': {
-                            'time_ms': np.ndarray,   # sorted, one entry per tick
-                            'lanes':   np.ndarray uint8,   # bitmask, bit N = lane N
-                        },
-                        'spans': {
-                            'star_power': [(start_ms, end_ms), ...],
-                            'solo':       [(start_ms, end_ms), ...],
-                        },
+                level_key: {
+                    'notes': {
+                        'time_ms': np.ndarray,   # sorted, one entry per tick
+                        'lanes':   np.ndarray uint8,   # bitmask, bit N = lane N
                     },
-                    ...  # one entry per level actually present for this instrument
                 },
-                'dropped': {counter_name: int, ...},  # track-wide, see EMHX note below
+                ...  # one entry per level actually present for this instrument
             },
             ...  # one entry per recognized instrument track actually present in the file
         },
     }
 
-Scope: Easy/Medium/Hard/Expert (EMHX), 5-fret instruments (Guitar/Bass/Keys)
+    Drums' 'notes' has two streams (hands/kick)
+        'notes': {
+            'hand_mask': {'time_ms': np.ndarray, 'lanes': np.ndarray uint8},
+            'kick_mask': {'time_ms': np.ndarray, 'lanes': np.ndarray uint8},
+        }
+
+Scope: Easy/Medium/Hard/Expert (EMHX). 5-fret (Guitar/Bass/Keys) + Drums,
+both read from 'PART <NAME>' tracks via instruments.MID_TRACK_NAMES
 
 File load is the most expensive part, so midi is still slow, but per instrument scan is pretty fast
 
 NOTE STATE IS NOT PARSED - strum/tap/hopo are not used in the calcs and are discarded
 
-EMHX: .mid encodes level as a pitch block within one track per instrument
-lane N (0-4, GRBYO) sits at MID_PITCH_BASE[level] + N open sits at MID_PITCH_BASE[level] - 1
+
+Only note_on is read - note_off/velocity-0 messages are ignored, since note length isn't used by any metric.
+
+NOT PARSED: star power and solo phrases, SysEx-based open notes (0x01), 
+and GH1/2-style legacy open notes (pitch 0 on a specific channel)
+
+===5 FRET===
+.mid encodes level as a pitch block within one track per instrument
+lane N (0-4, GRBYO) sits at MID_PITCH_BASE[level] + N, open sits at MID_PITCH_BASE[level] - 1
 A single linear scan of the track buckets each note_on into the right level by pitch
-Star power and solo are track-wide, shared across every level, and are not part of the pitch blocks
 
 Note-based open notes (pitch == MID_PITCH_BASE[level] - 1) require an [ENHANCED_OPENS] text event
 
-Legacy GH1/2-style open notes (pitch 0, a specific MIDI channel) are assumed Expert only
+===DRUMS===
+Same level MID_PITCH_BASE blocks and parsing scan, 2 note streams (hand/kick)
+Hand lane N (4 or 5 lane) = base + n (1-5)
+Kick lane 1x base, kick lane 2x = base - 1 (expert only)
 
-SysEx-based open note (0x01) events are not implemented
+
 """
 
+import concurrent.futures as cf
+import os
 import pathlib
 
 import mido
@@ -50,7 +61,7 @@ import numpy as np
 import tqdm
 
 from functions import instruments
-from parsers.timing import map_cum, tempo_arrays, tick_to_ms, ticks_to_ms
+from parsers.timing import tempo_map, ticks_to_ms
 
 # ---------------------------------------------------------------------
 # Mid-specific constants
@@ -71,16 +82,17 @@ OPEN_PITCH_TO_LEVEL = {
     for level_key, base in instruments.MID_PITCH_BASE.items()
 }
 
-SP_PIT = 116             # modern star power phrase
-SOLO_PIT = 103                   # solo phrase, unless it IS star power
-LEGACY_SP = 103      # older charts, per multiplier_note tag
-
-# Legacy GH1/2-style open note encoding - assumed Expert-only, see module docstring
-M_OPEN_PIT = 0
-M_OPEN_CNL = 5
-LEGACY_OPEN_LEVEL = 'expert'
-
 ENH_OPEN = 'ENHANCED_OPENS'
+
+# Drum pitch -> (level_key, slot) where slot is 'kick', '2xkick', or a hand_mask bit index (0-4)
+# 4 + 5 lane supported (5 lane is just an extra note)
+DRUM_PITCH_TO_INFO = {}
+for _level_key, _base in instruments.MID_PITCH_BASE.items():
+    DRUM_PITCH_TO_INFO[_base] = (_level_key, 'kick')
+    for _lane in range(1, 6):
+        DRUM_PITCH_TO_INFO[_base + _lane] = (_level_key, _lane - 1)
+DRUM_PITCH_TO_INFO[instruments.MID_PITCH_BASE['expert'] - 1] = ('expert', '2xkick')
+del _level_key, _base, _lane
 
 
 # ---------------------------------------------
@@ -114,44 +126,20 @@ def map_mid_tempo(mid):
     if not tempos:
         tempos[0] = 120.0  # MIDI default
 
-    sorted_ticks, cum_ms = map_cum(tempos, mid.ticks_per_beat)
-    return tempos, sorted_ticks, cum_ms
+    return tempo_map(tempos, mid.ticks_per_beat)
 
 
 # -----------------------
 # Note-stream extraction
 # -----------------------
 
-def _is_note_off(msg):
-    return msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0)
-
-
 # Extracts one instrument's note stream from its located track, split into per-EMHX-level lane masks from one scan
 # Returns None if the track has no usable notes at any level
-def _extract_track(track, instrument_key, to_ms, to_ms_array, multiplier_note=None):
+def _extract_track(track, instrument_key, to_ms_array):
     allow_opens = instruments.SUPPORTS_OPEN_NOTES[instrument_key]
     enhanced_opens = False
 
-    # star power / solo pitch assignment - track-wide, shared across every EMHX level
-    legacy_sp = (multiplier_note == LEGACY_SP)
-    sp_pitch = LEGACY_SP if legacy_sp else SP_PIT
-    solo_pitch = None if legacy_sp else SOLO_PIT
-
-    phrase_pitches = {sp_pitch}
-    if solo_pitch is not None:
-        phrase_pitches.add(solo_pitch)
-
-    dropped = {
-        'unclosed_star_power': 0,
-        'unclosed_solo': 0,
-        'legacy_open_unknown_channel': 0,
-    }
-
     masks_by_tick = {level_key: {} for level_key in instruments.LEVEL_KEYS}
-    star_power = []
-    solos = []
-
-    open_starts = {}
     pending_opens = []   # (abs_tick, level_key) - applied only if ENHANCED_OPENS turns up
     abs_tick = 0
 
@@ -159,41 +147,17 @@ def _extract_track(track, instrument_key, to_ms, to_ms_array, multiplier_note=No
         abs_tick += msg.time
 
         if msg.type == 'note_on' and msg.velocity > 0:
-            pitch = msg.note
-            level_key = None
-            lane = None
+            lane_info = LANE_PITCH_TO_INFO.get(msg.note)
 
-            if pitch in LANE_PITCH_TO_INFO:
-                level_key, lane = LANE_PITCH_TO_INFO[pitch]
-
-            elif allow_opens and pitch in OPEN_PITCH_TO_LEVEL:
-                # held until the track has been scanned for ENHANCED_OPENS
-                # dropped if the marker is missing
-                pending_opens.append((abs_tick, OPEN_PITCH_TO_LEVEL[pitch]))
-
-            elif allow_opens and pitch == M_OPEN_PIT:
-                if msg.channel == M_OPEN_CNL:
-                    level_key, lane = LEGACY_OPEN_LEVEL, OPEN_MID
-                else:
-                    dropped['legacy_open_unknown_channel'] += 1
-
-            elif pitch in phrase_pitches:
-                open_starts.setdefault(pitch, []).append(abs_tick)
-
-            if level_key is not None:
+            if lane_info is not None:
+                level_key, lane = lane_info
                 level_masks = masks_by_tick[level_key]
                 level_masks[abs_tick] = level_masks.get(abs_tick, 0) | (1 << lane)
 
-        elif _is_note_off(msg):
-            pitch = msg.note
-            if pitch in phrase_pitches:
-                starts = open_starts.get(pitch)
-                if starts:
-                    start_tick = starts.pop(0)
-                    if pitch == sp_pitch:
-                        star_power.append((to_ms(start_tick), to_ms(abs_tick)))
-                    elif pitch == solo_pitch:
-                        solos.append((to_ms(start_tick), to_ms(abs_tick)))
+            elif allow_opens and msg.note in OPEN_PITCH_TO_LEVEL:
+                # held until the track has been scanned for ENHANCED_OPENS
+                # dropped if the marker is missing
+                pending_opens.append((abs_tick, OPEN_PITCH_TO_LEVEL[msg.note]))
 
         elif msg.type == 'text' and ENH_OPEN in msg.text.upper():
             enhanced_opens = True
@@ -204,48 +168,86 @@ def _extract_track(track, instrument_key, to_ms, to_ms_array, multiplier_note=No
             level_masks = masks_by_tick[level_key]
             level_masks[open_tick] = level_masks.get(open_tick, 0) | (1 << OPEN_MID)
 
-    # Anything still open at end - Dropped, but counted for errors
-    for pitch, starts in open_starts.items():
-        if not starts:
-            continue
-        if pitch == sp_pitch:
-            dropped['unclosed_star_power'] += len(starts)
-        elif pitch == solo_pitch:
-            dropped['unclosed_solo'] += len(starts)
-
-    shared_spans = {
-        'star_power': star_power,
-        'solo': solos,
-    }
-
     levels_out = {}
     for level_key, level_masks in masks_by_tick.items():
         if not level_masks:
             continue
 
-        ordered_ticks = sorted(level_masks.keys())
+        ordered_ticks = sorted(level_masks)
         levels_out[level_key] = {
             'notes': {
                 'time_ms': to_ms_array(ordered_ticks),
                 'lanes': np.array([level_masks[t] for t in ordered_ticks], dtype=np.uint8),
             },
-            # same shared track-wide spans duplicated onto every level
-            'spans': {
-                'star_power': list(shared_spans['star_power']),
-                'solo': list(shared_spans['solo']),
-            },
         }
 
-    if not levels_out:
-        return None
+    return levels_out or None
 
+
+
+#---------------
+# DRUM STUFF
+#---------------
+
+# DRUM NOTES
+# One {tick: mask} dict -> a {'time_ms', 'lanes'} stream, empty arrays if the dict is empty
+def _drum_stream(masks_by_tick, to_ms_array):
+    if not masks_by_tick:
+        return {
+            'time_ms': np.empty(0, dtype=np.float64),
+            'lanes': np.empty(0, dtype=np.uint8),
+        }
+    ordered_ticks = sorted(masks_by_tick)
     return {
-        'levels': levels_out,
-        'dropped': dropped,
+        'time_ms': to_ms_array(ordered_ticks),
+        'lanes': np.array([masks_by_tick[t] for t in ordered_ticks], dtype=np.uint8),
     }
 
 
-def mid_notes(mid_source, multiplier_note=None):
+# Drum equivalent of _extract_track, same scan with split to hands/kick
+def _extract_drum_track(track, to_ms_array):
+    hand_by_tick = {level_key: {} for level_key in instruments.LEVEL_KEYS}
+    kick_by_tick = {level_key: {} for level_key in instruments.LEVEL_KEYS}
+    abs_tick = 0
+
+    for msg in track:
+        abs_tick += msg.time
+
+        if msg.type != 'note_on' or msg.velocity == 0:
+            continue
+
+        info = DRUM_PITCH_TO_INFO.get(msg.note)
+        if info is None:
+            continue
+
+        level_key, slot = info
+        if slot == 'kick':
+            level_masks = kick_by_tick[level_key]
+            level_masks[abs_tick] = level_masks.get(abs_tick, 0) | (1 << 0)
+        elif slot == '2xkick':
+            level_masks = kick_by_tick[level_key]
+            level_masks[abs_tick] = level_masks.get(abs_tick, 0) | (1 << 1)
+        else:  # slot is a hand_mask bit index (0-3)
+            level_masks = hand_by_tick[level_key]
+            level_masks[abs_tick] = level_masks.get(abs_tick, 0) | (1 << slot)
+
+    levels_out = {}
+    for level_key in instruments.LEVEL_KEYS:
+        hand_masks = hand_by_tick[level_key]
+        kick_masks = kick_by_tick[level_key]
+        if not hand_masks and not kick_masks:
+            continue
+        levels_out[level_key] = {
+            'notes': {
+                'hand_mask': _drum_stream(hand_masks, to_ms_array),
+                'kick_mask': _drum_stream(kick_masks, to_ms_array),
+            },
+        }
+
+    return levels_out or None
+
+
+def mid_notes(mid_source):
     try:
         mid = mido.MidiFile(str(mid_source), clip=True)
     except (EOFError, OSError) as exc:
@@ -258,13 +260,7 @@ def mid_notes(mid_source, multiplier_note=None):
         ) from exc
 
     tick_res = mid.ticks_per_beat
-
-    tempos, sorted_ticks, cum_ms = map_mid_tempo(mid)
-
-    tempo_arrs = tempo_arrays(tempos, sorted_ticks, cum_ms)
-
-    def to_ms(tick):
-        return tick_to_ms(tick, tick_res, tempos, sorted_ticks, cum_ms)
+    tempo_arrs = map_mid_tempo(mid)
 
     def to_ms_array(ticks):
         return ticks_to_ms(ticks, tick_res, *tempo_arrs)
@@ -282,9 +278,13 @@ def mid_notes(mid_source, multiplier_note=None):
         if track is None:
             continue  # this instrument just isn't in the file - not an error
 
-        stream = _extract_track(track, instrument_key, to_ms, to_ms_array, multiplier_note)
-        if stream is not None:
-            instruments_out[instrument_key] = stream
+        levels = (
+            _extract_drum_track(track, to_ms_array)
+            if instrument_key == 'drums'
+            else _extract_track(track, instrument_key, to_ms_array)
+        )
+        if levels is not None:
+            instruments_out[instrument_key] = levels
 
     if not instruments_out:
         raise ValueError(
@@ -301,26 +301,44 @@ def mid_notes(mid_source, multiplier_note=None):
 
 
 # -----------
-# Search loop
+# Search loop - parallel (should've done this so long ago!)
 # -----------
 
+# worker for mid_loop's process pool
+def _mid_notes_worker(file):
+    try:
+        return mid_notes(file), None
+    except Exception as exc:
+        message = str(exc) or repr(exc)
+        return None, (str(file), type(exc).__name__, message)
+
+
+# max_workers=None -> leave one core free (uncapped maxes out CPU lol)
+def _resolve_workers(max_workers):
+    if max_workers is not None:
+        return max(1, int(max_workers))
+    return max(1, (os.cpu_count() or 1) - 1)
+
+
 # loops through search path, retrieving errors to provide along with cache
-def mid_loop(search_path, multiplier_notes=None, errors=None):
-    multiplier_notes = multiplier_notes or {}
+def mid_loop(search_path, errors=None, max_workers=None):
     mid_out = {}
 
     search = pathlib.Path(search_path)
     files = list(search.rglob("notes.mid"))
 
-    for file in tqdm.tqdm(files, desc="Parsing midis", unit="file"):
-        try:
-            song_path = str(pathlib.Path(file).parent.resolve())
-            stream = mid_notes(file, multiplier_notes.get(song_path))
-            mid_out[stream['song_path']] = stream
-        except Exception as exc:
-            if errors is not None:
-                message = str(exc) or repr(exc)
-                errors.append((str(file), type(exc).__name__, message))
-            continue
+    if not files:
+        return mid_out
+
+    workers = _resolve_workers(max_workers)
+    chunksize = max(1, len(files) // (workers * 4))
+
+    with cf.ProcessPoolExecutor(max_workers=workers) as pool:
+        results = pool.map(_mid_notes_worker, files, chunksize=chunksize)
+        for stream, error in tqdm.tqdm(results, total=len(files), desc="Parsing midis", unit="file"):
+            if stream is not None:
+                mid_out[stream['song_path']] = stream
+            elif errors is not None:
+                errors.append(error)
 
     return mid_out
