@@ -36,7 +36,7 @@ DEFAULT_HIDDEN_COLS = ['pNPS', 'aNPS', 'medNPS', 'stdNPS',
                         'N', 'V', 'COV']
 
 # kept in the workbook but hidden in Excel: a hash means nothing to a reader
-HIDDEN_COLS = ['SongKey']
+HIDDEN_COLS = ['SongKey', 'NotesHash']
 
 # RemapDiff/CalcTier being NaN means "no Expert chart to anchor against for this instrument" (EMHX)
 BLANK_PREDICATES = {

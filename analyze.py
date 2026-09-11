@@ -37,14 +37,14 @@ from functions import density, formula, ini_updater, xlsx_format, timestamp
 COLUMN_ORDER = [
     'Code', 'Song Title', 'Artist', 'Level', 'Type', 'Charter', 'Release',
     'Album', 'Year', 'Genre', 'Official',
-    'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier', 'SongKey',
+    'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier', 'SongKey', 'NotesHash',
     'pNPS', 'aNPS', 'medNPS', 'stdNPS', 'pVPS', 'aVPS', 'medVPS', 'stdVPS',
     'N', 'V', 'COV',
 ]
 
 # metrics: pre-computed density metrics for this level (expert)
 def song_row(code, meta, notes, instrument_key, level_key, anchor_remap, anchor_tier,
-             metrics=None, song_key=None):
+             metrics=None, song_key=None, notes_hash=None):
     if metrics is None:
         metrics = density.calc_metrics(notes)
     if metrics is None:
@@ -73,6 +73,7 @@ def song_row(code, meta, notes, instrument_key, level_key, anchor_remap, anchor_
         'RemapDiff': anchor_remap,
         'CalcTier': anchor_tier,
         'SongKey': song_key,
+        'NotesHash': notes_hash,
     }
 
 #Save clock, since that's slower than most of the analysis...
@@ -158,7 +159,8 @@ def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=No
             row = song_row(code, song['meta'], inst_entry['notes'], instrument_key,
                             level_key, anchor_remap, anchor_tier,
                             metrics=expert_metrics if level_key == 'expert' else None,
-                            song_key=song.get('song_key'))
+                            song_key=song.get('song_key'),
+                            notes_hash=inst_entry.get('notes_hash'))
             if row is None:
                 skipped += 1
                 continue
@@ -232,6 +234,10 @@ def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=No
     print(f"{total} Rows written:")
     active_levels = [level for level in instruments.LEVEL_KEYS if level in selected_levels]
     print(instruments.level_matrix(row_counts, active_levels, skip_empty=True))
+    # the same key the page's Copies column groups on; an old cache prints 0
+    written = pd.concat(frames.values()) if frames else pd.DataFrame(columns=['Type', 'Level', 'NotesHash'])
+    hashed = written[['Type', 'Level', 'NotesHash']].dropna().drop_duplicates()
+    print(f"Distinct charts   {len(hashed):,} of {len(written):,}")
 
     print(f"\nSpreadsheet written: {pathlib.Path(xlsx_out).resolve()}")
     print()

@@ -16,13 +16,20 @@ from functions import timestamp
 PCT_COL = 'Pct'        # the column added to every sheet
 PCT_OF = 'D'           # what is ranked
 PCT_WITHIN = 'Level'   # the pool a row is ranked within, per sheet
+COPY_KEY = ['Type', 'NotesHash']   # a chart's identity within a level
+COPIES_COL = 'Copies'
+
+# The two hash columns are read as text: read_excel infers per column, and a
+# one-row sheet whose hash happens to be all digits would come back as an
+# integer with its leading zeros gone. A name the sheet lacks is ignored.
+HASH_COLS = {'SongKey': str, 'NotesHash': str}
 
 
 def load_frames(header, xlsx_path=None):
     if xlsx_path is None:
         xlsx_path = timestamp.latest_output('metrics', header, ext='xlsx')
     xlsx_path = pathlib.Path(xlsx_path)
-    return xlsx_path, pd.read_excel(xlsx_path, sheet_name=None)
+    return xlsx_path, pd.read_excel(xlsx_path, sheet_name=None, dtype=HASH_COLS)
 
 
 # to_json is the round trip that turns NaN into null and numpy scalars into
@@ -71,6 +78,22 @@ def add_percentiles(frames, distinct=None):
         use = distinct if distinct and all(c in df.columns for c in distinct) else None
         df[PCT_COL] = percentile(df, use)
     return frames
+
+
+# The Copies column: how many rows on this sheet carry exactly these notes at
+# this level and part, this one included. Within one song, Hard often equals
+# Expert byte for byte and a Lead chart its own Rhythm; neither is a copy a
+# reader means, which is why the key holds Type and Level. groupby's default
+# dropna=True is load-bearing: a row with no hash gets NaN, then 1, rather
+# than the count of every hashless row. An older spreadsheet without the hash
+# is left alone: no copies known, no column.
+def add_copies(df):
+    if 'NotesHash' not in df.columns or not all(c in df.columns for c in [*COPY_KEY, PCT_WITHIN, 'Code']):
+        return df
+    df = df.copy()
+    size = df.groupby([*COPY_KEY, PCT_WITHIN])['Code'].transform('size')
+    df[COPIES_COL] = size.fillna(1).astype(int)
+    return df
 
 
 # The Added column: each row's pack date, joined by Code at page-build time.
