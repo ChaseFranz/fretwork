@@ -222,15 +222,15 @@ The sync runs with `--delete`, mirroring publish's own pruning, so the bucket mu
 
 ## 7. Updating the live site, start to finish
 
-Everything between "I changed what is in the song library" and "the website shows it", in order. Run every command from the repo root with the virtualenv active:
+Everything between "there is a pack to add" and "the website shows it". Three commands: `tools/ingest_pack.py` puts the pack under `songs/<name>/` chart-only, records it in `packs.toml`, and runs build and analyze for you (the two commands from sections 2 and 3, printed as it runs them, so the manual route is still there when the library changed some other way); `publish.py` writes the site; `deploy.py` pushes it. The sanitise, build and analyze steps this section used to list are inside the first command, and the checks it asked you to make by hand are in its summary: the song count moved by the size of the pack, the errors CSV did not jump, every instrument gained what the pack charts, and the pack is registered.
+
+Run every command from the repo root with the virtualenv active:
 
 ```
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 ```
 
-The examples use `Local` as the header and `songs/` as the library. Substitute your own; the header is what ties a cache, a spreadsheet and a published site together, so **use the same one at every step**.
-
-The `songs/` library on the dev box is kept chart-only: `python tools/sanitize_songs.py songs --apply` strips audio, art, video and editor scratch out of every song folder and keeps only `song.ini`, `notes.chart` and `notes.mid` (plus anything it does not recognise). That is all the pipeline reads, so a library sanitized this way builds to the same cache as the full one; a dry run without `--apply` shows what would go.
+The examples use `Local` as the header and `songs/` as the library. Substitute your own; the header is what ties a cache, a spreadsheet and a published site together, so **use the same one at every step**, and `deploy.py` reads its header from `.env` (`FRETWORK_HEADER`) rather than a flag, so that must name the same one.
 
 ### Before the first run
 
@@ -240,36 +240,19 @@ Three things need to be right once, and then never again:
 2. `.env` in the repo root - copy `.env.example` and set `FRETWORK_BUCKET`, and `FRETWORK_DISTRIBUTION` if CloudFront is in front of it. **No credentials go in this file**; `deploy.py` refuses one that has any.
 3. An AWS login the CLI can find - `aws configure sso` then `aws sso login`, or a named profile. Name it in `.env` as `AWS_PROFILE` so the deploy always uses the same one. Check it works: `aws sts get-caller-identity`.
 
-### Step 0 - register the pack
-
-Every top-level folder under the library is a pack, and every pack must be in `packs.toml` at the repo root, or publish refuses to run. A new pack is one `[[pack]]` block: `name` (as the changelog prints it), `folder` (the directory under `songs/`), `source` (where it is published, or `""`), `added` (today, as a bare `2026-09-11`), `notes`. `tools/ingest_pack.py` writes the block for you; by hand, copy the last one. Site changes worth a line on the "What's new" page go in the same file as `[[change]]` blocks with a `date` and a `text`. One rule for a change to the parsers or `functions/timing.py`: the rebuild after it moves every song's key, so add a `[[change]]` saying so, because `?song=` links from before it stop resolving.
-
-### Step 1 - rescan the library
+### Step 1 - ingest the pack
 
 ```
-python build.py --search-path songs --header Local
+python tools/ingest_pack.py "~/Downloads/Some Pack.zip" --name "Some Pack" --source https://where.it/lives
 ```
 
-Walks every folder under the search path, parses each `notes.chart` / `notes.mid`, and writes a cache to `caches/Local_cache_<timestamp>.pkl`. It also appends any new songs to `caches/Local_BackupData.csv`, so the original `song.ini` difficulties are recoverable. If an instrument has joined the tool since that file was written, build prints `Backup CSV header updated` once and adds the column; a header it does not recognise stops the build before parsing. Nothing is written back to the library.
+`SOURCE` is a `.zip`, `.rar` or `.7z`, a folder, or a direct download URL to one of those (a Google Drive, Mega or Discord link is a page, not a download: fetch it in a browser and pass the file). The tool refuses anything it can refuse before touching a byte, then extracts or copies the pack under `caches/ingest/`, lower-cases `Song.ini` and friends so the parsers find them, strips a wrapper folder that repeats the pack name, runs the sanitizer (audio, art, video and editor scratch go; `song.ini`, `notes.chart`, `notes.mid` and anything unrecognised stay), and only then renames the chart-only tree to `songs/<name>/`. That rename is the one commit point: a crash before it leaves nothing under `songs/`. A folder `SOURCE` is copied without its audio and never modified, so a pack in your Downloads or the read-only Clone Hero library is left as it was.
 
-Several minutes on a few thousand songs; MIDI parsing dominates. **Check before moving on:**
+It then appends the `[[pack]]` block to `packs.toml` (`name` and `folder` are `--name`, `source` is `--source` or the URL, `added` is today; `--notes` for free text), runs `build.py --search-path songs --header Local` and `analyze.py --header Local` exactly as sections 2 and 3 describe, and prints a summary against the previous cache: songs and charts before and after, Expert charts per instrument, and a block for this pack (song.ini found, cached, charts, no usable chart or mid, build errors in the pack, `.sng` files it cannot read, what the sanitizer removed). **Check before moving on:** the pack's `cached` equals its `song.ini found` unless you expected otherwise, `build errors in pack` is zero or explained, and the Expert rows moved by what the pack charts. `--dry-run` does everything up to the rename and then reports; `--replace` re-downloads a pack that is already there (the registry entry is kept, since it describes the same pack).
 
-- the song count in the summary is what you expect - if you added a pack and the number did not move, `--search-path` is pointing somewhere else
-- `caches/Local_errors_<timestamp>.csv` - one row per song that failed to parse. A handful is normal; a sudden jump means a bad download, not a bad build
+Site changes worth a line on the "What's new" page go in `packs.toml` as `[[change]]` blocks with a `date` and a `text`. One rule for a change to the parsers or `functions/timing.py`: the rebuild after it moves every song's key, so add a `[[change]]` saying so, because `?song=` links from before it stop resolving. If the library changed some other way (a pack removed, a folder renamed), register it by hand (copy the last `[[pack]]` block) and run the two commands from sections 2 and 3 yourself; `python -m functions.packs --header Local` then prints every pack's counts and names any folder publish would refuse.
 
-### Step 2 - recompute the metrics
-
-```
-python analyze.py --header Local
-```
-
-Reads the newest cache **for that header** and writes `metrics/Local_metrics_<timestamp>.xlsx`, reusing the cache's timestamp so the pair can be matched later. This is the step that computes D, RemapDiff and CalcTier.
-
-Run it with no `--diff-mode` unless you specifically want to write difficulties back into your `song.ini` files; those modes change your library.
-
-Then `python -m functions.packs --header Local` prints one row per registered pack with its songs and charts counted from the cache, and either `unregistered: none` or the folders publish will refuse. If a pack is missing from the table, register it (step 0) before going on.
-
-### Step 3 - look at the result before anyone else does *(optional)*
+### Step 2 - look at the result before anyone else does *(optional)*
 
 ```
 python serve.py --header Local
@@ -277,7 +260,7 @@ python serve.py --header Local
 
 Opens the same viewer the website runs, against your local spreadsheet, at http://127.0.0.1:8000. Worth a minute: sort by D and check the top of the list is plausible, and search for a song from whatever pack you just added to confirm it is there.
 
-### Step 4 - build the site
+### Step 3 - build the site
 
 ```
 python publish.py --header Local
@@ -289,7 +272,7 @@ Publish stops if the spreadsheet and the cache carry different build timestamps 
 
 You can skip this step: `deploy.py` publishes first anyway. Run it separately when you want to look at the bundle before it goes anywhere.
 
-### Step 5 - preview the exact bundle *(optional)*
+### Step 4 - preview the exact bundle *(optional)*
 
 ```
 python -m http.server 8000 --directory site/Local
@@ -297,7 +280,7 @@ python -m http.server 8000 --directory site/Local
 
 Then open http://localhost:8000. Opening `index.html` from the filesystem will **not** work - the page uses ES modules, which browsers refuse to load over `file://`.
 
-### Step 6 - deploy
+### Step 5 - deploy
 
 ```
 python deploy.py --dry-run     # lists what would upload; sends nothing
@@ -306,7 +289,7 @@ python deploy.py               # publish, sync, invalidate
 
 `--dry-run` first is a good habit when the library changed a lot (and `python tests/pipeline_test.py` before that, if code changed: it runs this whole sequence on a synthetic library in seconds, see [9. Tests](#9-tests)): the upload list is the clearest confirmation that publish produced what you expected. The real run publishes again, syncs to S3 in two passes (graphs with a week of caching, the page and assets with `no-cache`), and invalidates CloudFront so the new page is live immediately.
 
-### Step 7 - confirm it landed
+### Step 6 - confirm it landed
 
 ```
 python tools/check_site.py --site site/Local
@@ -357,6 +340,9 @@ Run the same call with `--metric-name BytesDownloaded` for bytes. CloudFront's m
 | Publish warns: "newest by mtime is A but newest by name is B" | An older cache or spreadsheet was copied or touched, so it looks newest | Delete or re-date the copy, or name the file you want with `--cache` / `--xlsx` |
 | Publish stops: "folder(s) not registered in packs.toml" | A pack folder under the library has no `[[pack]]` entry | Add the entry (step 0), then publish again |
 | Publish stops: "registered folder(s) with no songs in this cache" | A `folder` in `packs.toml` is misspelled, or the cache is another library's | Fix the spelling, or point `--packs` at that library's registry |
+| `refused: ... not a direct download` | The link is a Google Drive, Mega or Discord page, not an archive | Download it in a browser and pass the file to `ingest_pack.py` |
+| `refused: found 0 song folders and N .sng files` | Enchor serves `.sng`, a single-file format the parsers cannot read yet | Get the pack from its release thread as song folders, or convert it |
+| `refused: config.DIFF_WRITE_MODE is set` | A write-back mode was left on in `config.py` | Set it back to `None`; ingest never writes `song.ini` |
 | Site shows an old date | The invalidation has not finished, or the browser cached the page | Wait a minute, then hard-reload |
 | A graph looks stale after changing plotting code | The manifest fingerprints data, not code | `python publish.py --header Local --force` |
 | `deploy.py` refuses: "holds files publish did not write" | `FRETWORK_SITE_DIR` points at the wrong folder | Point it at `site/<header>` |

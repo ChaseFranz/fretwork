@@ -45,9 +45,15 @@ python serve.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--port 80
 python publish.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--out-dir DIR] [--packs FILE] [--no-bootstrap] [--force] [--allow-mismatch]
 ```
 
-The full rescan-to-published sequence, as numbered steps with the checks worth
-making at each one, is section 7 of `README.md`; keep it in step with these
-scripts when their flags change.
+The full pack-to-published sequence is section 7 of `README.md`: three commands,
+`tools/ingest_pack.py` (stage a pack chart-only under `songs/<name>/`, record it in
+`packs.toml`, run build and analyze, print the diff against the previous cache),
+`publish.py`, `deploy.py`. Keep it in step with these scripts when their flags
+change. `tools/` holds operator scripts, not entry points: `sanitize_songs.py`
+(also callable as `sanitize()`), `check_site.py` and `ingest_pack.py`, which is run
+from the directory where `caches/` and `metrics/` should land, refuses everything it
+can before touching a byte, and makes the rename into the library its one commit
+point so a crash never leaves audio or a half-extracted pack there.
 
 `deploy.py` ends every real run by asking S3 what Content-Type it will serve for
 one object of each kind, and exits non-zero if any is wrong; `tools/check_site.py
@@ -199,7 +205,7 @@ python tests/page/run.py --site /tmp/fw-ci/site/Fixture
 
 `tests/fixture.py` generates a synthetic 15-song library (nothing real, never committed; its `SONGS` table is the interface every count derives from). `tests/pipeline_test.py` runs build, analyze, publish and deploy against it as subprocesses from a temporary directory with a stub `aws` on `PATH`. `tests/page/run.py` stages a published bundle, injects one suite module per page, and drives it in headless Chrome (Windows Chrome from WSL), reading results out of a `<pre id="results">` block; every suite reads its expectations from the boot payload, so `--site site/Local` runs the same twelve suites against the real library. The 390 px layout is measured inside an iframe (`tests/page/narrow.js`) because headless Chrome floors its viewport at 500 px; the spec calls that measurement `frame.html`. `tests/README.md` lists the harness gotchas.
 
-The fixture does not exercise real-library shapes, so a change to parsing or metrics is still checked by building, analyzing and inspecting the terminal summary / xlsx / error CSV against a small local library. The convention is a gitignored `songs/` folder at the repo root holding song folders copied from a real library, then stripped to chart-only with `tools/sanitize_songs.py` (it deletes audio, art, video and editor scratch from song folders and leaves `song.ini`, `notes.chart`, `notes.mid` and anything it does not recognise; dry run by default, `--apply` to delete). So do not expect audio in `songs/`, and the pipeline does not need it, since build, analyze and render only ever open those three files. It still must never be committed:
+The fixture does not exercise real-library shapes, so a change to parsing or metrics is still checked by building, analyzing and inspecting the terminal summary / xlsx / error CSV against a small local library. The convention is a gitignored `songs/` folder at the repo root holding song folders copied from a real library, then stripped to chart-only with `tools/sanitize_songs.py` (it deletes audio, art, video and editor scratch from song folders and leaves `song.ini`, `notes.chart`, `notes.mid` and anything it does not recognise; dry run by default, `--apply` to delete). So do not expect audio in `songs/`, and the pipeline does not need it, since build, analyze and render only ever open those three files; `tools/ingest_pack.py` runs the sanitizer on every pack before it lands there. It still must never be committed:
 
 ```
 python build.py --search-path songs --header Local
