@@ -1,10 +1,25 @@
 // All mutable page state, in one object because ES module imports are
 // read-only bindings and several of these are reassigned wholesale.
-import { DATA, ORDER, HIDDEN_DEFAULT } from "./boot.js";
+import { SHEETS, ORDER, HIDDEN_DEFAULT, PREFS_VERSION } from "./boot.js";
 
 const STORAGE_KEY = "fw.hidden";
 const ORDER_KEY = "fw.order";
 const WIDTH_KEY = "fw.widths";
+const VERSION_KEY = "fw.v";
+
+// A changed default column set reaches a returning visitor once: when the
+// stored stamp is older than the page's, the saved hidden set goes and the
+// stamp is rewritten. Order and widths are the viewer's and are kept.
+function migratePrefs() {
+  try {
+    const stored = parseInt(localStorage.getItem(VERSION_KEY) || "0", 10);
+    if (stored < PREFS_VERSION) {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(VERSION_KEY, String(PREFS_VERSION));
+    }
+  } catch (e) {}
+}
+migratePrefs();
 
 // An absent key means a first visit, which gets the site's defaults; a stored
 // empty list means someone deliberately turned every column on.
@@ -26,7 +41,9 @@ function loadWidths() {
 }
 
 export const state = {
-  sheet: Object.keys(DATA)[0],
+  sheet: Object.keys(SHEETS)[0],
+  data: {},           // sheet -> {columns, rows}, filled by load.js as sheets arrive
+  loadError: null,    // set when the current sheet's fetch failed
   sortCol: "D",
   sortAsc: false,
   filters: {},        // column -> {type:"set", sel:Set} | {type:"range", lo, hi}
@@ -67,8 +84,11 @@ export function resetColumns() {
 // no slot in the row arrays, so visible() pairs it with -1.
 export const RANK_COL = "Rank";
 
-export const cols = () => DATA[state.sheet].columns;
-export const rowsAll = () => DATA[state.sheet].rows;
+// Columns come from the manifest, so geometry, the chooser and the URL reader
+// work before any row arrives; rows are [] until the sheet has loaded.
+export const cols = () => SHEETS[state.sheet].columns;
+export const rowsAll = () => (state.data[state.sheet] || { rows: [] }).rows;
+export const loaded = name => name in state.data;
 export const idx = name => cols().indexOf(name);
 
 // Left-to-right column names: whatever the viewer dragged into place first, then

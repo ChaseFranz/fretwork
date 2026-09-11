@@ -1,6 +1,7 @@
 // The explainer's video: nothing from YouTube until the panel opens, the
 // no-cookie host, no autoplay, a labelled 16:9 box, and a pause on close.
-import { BOOT, say, done, wait, key, click } from "./lib.js";
+import { BOOT, say, done, wait, key, click, ready } from "./lib.js";
+await ready();
 
 say("no iframe before the panel is opened", document.querySelectorAll("iframe").length === 0, document.querySelectorAll("iframe").length);
 const how = document.getElementById("how");

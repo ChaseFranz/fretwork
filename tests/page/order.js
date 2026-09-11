@@ -1,6 +1,7 @@
 // Lists and sorts read in a sensible order, not alphabetically, and the filter
 // panel picks the right control for the column.
-import { BOOT, rows as sheetRows, say, done, wait, click, chip, levels } from "./lib.js";
+import { BOOT, rows as sheetRows, say, done, wait, click, chip, levels, ready } from "./lib.js";
+await ready();
 
 const { ui: UI, valueOrder: VALUE_ORDER, valueLabels: VALUE_LABELS } = BOOT;
 const sheets = Object.keys(BOOT.data);

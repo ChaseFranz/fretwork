@@ -35,6 +35,9 @@ DEFAULT_HIDDEN_COLS = ['pNPS', 'aNPS', 'medNPS', 'stdNPS',
                         'pVPS', 'aVPS', 'medVPS', 'stdVPS',
                         'N', 'V', 'COV']
 
+# kept in the workbook but hidden in Excel: a hash means nothing to a reader
+HIDDEN_COLS = ['SongKey']
+
 # RemapDiff/CalcTier being NaN means "no Expert chart to anchor against for this instrument" (EMHX)
 BLANK_PREDICATES = {
     'RemapDiff': pd.isna,
@@ -164,5 +167,5 @@ def style_sheet(ws, df):
         lengths = df[col_name].apply(lambda v: 0 if pd.isna(v) else len(str(v)))
         longest = max(lengths.max(), len(col_name))
         ws.column_dimensions[get_column_letter(i)].width = min(max(longest + 2, 6), 40)
-        if col_name in DEFAULT_HIDDEN_COLS:
+        if col_name in DEFAULT_HIDDEN_COLS or col_name in HIDDEN_COLS:
             ws.column_dimensions[get_column_letter(i)].hidden = True

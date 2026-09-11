@@ -39,6 +39,7 @@ COLUMN_LABELS = {
     'Charter':    'Charter',
     'Release':    'Source',
     'Added':      'Added',
+    'SongKey':    'Song key',
     'Official':   'Official',
 
     # shape of the chart
@@ -80,6 +81,7 @@ COLUMN_HELP = {
     'Charter':    'Who charted the song, from song.ini.',
     'Release':    'Release or source pack. Officials are matched against the tables in sources/.',
     'Added':      'When the pack this chart came in was added to the site, from packs.toml.',
+    'SongKey':    'A hash of every chart in the song: the same charts give the same key, whatever folder they came from, so it survives a re-download.',
     'Official':   'True when the source pack is an official Guitar Hero or Rock Band release.',
 
     'NoteCount':  'Total notes in this chart. Frets played together count as one note, same as the games score it.',
@@ -193,7 +195,7 @@ DOC_PAGES = (('about.html', 'about'), ('changelog.html', 'changelog'))
 DISPLAY_ORDER = (
     'Song Title', 'Artist', 'D', 'Pct', 'CalcTier', 'Level', 'Type',
     'DurationS', 'NoteCount', 'Charter', 'Release', 'Added',
-    'Difficulty', 'RemapDiff', 'Official', 'Code',
+    'Difficulty', 'RemapDiff', 'Official', 'Code', 'SongKey',
 )
 
 # Off by default, so a first visit is the ten columns worth reading rather than
@@ -206,7 +208,11 @@ DISPLAY_ORDER = (
 #   Added       the changelog page tells the same story with names and dates
 # Charter is deliberately NOT in this list: the people most likely to read this
 # site are the ones who charted what is in it.
-DEFAULT_HIDDEN = ('Difficulty', 'RemapDiff', 'Official', 'Code', 'Added')
+DEFAULT_HIDDEN = ('Difficulty', 'RemapDiff', 'Official', 'Code', 'Added', 'SongKey')
+
+# Bump when DEFAULT_HIDDEN changes: a returning visitor's saved column set is
+# replaced by the new default once, and their order and widths are kept.
+PREFS_VERSION = 1
 
 
 # The in-page answer to "what is this number?", which until now lived only in a
@@ -382,6 +388,9 @@ UI = {
     # row / graph interaction
     'row_tip':          'Click for the difficulty graph',
     'pct_of':           'At or above {pct}% of {level} {sheet} charts',
+    'loading':          'Loading {n} charts...',
+    'load_failed':      'The chart data did not load.',
+    'reload':           'Reload',
     'graph_label':      'Difficulty graph',
     'grid_label':       'Charts, sortable and filterable by column',
     'copy_code_tip':    'Copy this code',

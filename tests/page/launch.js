@@ -1,6 +1,7 @@
 // The opening view, the explainer panel, the URL the page writes, and the graph
 // deep link. Every expected value comes from the boot payload or the DOM.
-import { BOOT, rows as sheetRows, say, done, wait, key, click, chip, lit, shown, params } from "./lib.js";
+import { BOOT, rows as sheetRows, say, done, wait, key, click, chip, lit, shown, params, ready } from "./lib.js";
+await ready();
 
 const { ui: UI, footer: FOOTER, explainer: EXPLAINER, hiddenDefault: HIDDEN_DEFAULT } = BOOT;
 const sheet = Object.keys(BOOT.data)[0];

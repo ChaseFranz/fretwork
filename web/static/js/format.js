@@ -1,6 +1,6 @@
 // Turning a stored value into the text a person reads.
 import { LABELS, UI, MISSING, MISS_TEXT } from "./boot.js";
-import { state, idx, rowsAll } from "./state.js";
+import { state, idx, rowsAll, loaded } from "./state.js";
 
 // Display label for a column key; unknown keys fall back to the key itself.
 export const lab = c => LABELS[c] || c;
@@ -30,6 +30,7 @@ const places = new Map();
 
 export function decimals(col) {
   const memo = state.sheet + "\u0000" + col;
+  if (!loaded(state.sheet)) return 0;     // nothing to measure yet; do not remember that
   if (!places.has(memo)) {
     const i = idx(col);
     places.set(memo, rowsAll().some(

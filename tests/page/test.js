@@ -1,5 +1,6 @@
 // Columns, chips, widths and the chooser: the table's interaction contract.
-import { BOOT, rows as sheetRows, say, done, wait, pt, click, chip, lit, shown } from "./lib.js";
+import { BOOT, rows as sheetRows, say, done, wait, pt, click, chip, lit, shown, ready } from "./lib.js";
+await ready();
 
 const { ui: UI, order: ORDER, hiddenDefault: HIDDEN_DEFAULT } = BOOT;
 const sheet = Object.keys(BOOT.data)[0];

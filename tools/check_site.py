@@ -2,11 +2,11 @@
 """
 CHECK_SITE - The live-site checks from README step 7, as one command.
 
-Ten GET requests against a published fretladder bundle, wherever it is served:
+Twelve GET requests against a published fretladder bundle, wherever it is served:
 the page and its strapline, compression, the about page, robots.txt, the social
 preview image, the module script and stylesheets by their real names (read out
 of the page, so a renamed asset needs no edit here), the 404 mapping, and the
-shared-link form. One line per check, then a summary; the exit code is the
+shared-link form, the sheet files and the script's cache class. One line per check, then a summary; the exit code is the
 number of failures. Skips are not failures.
 
     python tools/check_site.py                                # https://fretladder.com
@@ -21,6 +21,7 @@ Stdlib only and no repo import, so it runs anywhere and a test can load it.
 """
 
 import argparse
+import json
 import re
 import secrets
 import sys
@@ -192,6 +193,34 @@ def run(base, site_strapline=None, want_strapline=None):
         code = re.sub(r'^.*/|\.png$', '', og)
         status, _, _ = fetch(f'{base}/?code={code}')
         rep.say(10, 'shared link', status == 200, f'?code={code}: status {status}')
+
+    # 11. every sheet file the manifest names is served as JSON, compressed under https
+    island = re.search(r'<script type="application/json" id="fw-boot">(.*?)</script>', page, re.S)
+    try:
+        sheets = json.loads(island.group(1))['data'] if island else {}
+        files = [v['file'] for v in sheets.values() if isinstance(v, dict) and 'file' in v]
+    except (ValueError, AttributeError, TypeError):
+        files = []
+    if not files:
+        rep.say(11, 'sheet files', True, 'rows are inline in this page', skipped=True)
+    else:
+        bad = None
+        for f in files:
+            s, h, _ = fetch(f'{base}/{f}', {} if local else {'Accept-Encoding': 'br, gzip'})
+            ctype = h.get('content-type', '')
+            enc = h.get('content-encoding', '')
+            if s != 200 or not ctype.startswith('application/json') or (not local and enc not in ('br', 'gzip')):
+                bad = f'{f}: status {s}, type {ctype!r}, content-encoding {enc!r}'
+                break
+        rep.say(11, 'sheet files', bad is None, bad or f'{len(files)} files')
+
+    # 12. the module script is cached as immutable
+    if script is None or local:
+        rep.say(12, 'immutable script', True, 'no module script' if script is None else 'plain file server', skipped=True)
+    else:
+        _, h, _ = fetch(f'{base}/{script}')
+        cc = h.get('cache-control', '')
+        rep.say(12, 'immutable script', 'immutable' in cc, f'cache-control {cc!r}')
 
     print(f'{rep.ok + rep.skip + rep.failed} checks: {rep.ok} ok, {rep.skip} skip, {rep.failed} failed')
     return rep.failed

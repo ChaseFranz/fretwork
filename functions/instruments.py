@@ -48,6 +48,10 @@ DISPLAY_NAMES = {
 # filters through this rather than spelling an instrument name.
 SCORED_INSTRUMENTS = ('guitar', 'coop', 'rhythm', 'bass', 'keys')
 
+# the streams a song's identity is hashed over (cache.song_key): the five 5-fret
+# keys, fixed forever, so the key does not move the day drums are scored
+SONG_KEY_INSTRUMENTS = ('guitar', 'coop', 'rhythm', 'bass', 'keys')
+
 # canonical level keys, in a stable display/iteration order
 LEVEL_KEYS = ['easy', 'medium', 'hard', 'expert']
 

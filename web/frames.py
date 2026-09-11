@@ -4,8 +4,10 @@ FRAMES - reads a metrics .xlsx into JSON-safe rows
 The only module here that imports pandas.
 """
 
+import hashlib
 import json
 import pathlib
+import re
 
 import pandas as pd
 
@@ -77,6 +79,32 @@ def add_percentiles(frames, distinct=None):
 def with_added(frames, added_by_code):
     return {name: df.assign(Added=df['Code'].astype(str).map(added_by_code)) if 'Code' in df.columns else df
             for name, df in frames.items()}
+
+
+# The rows leave the page: one hashed JSON file per sheet under data/, holding
+# exactly what frames_payload emits, and a manifest the page reads in their
+# place. The '<' escape the island needs is not applied here: a file parsed by
+# response.json() never enters an HTML or script context.
+def slug(name):
+    out = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+    if not out:
+        raise ValueError(f'sheet name {name!r} gives an empty file name')
+    return out
+
+
+def sheet_files(frames):
+    payload = frames_payload(frames)
+    files, manifest, seen = {}, {}, {}
+    for name, sheet in payload.items():
+        s = slug(name)
+        if s in seen:
+            raise ValueError(f'sheets {seen[s]!r} and {name!r} both slug to {s!r}')
+        seen[s] = name
+        data = json.dumps(sheet, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+        file = f'data/{s}.{hashlib.sha1(data).hexdigest()[:8]}.json'
+        files[file] = data
+        manifest[name] = {'file': file, 'rows': len(sheet['rows']), 'columns': sheet['columns']}
+    return files, manifest
 
 
 def frames_payload(frames):

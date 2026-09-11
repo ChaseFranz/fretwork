@@ -2,7 +2,11 @@
 // Re-exported under the names the rest of the page uses.
 const BOOT = JSON.parse(document.getElementById("fw-boot").textContent);
 
-export const DATA = BOOT.data;
+// The sheet manifest: {sheet: {file, rows, columns}}. The rows themselves are
+// fetched on demand from `file` (load.js) into state.data.
+export const SHEETS = BOOT.data;
+export const SHEET_OF_CODE = BOOT.sheetOfCode || {};   // instrument letter -> sheet
+export const PREFS_VERSION = BOOT.prefsVersion || 0;
 export const LABELS = BOOT.labels;
 export const ORDER = BOOT.order;
 export const HIDDEN_DEFAULT = BOOT.hiddenDefault;

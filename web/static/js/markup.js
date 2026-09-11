@@ -1,8 +1,8 @@
 // Builds the table's HTML. Everything it needs is passed in.
-import { TIMECOLS, HELP, UI, MISS_TEXT, MISS_HELP } from "./boot.js";
+import { SHEETS, TIMECOLS, HELP, UI, MISS_TEXT, MISS_HELP } from "./boot.js";
 import { esc } from "./dom.js";
-import { lab, mmss, isMissing, decimals } from "./format.js";
-import { RANK_COL } from "./state.js";
+import { lab, t, mmss, isMissing, decimals } from "./format.js";
+import { RANK_COL, state } from "./state.js";
 
 // Rank is a position in the current view, so there is nothing to sort or
 // filter it by; it gets a bare header instead of the usual controls.
@@ -87,4 +87,14 @@ export function bodyRow(row, visibleCols, code, rank, tip) {
 export function emptyRow(span) {
   return '<tr class="empty"><td colspan="' + span + '" class="text-secondary p-3">' +
     esc(UI.no_data) + "</td></tr>";
+}
+
+// While a sheet's rows are in flight, or when they failed to arrive. The same
+// shape as emptyRow, and the .empty class, so the widths stylesheet skips it.
+export function loadingRow(span, failed) {
+  const body = failed
+    ? esc(UI.load_failed) + ' <a href="">' + esc(UI.reload) + "</a>"
+    : esc(t("loading", { n: SHEETS[state.sheet].rows }));
+  return '<tr class="empty loading"><td colspan="' + span + '" class="text-secondary p-3">' +
+    body + "</td></tr>";
 }

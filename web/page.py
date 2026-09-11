@@ -6,12 +6,13 @@ contain __TOKEN__ text is never rewritten by a later substitution. URLs in the
 page are relative, so it works at a domain root or under any sub-path.
 """
 
+import collections
 import datetime
 import html
 import re
 
 import config
-from functions import labels, packs, timestamp
+from functions import instruments, labels, packs, timestamp
 from web import assets, boot, bootstrap, frames
 
 _PLACEHOLDER = re.compile(r'__([A-Z][A-Z_]*)__')
@@ -26,9 +27,12 @@ OG_IMAGE = 'graph/10145439XG.png'
 ROBOTS = ('User-agent: *\n'
           'Allow: /\n'
           f'Allow: /{OG_IMAGE}\n'
-          'Disallow: /graph/\n')
+          'Disallow: /graph/\n'
+          'Disallow: /data/\n')
 
-BOOTSTRAP_LINK = '<link rel="stylesheet" href="bootstrap.css">'
+# What serve and publish both need: the spreadsheet path, the sheets, the row
+# count, and every file the site is, {relative name: bytes}, graphs excepted.
+Built = collections.namedtuple('Built', 'xlsx_path sheets total files')
 
 
 # Checks the template against the values before substituting: every placeholder
@@ -45,8 +49,12 @@ def fill(template, values):
     return _PLACEHOLDER.sub(lambda m: values[m.group(1)], template).encode('utf-8')
 
 
-def bootstrap_head(bootstrap_css):
-    return BOOTSTRAP_LINK if bootstrap_css else bootstrap.FALLBACK_CSS
+# The stylesheet links: Bootstrap by its hashed name, or the inline fallback,
+# then the page's own sheet.
+def styles_head(names):
+    first = (f'<link rel="stylesheet" href="{names["bootstrap"]}">' if 'bootstrap' in names
+             else bootstrap.FALLBACK_CSS)
+    return f'{first}\n<link rel="stylesheet" href="{names["style"]}">'
 
 
 # Description always; the social-preview tags need an absolute URL, so they are
@@ -89,12 +97,14 @@ def strapline(source, linked):
     return f'<a href="changelog.html" title="{html.escape(labels.UI["changelog_tip"])}">{text}</a>'
 
 
-def render_page(title, source, bootstrap_css, boot_json, public=False, linked=False):
+def render_page(title, source, names, boot_json, public=False, linked=False):
     values = {
         'TITLE': html.escape(title),
         'SOURCE': strapline(source, linked),
         'META': meta_head(public),
-        'BOOTSTRAP': bootstrap_head(bootstrap_css),
+        'FAVICON': names['favicon'],
+        'STYLES': styles_head(names),
+        'SCRIPT': names['script'],
         'BOOT': boot_json,
     }
     return fill(assets.read_text('index.html'), values)
@@ -120,8 +130,9 @@ def rich_text(text):
 
 # The 404 body. Static text, no data and no scripts, so it stays valid however
 # old the bundle around it gets.
-def render_404():
+def render_404(names):
     values = {
+        'FAVICON': names['favicon'],
         'TITLE': html.escape(f"{labels.UI['not_found_title']} - {config.SITE_NAME}"),
         'BRAND': html.escape(config.SITE_NAME),
         'MESSAGE': html.escape(labels.UI['not_found']),
@@ -133,13 +144,14 @@ def render_404():
 # The document pages: about and the changelog. One template, static text and
 # no scripts, like the 404, so they keep working when the app around them does
 # not. The link list leads with the site's other document pages.
-def render_doc(name, title, body):
+def render_doc(name, title, body, names):
     others = [(labels.UI[key], page) for page, key in labels.DOC_PAGES if page != name]
     links = '\n'.join(
         [f'    <li><a href="{html.escape(href)}">{html.escape(text)}</a></li>' for text, href in others] +
         [f'    <li><a href="{html.escape(href)}" rel="noopener">{html.escape(text)}</a></li>'
          for text, href in labels.FOOTER_LINKS])
     values = {
+        'FAVICON': names['favicon'],
         'TITLE': html.escape(f"{title} - {config.SITE_NAME}"),
         'META': meta_head(public=True, canonical=name),
         'BRAND': html.escape(f"{config.SITE_NAME} \u2013 {title}"),
@@ -154,18 +166,18 @@ def render_doc(name, title, body):
 
 
 # Who runs this, what it does and does not hold, and who owns what.
-def render_about():
+def render_about(names):
     body = '\n'.join(
         f'  <h2>{html.escape(heading)}</h2>\n  <p>{rich_text(text)}</p>'
         for heading, text in labels.ABOUT)
-    return render_doc('about.html', labels.UI['about'], body)
+    return render_doc('about.html', labels.UI['about'], body, names)
 
 
 # Every pack newest first, grouped by date with the site's own changes, each
 # date heading a link to the table filtered to that update (Expert only,
 # official and custom, since a custom pack's update would otherwise show
 # nothing). Counts come from the cache and the sheets, never from the file.
-def render_changelog(resolved, codes):
+def render_changelog(resolved, codes, names):
     counts = packs.tally(resolved, codes)
     registry = resolved.registry
     by_date = {}
@@ -194,25 +206,26 @@ def render_changelog(resolved, codes):
             if pack.notes:
                 item += ' ' + rich_text(pack.notes)
             parts.append(f'  <p class="item">{item}</p>')
-    return render_doc('changelog.html', labels.UI['changelog'], '\n'.join(parts))
+    return render_doc('changelog.html', labels.UI['changelog'], '\n'.join(parts), names)
 
 
 # The changelog exists exactly when the page has a pack join to build it from.
-def changelog_pages(resolved, sheets):
+def changelog_pages(resolved, sheets, names):
     if resolved is None:
         return {}
-    return {'changelog.html': render_changelog(resolved, frames.codes_in(sheets))}
+    return {'changelog.html': render_changelog(resolved, frames.codes_in(sheets), names)}
 
 
-# The files a site is, keyed by their relative name. publish writes them; serve
-# serves them at '/' + name, so the two answer the same bytes. `extra` is the
-# changelog when there is one.
-def site_pages(body, extra=None):
-    pages = {'index.html': body, '404.html': render_404(),
-             'about.html': render_about(), 'robots.txt': ROBOTS.encode('utf-8')}
-    if extra:
-        pages.update(extra)
-    return pages
+# Which sheet a code's instrument letter lands on, derived from the instrument
+# tables and restricted to the sheets the workbook has, so ?code=...XB opens
+# Bass with a filled heading rather than the default sheet with a blank one.
+def sheet_of_code(sheets):
+    out = {}
+    for sheet, keys in instruments.SHEET_GROUPS.items():
+        if sheet in sheets:
+            for key in keys:
+                out[instruments.CODE_SUFFIX[key]] = sheet
+    return out
 
 
 # What serve and publish both need: (xlsx_path, sheets, total rows, page body).
@@ -233,7 +246,13 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None):
     else:
         title = f"{config.SITE_NAME} - {header}"
         source = f"{xlsx_path.name}  -  {total} rows  -  {', '.join(sheets)}"
-    body = render_page(title, source, bootstrap_css,
-                       boot.boot_json(frames.frames_payload(sheets)), public,
-                       linked=resolved is not None)
-    return xlsx_path, sheets, total, body
+    files, names = assets.load_assets(bootstrap_css)
+    data_files, manifest = frames.sheet_files(sheets)
+    files.update(data_files)
+    files['index.html'] = render_page(title, source, names, boot.boot_json(manifest, sheet_of_code(sheets)),
+                                      public, linked=resolved is not None)
+    files['404.html'] = render_404(names)
+    files['about.html'] = render_about(names)
+    files['robots.txt'] = ROBOTS.encode('utf-8')
+    files.update(changelog_pages(resolved, sheets, names))
+    return Built(xlsx_path, sheets, total, files)

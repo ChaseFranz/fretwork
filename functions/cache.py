@@ -12,6 +12,7 @@ Shape:
         'songs': {
             song_path: {
                 'song_path':     str,
+                'song_key':      str | None,   # 12 hex digits over every 5-fret stream; same charts, same key, whatever folder
                 'meta':          {...},   # trimmed ini row, incl. per-instrument Level dict (Expert-referenced)
                 'source_format': 'chart' | 'mid',
                 'codes':         {instrument_key: {level_key: code, ...}, ...},
@@ -63,6 +64,25 @@ def _hash_code(song_path, digits):
     return int(digest, 16) % (10 ** digits)
 
 # assigns the numeric 8-digit code per song
+# A song's identity that survives a re-download: SHA-1 over every 5-fret
+# stream, sorted by (instrument, level), as the bytes of the note arrays. Two
+# folders holding the same charts share a key; a pack moved to a new folder
+# keeps its keys while every path-hashed code changes. None when the song has
+# no stream in SONG_KEY_INSTRUMENTS. A parser change moves every key.
+def song_key(song_instruments):
+    parts = sorted(
+        (inst, level, notes['notes']['time_ms'].tobytes(), notes['notes']['lanes'].tobytes())
+        for inst in instruments.SONG_KEY_INSTRUMENTS
+        for level, notes in song_instruments.get(inst, {}).items())
+    if not parts:
+        return None
+    h = hashlib.sha1()
+    for inst, level, times, lanes in parts:
+        h.update(inst.encode()); h.update(b'\0'); h.update(level.encode()); h.update(b'\0')
+        h.update(times); h.update(lanes)
+    return h.hexdigest()[:12]
+
+
 def assign_song_codes(song_paths, digits=None):
     digits = digits or CODE_LEN
     span = 10 ** digits

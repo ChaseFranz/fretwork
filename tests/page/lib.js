@@ -5,9 +5,23 @@
 // keep working when section 05 bundles the modules away.
 export const BOOT = JSON.parse(document.getElementById("fw-boot").textContent);
 
-// Async from day one: section 05 turns this into a fetch of BOOT.data[sheet].file.
+// The rows live in data/<slug>.<hash>.json; the island holds only the manifest.
+const fetched = {};
 export async function rows(sheet) {
-  return BOOT.data[sheet].rows;
+  if (!fetched[sheet]) fetched[sheet] = fetch(BOOT.data[sheet].file).then(r => r.json()).then(j => j.rows);
+  return fetched[sheet];
+}
+
+// Resolves once the page has painted the current sheet's rows (or the empty
+// row, when the sheet has none). Every suite awaits this first.
+export function ready() {
+  return new Promise(resolve => {
+    const painted = () => document.querySelector("#body tr[data-code], #body tr.empty:not(.loading)");
+    if (painted()) return resolve();
+    const tick = () => painted() ? resolve() : setTimeout(tick, 25);
+    document.addEventListener("fw:sheet", () => setTimeout(tick, 0), { once: true });
+    setTimeout(tick, 50);
+  });
 }
 export const levels = () =>
   [...document.querySelectorAll("#levels button")].map(b => b.textContent);

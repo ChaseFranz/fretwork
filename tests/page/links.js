@@ -1,7 +1,8 @@
 // rich(): the one place markup becomes HTML; and every prose link on the page
 // points where it should.
-import { say, done, wait, click } from "./lib.js";
+import { say, done, wait, click, ready } from "./lib.js";
 import { rich } from "./src/dom.js";
+await ready();
 
 say("renders an https link", rich("see [fretwork](https://x.test/a) now") === 'see <a href="https://x.test/a" target="_blank" rel="noopener">fretwork</a> now',
     rich("see [fretwork](https://x.test/a) now"));

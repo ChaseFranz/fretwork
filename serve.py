@@ -34,7 +34,7 @@ import argparse
 
 import config
 from functions import packs
-from web import assets, banner, bootstrap, page
+from web import banner, bootstrap, page
 from web.graph import GraphRenderer
 from web.server import MetricsServer
 
@@ -63,14 +63,11 @@ def serve(header=None, xlsx_path=None, cache_path=None, port=8000, out_dir=None,
     renderer = GraphRenderer(header, cache_path, out_dir)
     resolved, packs_line = resolve_packs(renderer, packs_path or packs.PACKS_FILE)
 
-    xlsx_path, sheets, total, body = page.build(header, xlsx_path, bootstrap_css, resolved=resolved)
-    pages = {'/' + name: data
-             for name, data in page.site_pages(body, page.changelog_pages(resolved, sheets)).items()}
-
-    httpd = MetricsServer(port, pages, assets.load_static(), bootstrap_css, renderer)
+    built = page.build(header, xlsx_path, bootstrap_css, resolved=resolved)
+    httpd = MetricsServer(port, {'/' + name: data for name, data in built.files.items()}, renderer)
 
     with httpd:
-        banner.print_startup(xlsx_path, sheets, total, bootstrap_css, port, packs_line)
+        banner.print_startup(built.xlsx_path, built.sheets, built.total, bootstrap_css, port, packs_line)
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

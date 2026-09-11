@@ -268,7 +268,7 @@ def run_all(work, header, args):
              'publish should refuse the fixture without its registry, before writing anything')
     st.run('publish.py', '--header', header, '--no-bootstrap', '--packs', str(registry))
     st.check('spreadsheet is from' not in st.out, 'publish complained about the pair')
-    st.check(sorted(os.listdir(site)) == sorted(deploy.BUNDLE_TOP - {'bootstrap.css'}), f'site holds {sorted(os.listdir(site))}')
+    st.check(sorted(os.listdir(site)) == sorted(deploy.BUNDLE_TOP), f'site holds {sorted(os.listdir(site))}')
     changelog = (site / 'changelog.html').read_text(encoding='utf-8')
     st.check(changelog.count('<h2') == 3 and f'{len(lib.charted)} songs' in changelog
              and f'{sum(lib.rows_by_sheet.values())} charts' in changelog and not PLACEHOLDER.search(changelog),
@@ -279,19 +279,34 @@ def run_all(work, header, args):
     # must survive in the island while no placeholder survives in the page around it.
     outside = re.sub(r'<script type="application/json" id="fw-boot">.*?</script>', '', index, flags=re.S)
     st.check('id="fw-boot"' in index and not PLACEHOLDER.search(outside), 'index.html island or placeholder')
-    st.check('__SHOUT__ Two Tier' in index, 'the placeholder-shaped title did not survive publish')
-    st.check('<style>' in index and 'href="bootstrap.css"' not in index, 'fallback CSS not inlined')
+    st.check(b'__SHOUT__ Two Tier' in (site / boot_island(index)['data']['Guitar']['file']).read_bytes(), 'the placeholder-shaped title did not survive publish')
+    st.check('<style>' in index and 'static/bootstrap.' not in index, 'fallback CSS not inlined')
+    st.check(len(index) < 25000, f'index.html is {len(index)} bytes with the fallback CSS inlined; the rows should be in data/')
     st.check('<title>Fretladder</title>' in index, 'title')
     m = STRAPLINE.search(index)
     st.check(m and int(m.group(1).replace(',', '')) == len(total), f'strapline {m and m.group(0)}')
-    st.check('Less \\u003c More' in index and 'Less < More' not in index, 'the < escape')
+    st.check('Less < More' not in index, 'row text reached the island')
     boot = boot_island(index)
-    gcols = boot['data']['Guitar']['columns']
-    c4 = [r for r in boot['data']['Guitar']['rows'] if r[gcols.index('Song Title')] == 'Less < More']
-    st.check(len(c4) >= 1, 'C4 row missing from the island')
+    manifest_sheets = boot['data']
+    st.check(all(set(v) == {'file', 'rows', 'columns'} and (site / v['file']).is_file() for v in manifest_sheets.values()),
+             f'sheet manifest {manifest_sheets}')
+    data_files = sorted(p.name for p in (site / 'data').iterdir())
+    st.check(data_files == sorted(pathlib.PurePosixPath(v['file']).name for v in manifest_sheets.values())
+             and all(re.fullmatch(r'[a-z0-9-]+\.[0-9a-f]{8}\.json', n) for n in data_files), f'data/ holds {data_files}')
+    for name, entry in manifest_sheets.items():
+        blob = (site / entry['file']).read_bytes()
+        st.check(entry['file'].split('.')[-2] == __import__('hashlib').sha1(blob).hexdigest()[:8], f'{entry["file"]} is not named by its hash')
+        sheet_json = json.loads(blob)
+        st.check(sheet_json['columns'] == entry['columns'] and len(sheet_json['rows']) == entry['rows'], f'{name}: manifest and file disagree')
+    st.check(boot['sheetOfCode'] == page.sheet_of_code(sheets) and boot['sheetOfCode']['B'] == 'Bass', f"sheetOfCode {boot['sheetOfCode']}")
+    guitar = json.loads((site / manifest_sheets['Guitar']['file']).read_bytes())
+    gcols = guitar['columns']
+    c4 = [r for r in guitar['rows'] if r[gcols.index('Song Title')] == 'Less < More']
+    st.check(len(c4) >= 1, 'C4 row missing from the sheet file')
+    st.check(b'Less < More' in (site / manifest_sheets['Guitar']['file']).read_bytes(), 'the sheet file is not escaped (it need not be)')
     st.check('Added' in gcols and c4[0][gcols.index('Added')] == '2026-09-09', f"C4 Added {c4[0][gcols.index('Added')] if 'Added' in gcols else None}")
     st.check(gcols[-1] == 'Pct' and gcols.index('Added') < gcols.index('Pct'), f'page-build column order {gcols[-3:]}')
-    st.check({k: len(v['rows']) for k, v in boot['data'].items()} == lib.rows_by_sheet, 'island row counts')
+    st.check({k: v['rows'] for k, v in boot['data'].items()} == lib.rows_by_sheet, 'manifest row counts')
     manifest = json.loads((site / 'graph' / 'manifest.json').read_text())
     codes = frames.codes_in(sheets)
     st.check(sorted(manifest) == sorted(codes), f'manifest has {len(manifest)} entries, expected {len(codes)}')
@@ -307,8 +322,12 @@ def run_all(work, header, args):
     st.check(not PLACEHOLDER.search(about) and not PLACEHOLDER.search((site / '404.html').read_text()), 'placeholders')
     st.check((site / 'robots.txt').read_text() == page.ROBOTS, 'robots.txt')
     static = sorted(str(p.relative_to(site / 'static')) for p in (site / 'static').rglob('*') if p.is_file())
-    st.check(static == sorted(k[len('/static/'):] for k in assets.load_static()), f'static files {static}')
-    st.done(f'{len(codes)} graphs, {len(static)} static files, fallback styles inlined')
+    want_static = sorted(k[len('static/'):] for k in assets.load_assets(None)[0])
+    st.check(static == want_static, f'static files {static} vs {want_static}')
+    st.check(all(re.fullmatch(r'[a-z]+\.[0-9a-f]{8}\.(js|css|svg)', n) for n in static), 'a static file is not hashed')
+    st.check(re.search(r'<script type="module" src="static/app\.[0-9a-f]{8}\.js"></script>', index) is not None
+             and index.count('<script') == 2, 'the module tag')
+    st.done(f'{len(codes)} graphs, {len(static)} hashed static files, {len(data_files)} sheet files, fallback styles inlined')
 
     # ---- publish with bootstrap ------------------------------------------------------
     if args.bootstrap_css:
@@ -316,9 +335,12 @@ def run_all(work, header, args):
         css = pathlib.Path(args.bootstrap_css)
         shutil.copy(css, work / 'caches' / f'bootstrap-{bootstrap.BOOTSTRAP_VERSION}.min.css')
         st.run('publish.py', '--header', header, '--packs', str(registry))
-        st.check((site / 'bootstrap.css').read_bytes() == css.read_bytes(), 'bootstrap.css differs from the source')
+        boot_files = list((site / 'static').glob('bootstrap.*.css'))
+        st.check(len(boot_files) == 1 and boot_files[0].read_bytes() == css.read_bytes(), 'hashed bootstrap.css differs from the source')
         index = (site / 'index.html').read_text(encoding='utf-8')
-        st.check('href="bootstrap.css"' in index and '<style>' not in index, 'index.html should link bootstrap')
+        st.check(f'href="static/{boot_files[0].name}"' in index and '<style>' not in index, 'index.html should link bootstrap')
+        st.check(not (site / 'bootstrap.css').exists(), 'a top-level bootstrap.css survived')
+        st.check(len(index) < 16000, f'index.html is {len(index)} bytes; the rows should be in data/')
         st.check(re.search(rf'graphs: 0 rendered, {len(codes)} unchanged', st.out), 'graphs re-rendered on a no-op')
         st.check(sorted(os.listdir(site)) == sorted(deploy.BUNDLE_TOP), f'site holds {sorted(os.listdir(site))}')
         st.done('bootstrap linked, 0 graphs re-rendered')
@@ -330,11 +352,12 @@ def run_all(work, header, args):
     log.write_text('')
     st.run('deploy.py', '--env', 'deploy.env', '--dry-run')
     lines = log.read_text().splitlines()
-    st.check(len(lines) == 2 and all(l.startswith('s3 sync') and l.endswith('--dryrun') for l in lines), f'aws.log {lines}')
+    st.check(len(lines) == 6 and all(l.startswith('s3 sync') and l.endswith('--dryrun') for l in lines), f'aws.log {lines}')
     st.check(f"site/{header}/graph/ s3://fixture-bucket/graph/ --delete --cache-control 'public, max-age=604800'" in lines[0], lines[0])
-    st.check("--exclude 'graph/*' --cache-control no-cache" in lines[1], lines[1])
+    st.check("--exclude 'graph/*' --exclude 'static/*' --exclude 'data/*' --cache-control no-cache" in lines[3], lines[3])
+    st.check('--delete' not in lines[1] and '--delete' in lines[4] and 'immutable' in lines[1] and 'immutable' in lines[5], f'{lines[1]} | {lines[4]}')
     st.check('cloudfront' in st.out and 'create-invalidation' not in ''.join(lines), 'invalidation planned but not run')
-    st.done('two dry syncs recorded, no invalidation')
+    st.done('six dry syncs recorded in order, no invalidation')
 
     # ---- deploy, wet, against the stub -----------------------------------------------
     st = Stage('deploy --no-publish', work, env, args.python)
@@ -342,13 +365,14 @@ def run_all(work, header, args):
     st.run('deploy.py', '--env', 'deploy.env', '--no-publish')
     lines = log.read_text().splitlines()
     samples = deploy.samples(site)
-    st.check(len(lines) == 3 + len(samples), f'{len(lines)} aws calls: {lines}')
-    st.check(lines[0].startswith('s3 sync') and lines[1].startswith('s3 sync') and '--dryrun' not in lines[0] + lines[1], lines[:2])
-    st.check(lines[2] == "cloudfront create-invalidation --distribution-id E1FIXTURE0000 --paths '/*'", lines[2])
-    heads = [re.search(r'--key (\S+)', l).group(1) for l in lines[3:]]
-    st.check(heads == list(samples), f'head-object keys {heads}')
-    st.check(st.out.count('ok  ') >= len(samples) and 'Done' in st.out, 'verify did not pass every sample')
-    st.done(f'two syncs, invalidation, {len(samples)} head-objects all ok')
+    st.check(len(lines) == 8 + len(samples), f'{len(lines)} aws calls: {lines}')
+    st.check(all(l.startswith('s3 sync') and '--dryrun' not in l for l in lines[:4] + lines[6:8]), lines[:8])
+    st.check(lines[4] == "cloudfront create-invalidation --distribution-id E1FIXTURE0000 --paths '/*' --output json", lines[4])
+    st.check(lines[5] == 'cloudfront wait invalidation-completed --distribution-id E1FIXTURE0000 --id I1FIXTURE0000', lines[5])
+    heads = [re.search(r'--key (\S+)', l).group(1) for l in lines[8:]]
+    st.check(heads == list(samples), f'head-object keys {heads} vs {list(samples)}')
+    st.check(len(samples) == 8 and st.out.count('ok  ') >= len(samples) and 'Done' in st.out, f'verify: {len(samples)} samples')
+    st.done(f'four syncs, invalidation and wait, two deletes, {len(samples)} head-objects all ok')
 
     # ---- deploy guards ---------------------------------------------------------------------
     st = Stage('deploy guards', work, env, args.python)
@@ -378,8 +402,8 @@ def run_all(work, header, args):
         server.terminate()
         server.wait(timeout=10)
     st.check(proc.returncode == 0, f'check_site exited {proc.returncode}')
-    st.check(st.out.count('\nok  ') + st.out.startswith('ok  ') == 8 and st.out.count('skip ') == 2, 'expected 8 ok and 2 skip')
-    st.done('8 ok, 2 skip against the fixture bundle')
+    st.check(st.out.count('\nok  ') + st.out.startswith('ok  ') == 9 and st.out.count('skip ') == 3, 'expected 9 ok and 3 skip')
+    st.done('9 ok, 3 skip against the fixture bundle')
 
     # ---- section 00: the in-process assertions that need outputs ---------------------------
     st = Stage('section 00', work, env, args.python)
@@ -390,9 +414,8 @@ def run_all(work, header, args):
     st.check(renderer.lookup(guitar_code) is not None, f'lookup({guitar_code}) should resolve')
     from functions import packs as packs_mod
     resolved = packs_mod.resolve(cache, packs_mod.load(registry))
-    xlsx_path, sheets2, total2, body = page.build(header, xlsxs[0], None, public=True, resolved=resolved)
-    pages = {'/' + n: d for n, d in page.site_pages(body, page.changelog_pages(resolved, sheets2)).items()}
-    httpd = MetricsServer(0, pages, assets.load_static(), None, renderer)
+    built = page.build(header, xlsxs[0], None, public=True, resolved=resolved)
+    httpd = MetricsServer(0, {'/' + n: d for n, d in built.files.items()}, renderer)
     port = httpd.server_address[1]
     import threading
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -411,6 +434,12 @@ def run_all(work, header, args):
                 st.check(body_bytes == (site / path.lstrip('/')).read_bytes(), f'serve {path} differs from publish')
         status, _ = get(f'/graph/{drums_code}.png')
         st.check(status == 404, f'serve drums graph -> {status}')
+        status, body_bytes = get(f'/graph/{guitar_code}.json')
+        st.check(status == 200 and json.loads(body_bytes)['v'] == 1 and (site / 'graph' / f'{guitar_code}.json').read_bytes() == body_bytes,
+                 f'serve curve json -> {status}, equal to the published file')
+        for name, data in built.files.items():
+            if name.startswith(('static/', 'data/')):
+                st.check((site / name).read_bytes() == data, f'{name} differs between serve and publish')
     finally:
         httpd.shutdown()
         httpd.server_close()

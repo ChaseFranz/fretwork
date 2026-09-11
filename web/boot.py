@@ -10,9 +10,11 @@ import json
 import config
 from functions import labels as labels_mod
 
-def boot_payload(frames_data):
+def boot_payload(manifest, sheet_of_code):
     return {
-        'data': frames_data,
+        'data': manifest,
+        'sheetOfCode': sheet_of_code,
+        'prefsVersion': labels_mod.PREFS_VERSION,
         'labels': labels_mod.COLUMN_LABELS,
         'order': list(labels_mod.DISPLAY_ORDER),
         'hiddenDefault': list(labels_mod.DEFAULT_HIDDEN),
@@ -32,5 +34,5 @@ def boot_payload(frames_data):
 
 # Escaping every "<" keeps spreadsheet text from closing the script tag or
 # entering its double-escaped state. A valid JSON escape, parsed back unchanged.
-def boot_json(frames_data):
-    return json.dumps(boot_payload(frames_data)).replace('<', '\\u003c')
+def boot_json(manifest, sheet_of_code):
+    return json.dumps(boot_payload(manifest, sheet_of_code)).replace('<', '\\u003c')

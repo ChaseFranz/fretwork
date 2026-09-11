@@ -1,6 +1,7 @@
 // Keyboard access: one tab stop for the table, arrows inside it, Enter opens,
 // Escape returns focus, and the chrome reports its state to a screen reader.
-import { say, done, wait, key, click, chip } from "./lib.js";
+import { say, done, wait, key, click, chip, ready } from "./lib.js";
+await ready();
 
 const here = () => document.activeElement;
 const rowOf = el => el && el.closest ? el.closest("tr[data-code]") : null;

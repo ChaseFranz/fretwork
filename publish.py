@@ -30,7 +30,7 @@ import sys
 
 import config
 from functions import packs, timestamp
-from web import assets, banner, bootstrap, bundle, frames, page
+from web import banner, bootstrap, bundle, frames, page
 from web.graph import GraphRenderer
 
 
@@ -104,14 +104,12 @@ def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
     cache = renderer.cache()   # a missing cache fails here, before anything is written
     resolved = resolve_packs(cache, packs_path or packs.PACKS_FILE)
     bootstrap_css = bootstrap.ensure_bootstrap(use_bootstrap)
-    xlsx_path, sheets, _total, body = page.build(header, xlsx_path, bootstrap_css, public=True,
-                                                 resolved=resolved)
-    check_pair(header, xlsx_path, renderer.cache_path, allow_mismatch)
+    built = page.build(header, xlsx_path, bootstrap_css, public=True, resolved=resolved)
+    check_pair(header, built.xlsx_path, renderer.cache_path, allow_mismatch)
 
-    print(f"\nPublishing {xlsx_path}")
-    pages = page.site_pages(body, page.changelog_pages(resolved, sheets))
-    page_files, written, removed = bundle.write_page(out_dir, pages, assets.load_static(), bootstrap_css)
-    counts, graph_files = bundle.render_graphs(out_dir, frames.codes_in(sheets), renderer, force)
+    print(f"\nPublishing {built.xlsx_path}")
+    page_files, written, removed = bundle.write_page(out_dir, built.files)
+    counts, graph_files = bundle.render_graphs(out_dir, frames.codes_in(built.sheets), renderer, force)
     banner.print_published(out_dir, page_files, written, removed, counts, graph_files,
                            packs_line=f"packs: {len(resolved.registry.packs)} registered from {resolved.registry.path.name}")
 

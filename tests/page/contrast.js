@@ -1,7 +1,8 @@
 // Every text pair on the page at AA: 4.5:1 for text, 3:1 for large text and
 // clickable chrome, measured from computed styles with alpha and opacity
 // flattened over the nearest opaque ancestor. Prints the ratio table as ok lines.
-import { say, note, done, wait, click } from "./lib.js";
+import { say, note, done, wait, click, ready } from "./lib.js";
+await ready();
 
 const lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
 const lum = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);

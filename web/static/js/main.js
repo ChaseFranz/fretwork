@@ -6,6 +6,7 @@ import { initChooser } from "./chooser.js";
 import { openGraph } from "./overlay.js";
 import { initRouter, render } from "./router.js";
 import { edgeFade } from "./scroll.js";
+import { loadSheet, prefetchIdle } from "./load.js";
 import { readUrl } from "./url.js";
 import { initWidths } from "./widths.js";
 import { state } from "./state.js";
@@ -61,6 +62,14 @@ state.filters["Level"] = { type: "set", sel: new Set(["Expert"]) };
 state.filters["Official"] = { type: "set", sel: new Set(["true"]) };
 
 // A shared link describes a view, so whatever it names wins over those defaults.
+// The header, chips and controls paint at once; the rows follow their fetch,
+// and a shared graph opens only once its row is here to name it. state.graph is
+// set first so the first draw's writeUrl keeps the code in the address bar.
 const shared = readUrl();
-render();           // draw() refreshes both fades once there is content to measure
-if (shared) openGraph(shared);
+if (shared) state.graph = shared;
+render();           // the loading row; draw() refreshes both fades once there is content to measure
+loadSheet(state.sheet).then(() => {
+  render();
+  if (shared) openGraph(shared);
+  prefetchIdle();
+}, () => { state.loadError = true; render(); });

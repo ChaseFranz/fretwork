@@ -2,7 +2,7 @@
 // carries what the sender was looking at. Column visibility, order and widths are
 // per-viewer preferences and stay in localStorage: they belong to the reader, not
 // to the link.
-import { DATA } from "./boot.js";
+import { SHEETS, SHEET_OF_CODE } from "./boot.js";
 import { state } from "./state.js";
 
 const SET = "f.";     // f.Level=Expert,Hard
@@ -12,7 +12,7 @@ let pending = null;
 
 function params() {
   const out = new URLSearchParams();
-  const sheets = Object.keys(DATA);
+  const sheets = Object.keys(SHEETS);
   if (state.sheet !== sheets[0]) out.set("sheet", state.sheet);
   const q = document.getElementById("q").value.trim();
   if (q) out.set("q", q);
@@ -46,7 +46,13 @@ export function readUrl() {
   if (!got.toString()) return;
 
   const sheet = got.get("sheet");
-  if (sheet && DATA[sheet]) state.sheet = sheet;
+  if (sheet && SHEETS[sheet]) state.sheet = sheet;
+  // a shared code without a sheet: its instrument letter says which sheet it is on
+  const code = got.get("code");
+  if (code && !sheet) {
+    const guess = SHEET_OF_CODE[code.slice(-1).toUpperCase()];
+    if (guess && SHEETS[guess]) state.sheet = guess;
+  }
   const q = got.get("q");
   if (q) document.getElementById("q").value = q;
   const sort = got.get("sort");

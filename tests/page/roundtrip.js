@@ -1,6 +1,7 @@
 // A shared link restores the state it names, and replaces the opening defaults
 // rather than merging with them. The runner composes the query from the payload.
-import { BOOT, rows as sheetRows, say, done, wait, lit, shown, params } from "./lib.js";
+import { BOOT, rows as sheetRows, say, done, wait, lit, shown, params, ready } from "./lib.js";
+await ready();
 
 await wait(300);
 const p = params();
@@ -25,6 +26,10 @@ if (p.get("r.Pct")) {
     ["Song Title", "Artist", "Charter", "Release", "Code"].some(n => String(r[cols.indexOf(n)] ?? "").toLowerCase().includes(p.get("q")))).length;
   say("count equals the rows the query names", shown() === want, shown() + " vs " + want);
 }
+// preference version (section 05): a saved fw.hidden with no fw.v is replaced by the default once
+say("a stale saved column set is replaced by the default", localStorage.getItem("fw.hidden") === null &&
+    [...document.querySelectorAll("#head th")].some(th => th.dataset.c === "Artist"), localStorage.getItem("fw.hidden"));
+say("the version stamp is written", localStorage.getItem("fw.v") === String(BOOT.prefsVersion), localStorage.getItem("fw.v"));
 // writing back: the URL the page writes equals what it read
 await wait(400);
 const q2 = params();

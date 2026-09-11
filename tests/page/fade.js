@@ -1,7 +1,8 @@
 // The right-edge fade appears only while there is more table to the right, is a
 // mask on the scroller rather than an element over the rows, and leaves the
 // sticky header stuck. Run at three widths by the runner.
-import { say, done, wait } from "./lib.js";
+import { say, done, wait, ready } from "./lib.js";
+await ready();
 
 await wait(300);
 const wrap = document.querySelector(".fw-wrap");

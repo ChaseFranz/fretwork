@@ -36,14 +36,14 @@ from functions import density, formula, ini_updater, xlsx_format, timestamp
 
 COLUMN_ORDER = [
     'Code', 'Song Title', 'Artist', 'Level', 'Type', 'Charter', 'Release', 'Official',
-    'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier',
+    'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier', 'SongKey',
     'pNPS', 'aNPS', 'medNPS', 'stdNPS', 'pVPS', 'aVPS', 'medVPS', 'stdVPS',
     'N', 'V', 'COV',
 ]
 
 # metrics: pre-computed density metrics for this level (expert)
 def song_row(code, meta, notes, instrument_key, level_key, anchor_remap, anchor_tier,
-             metrics=None):
+             metrics=None, song_key=None):
     if metrics is None:
         metrics = density.calc_metrics(notes)
     if metrics is None:
@@ -68,6 +68,7 @@ def song_row(code, meta, notes, instrument_key, level_key, anchor_remap, anchor_
         **nvcov,
         'RemapDiff': anchor_remap,
         'CalcTier': anchor_tier,
+        'SongKey': song_key,
     }
 
 #Save clock, since that's slower than most of the analysis...
@@ -152,7 +153,8 @@ def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=No
 
             row = song_row(code, song['meta'], inst_entry['notes'], instrument_key,
                             level_key, anchor_remap, anchor_tier,
-                            metrics=expert_metrics if level_key == 'expert' else None)
+                            metrics=expert_metrics if level_key == 'expert' else None,
+                            song_key=song.get('song_key'))
             if row is None:
                 skipped += 1
                 continue

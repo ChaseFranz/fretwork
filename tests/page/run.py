@@ -53,11 +53,28 @@ def roundtrip_query(plain):
     """A query string that shows at least one row and fewer than all: composed from the payload."""
     data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
     sheet = list(data)[1]
-    cols, rows = data[sheet]["columns"], data[sheet]["rows"]     # section 05: read data/<slug>.<hash>.json instead
+    file = json.loads((plain.parent / data[sheet]["file"]).read_text(encoding="utf-8"))   # the rows live in data/
+    cols, rows = file["columns"], file["rows"]
     row = next(r for r in rows if r[cols.index("Level")] == "Hard")
     word = str(row[cols.index("Song Title")]).split()[0].lower()
     return "?" + urllib.parse.urlencode({"sheet": sheet, "q": word, "sort": "NoteCount",
                                          "dir": "asc", "f.Level": "Hard"}) + "&r.Pct=90:"
+
+
+def _second_sheet_code(plain):
+    data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
+    sheet = list(data)[1]
+    file = json.loads((plain.parent / data[sheet]["file"]).read_text(encoding="utf-8"))
+    return sheet, file["rows"][0][file["columns"].index("Code")]
+
+
+def bass_code_query(plain):
+    return "?code=" + _second_sheet_code(plain)[1]
+
+
+def bass_code_query_with_sheet(plain):
+    sheet, code = _second_sheet_code(plain)
+    return "?" + urllib.parse.urlencode({"sheet": sheet, "code": code})
 
 
 # Optional keys: queries (strings or callables taking plain.html; one launch each),
@@ -69,7 +86,8 @@ SUITES = [
     ("order.js",     {}),
     ("keys.js",      {}),
     ("launch.js",    {}),
-    ("roundtrip.js", {"queries": [roundtrip_query]}),
+    ("roundtrip.js", {"queries": [roundtrip_query], "storage": {"fw.hidden": '["Artist"]'}}),   # a stale saved hidden set, no fw.v
+    ("load.js",      {"queries": [bass_code_query, bass_code_query_with_sheet, ""], "delay": {"data/": 600}}),
     ("fade.js",      {"windows": ["700,900", "1000,900", "1440,900"]}),
     ("video.js",     {}),
     ("links.js",     {}),
@@ -112,10 +130,17 @@ def stage(site, work, suites):
     if (site / "bootstrap.css").is_file():                                            # until 05 moves it under static/
         shutil.copy(site / "bootstrap.css", work / "bootstrap.css")
     shutil.copytree(site / "static", work / "static")
+    if (site / "data").is_dir():
+        shutil.copytree(site / "data", work / "data")
     (work / "graph").mkdir()
-    shutil.copy(site / "graph" / "manifest.json", work / "graph" / "manifest.json")
+    for name in ("manifest.json", "curves-manifest.json"):
+        if (site / "graph" / name).is_file():
+            shutil.copy(site / "graph" / name, work / "graph" / name)
     for png in sorted((site / "graph").glob("*.png"))[:40]:
         shutil.copy(png, work / "graph" / png.name)
+        curve = png.with_suffix(".json")
+        if curve.is_file():
+            shutil.copy(curve, work / "graph" / curve.name)
     (work / "src").mkdir()
     shutil.copy(REPO / "web" / "static" / "js" / "dom.js", work / "src" / "dom.js")   # links.js tests rich()
     (work / "plain.html").write_text(src.replace(anchor, storage_script(None) + anchor), encoding="utf-8")
@@ -127,7 +152,7 @@ def stage(site, work, suites):
         page = src.replace(anchor, storage_script(opts.get("storage")) + anchor +
                            '\n<script type="module" src="' + name + '"></script>')
         (work / suite_page(name)).write_text(page, encoding="utf-8")
-    return 'href="bootstrap.css"' in src           # False means FALLBACK_CSS is inlined
+    return 'static/bootstrap.' in src              # False means FALLBACK_CSS is inlined
 
 
 # Injected pages are named apart from the bundle's own files: a suite called

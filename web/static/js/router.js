@@ -1,7 +1,8 @@
 // The one document-level click handler, and the page's keyboard map. Order is
 // behaviour: each branch returns so a more specific target wins over the row
 // click beneath it.
-import { DATA } from "./boot.js";
+import { SHEETS } from "./boot.js";
+import { loadSheet } from "./load.js";
 import { chips } from "./chips.js";
 import { el } from "./dom.js";
 import { t } from "./format.js";
@@ -104,11 +105,13 @@ function onKeydown(e) {
 
 // Repaint the sheet chips too, since switching sheets re-enters here.
 export function render() {
-  chips("sheets", Object.keys(DATA), state.sheet, v => {
+  chips("sheets", Object.keys(SHEETS), state.sheet, v => {
     state.sheet = v;
     state.filters = {};
+    state.loadError = null;
     if (idx(state.sortCol) < 0) state.sortCol = "D";
-    render();
+    render();                                   // the loading row, at once
+    loadSheet(v).then(render, () => { state.loadError = true; render(); });
   });
   draw();
 }
