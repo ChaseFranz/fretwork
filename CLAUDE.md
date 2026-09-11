@@ -170,7 +170,7 @@ Before running Build, `config.SEARCH_PATH` must point at a real song library (th
 
 `--diff-mode CalcTier|RemapDiff` and `config.DIFF_WRITE_MODE` **write to the user's `song.ini` files**. `Restore` rewrites them from the backup CSV and skips analysis entirely. Treat these as destructive to user data.
 
-There are no automated tests. To sanity-check a change to parsing or metrics, build, analyze, and inspect the terminal summary / xlsx / error CSV against a small local library. The convention is a gitignored `songs/` folder at the repo root holding a handful of song folders copied from a real library (song folders contain copyrighted audio and must never be committed):
+There are no automated tests. To sanity-check a change to parsing or metrics, build, analyze, and inspect the terminal summary / xlsx / error CSV against a small local library. The convention is a gitignored `songs/` folder at the repo root holding song folders copied from a real library, then stripped to chart-only with `tools/sanitize_songs.py` (it deletes audio, art, video and editor scratch from song folders and leaves `song.ini`, `notes.chart`, `notes.mid` and anything it does not recognise; dry run by default, `--apply` to delete). So do not expect audio in `songs/`, and the pipeline does not need it, since build, analyze and render only ever open those three files. It still must never be committed:
 
 ```
 python build.py --search-path songs --header Local

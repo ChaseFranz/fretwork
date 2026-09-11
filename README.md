@@ -225,6 +225,8 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
 The examples use `Local` as the header and `songs/` as the library. Substitute your own; the header is what ties a cache, a spreadsheet and a published site together, so **use the same one at every step**.
 
+The `songs/` library on the dev box is kept chart-only: `python tools/sanitize_songs.py songs --apply` strips audio, art, video and editor scratch out of every song folder and keeps only `song.ini`, `notes.chart` and `notes.mid` (plus anything it does not recognise). That is all the pipeline reads, so a library sanitized this way builds to the same cache as the full one; a dry run without `--apply` shows what would go.
+
 ### Before the first run
 
 Three things need to be right once, and then never again:
