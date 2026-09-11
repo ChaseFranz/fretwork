@@ -56,6 +56,9 @@ def render_codes(codes, cache=None, cache_path=None, header=None, out_dir=None):
     print(f"\nRendering {len(entries)} from {header} cache")
     written = []
     for entry in tqdm.tqdm(entries, desc="Rendering", unit="song"):
+        if not difficulty_mod.scorable(entry['notes']):
+            print(f"  [skip] {entry['code']}: {entry['instrument']} is not scored yet")
+            continue
         song_curves = curves_mod.calc_curves(entry['notes'])
         if song_curves is None:
             print(f"  [skip] {entry['code']}: no curve data")

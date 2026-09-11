@@ -24,7 +24,7 @@ class GraphRenderer:
         self._png = {}
         self._lock = threading.Lock()
 
-    # None when the code is unknown or the chart has no curve data.
+    # None when the code is unknown, not scored yet (drums), or has no curve data.
     def png(self, code):
         if code in self._png:
             return self._png[code]
@@ -37,10 +37,13 @@ class GraphRenderer:
                 self._png[code] = data
             return data
 
-    # The cache entry behind a code, or None.
+    # The cache entry behind a code, or None: unknown, or (until drums are
+    # scored) a stream shape nothing downstream can draw.
     def lookup(self, code):
         entries, _missing = cache_mod.entries_by_code(self.cache(), [code])
-        return entries[0] if entries else None
+        if not entries or not difficulty.scorable(entries[0]['notes']):
+            return None
+        return entries[0]
 
     # PNG bytes for one entry, never memoized: publish walks thousands of these.
     def render(self, entry, out_dir=None):
