@@ -33,13 +33,13 @@ python analyze.py [--header NAME] [--cache FILE.pkl] [--diff-mode CalcTier|Remap
 python render.py CODE [CODE ...] [--codes-file FILE] [--header NAME] [--cache FILE.pkl] [--out-dir DIR]
 ```
 
-`serve.py` is an optional fourth entry point that browses an existing metrics `.xlsx` in a browser instead of Excel. Clicking a row renders that chart's graph on demand; columns have Excel-style filter dropdowns, can be hidden individually, dragged into any order in the column chooser, and resized by dragging the right edge of a header. All three preferences are remembered per browser in `localStorage` (`fw.hidden`, `fw.order`, `fw.widths`) and "Reset columns" clears all three. It reads the spreadsheet, not the cache, so `analyze.py` must have run first; the cache is loaded lazily only when a graph is clicked. A synthetic `Rank` column leads the table, numbering rows in the current view; it has no slot in the row arrays, so `state.visible()` pairs it with index -1. Long titles wrap rather than truncate, and a footer carries attribution and the licence. The level chips are a multi-select shortcut into the `Level` filter: a lit chip is a level on screen, so with no filter all four are lit, and clicking one adds or removes just that level. The Official/Custom pair beside them stays single-select, since its two values are complements and lighting both would mean the same thing as lighting neither. Stdlib `http.server` plus pandas, binds `127.0.0.1` only, nothing added to `requirements.txt`:
+`serve.py` is an optional fourth entry point that browses an existing metrics `.xlsx` in a browser instead of Excel. Clicking a row renders that chart's graph on demand; columns have Excel-style filter dropdowns, can be hidden individually, dragged into any order in the column chooser, and resized by dragging the right edge of a header. All three preferences are remembered per browser in `localStorage` (`fw.hidden`, `fw.order`, `fw.widths`) and "Reset columns" clears all three. It reads the spreadsheet, not the cache, so `analyze.py` must have run first; the cache is loaded lazily only when a graph is clicked. It serves exactly the four pages publish writes (`page.site_pages`: `index.html`, `about.html`, `404.html`, `robots.txt`) and answers an unknown path with the 404 page, so the footer's About link works locally; a drums code (`...XD`) answers 404 rather than crashing, because `GraphRenderer.lookup` returns `None` for a stream shape `difficulty.scorable` rejects. A synthetic `Rank` column leads the table, numbering rows in the current view; it has no slot in the row arrays, so `state.visible()` pairs it with index -1. Long titles wrap rather than truncate, and a footer carries attribution and the licence. The level chips are a multi-select shortcut into the `Level` filter: a lit chip is a level on screen, so with no filter all four are lit, and clicking one adds or removes just that level. The Official/Custom pair beside them stays single-select, since its two values are complements and lighting both would mean the same thing as lighting neither. Stdlib `http.server` plus pandas, binds `127.0.0.1` only, nothing added to `requirements.txt`:
 
 ```
 python serve.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--port 8000] [--no-bootstrap]
 ```
 
-`publish.py` is the fifth entry point: the same page, written to `SITE_DIR/<header>/` as a static site (`index.html` with the data baked in, the assets, Bootstrap, and every chart pre-rendered to `graph/<code>.png`) so it can be hosted with no server-side code. The page's URLs are relative, so the bundle works at a domain root or under a sub-path. Re-publishing is incremental: files are rewritten only when their bytes change (so `aws s3 sync` uploads only what moved), and `graph/manifest.json` holds a fingerprint of each chart's render inputs - notes, Expert anchor, the difficulty numbers the header prints, metadata, `source_format`, the curve constants and the render theme - so unchanged charts skip the render. Safety rules in `web/bundle.py`: a chart that cannot be rendered keeps its previous PNG, only graphs a previous publish recorded are ever pruned, nothing is pruned when no code resolves (a cache/xlsx mismatch), and the manifest is saved every 200 charts so an interrupted run keeps its work. `--force` re-renders everything, which a change to `functions/plot.py` or a matplotlib upgrade requires since the fingerprint cannot see code. Measured at ~0.12 s per chart. `site/` is gitignored:
+`publish.py` is the fifth entry point: the same page, written to `SITE_DIR/<header>/` as a static site (`index.html` with the data baked in, the assets, Bootstrap, and every chart pre-rendered to `graph/<code>.png`) so it can be hosted with no server-side code. The page's URLs are relative, so the bundle works at a domain root or under a sub-path. Re-publishing is incremental: files are rewritten only when their bytes change (so `aws s3 sync` uploads only what moved), and `graph/manifest.json` holds a fingerprint of each chart's render inputs - notes, Expert anchor, the difficulty numbers the header prints, metadata, `source_format`, the curve constants and the render theme - so unchanged charts skip the render. Safety rules in `web/bundle.py`: a chart that cannot be rendered keeps its previous PNG, only graphs a previous publish recorded are ever pruned, nothing is pruned when no code resolves (a cache/xlsx mismatch), and the manifest is saved every 200 charts so an interrupted run keeps its work. `--force` re-renders everything, which a change to `functions/plot.py` or a matplotlib upgrade requires since the fingerprint cannot see code; a change to the fingerprint's own composition re-renders everything once without it. Measured at ~0.12 s per chart. Publish refuses a spreadsheet and cache from different builds (`check_pair` raises `SystemExit`) unless `--allow-mismatch`, a flag `deploy.py` deliberately does not take, and warns when the newest file by mtime is not the newest by name. `site/` is gitignored:
 
 ```
 python publish.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--out-dir DIR] [--no-bootstrap] [--force]
@@ -50,7 +50,9 @@ making at each one, is section 7 of `README.md`; keep it in step with these
 scripts when their flags change.
 
 `deploy.py` ends every real run by asking S3 what Content-Type it will serve for
-one object of each kind, and exits non-zero if any is wrong. That check exists
+one object of each kind, and exits non-zero if any is wrong; `tools/check_site.py
+--site site/Local` is the post-deploy check from the visitor's side (ten GETs
+through CloudFront, the live strapline matched against the bundle just written). That check exists
 because `aws s3 cp --metadata-directive REPLACE` (what `--set-headers` uses)
 replaces *all* metadata and does **not** re-derive the content type the way an
 upload does - so a headers pass that does not name `--content-type` writes
@@ -151,7 +153,7 @@ Root `serve.py` and `publish.py` are thin entry points in the same shape as the 
 
 | Module | Responsibility |
 |---|---|
-| `web/frames.py` | Reads the metrics `.xlsx` into JSON-safe rows, and lists its codes. The only pandas importer. |
+| `web/frames.py` | Reads the metrics `.xlsx` into JSON-safe rows, and lists its codes. Adds the page-built `Pct` column (a per-sheet, per-level percentile of `D`, `rank(method='max')` floored to 0-100, `Int64`), which exists on the site and in serve and never in the spreadsheet. The only pandas importer. |
 | `web/boot.py` | Builds the JSON payload the page reads, and escapes `</` in it. |
 | `web/page.py` | `build()` composes a header's page; substitutes `index.html`'s placeholders in one regex pass. |
 | `web/bootstrap.py` | Bootstrap fetch/cache plus `FALLBACK_CSS`, its own fallback branch. |
@@ -211,7 +213,7 @@ Every instrument/level table lives there: canonical keys and iteration order, `.
 
 ### `functions/labels.py` holds every human-facing string
 
-The abbreviated keys (`pNPS`, `medVPS`, `COV`, `DurationS`) are the data contract: they come out of `density.calc_metrics` and `formula.calc_nvcov`, flow through the dataframes in `analyze.py`, and become the xlsx headers. Nothing keyed off a column name should change. `labels.py` maps those keys to readable text at display time only, via `COLUMN_LABELS`, `COLUMN_HELP` (tooltips), `TIME_COLUMNS` (seconds shown as m:ss), `DISPLAY_ORDER` (left-to-right column order on the page, which is deliberately not `analyze.COLUMN_ORDER`, so the site can lead with `D` without touching the spreadsheet), `DEFAULT_HIDDEN` (the columns a first visit does not show; search still looks inside a hidden column, and a filter set on one still applies, so hiding is display-only), `VALUE_ORDER` (columns whose values are neither numeric nor alphabetical - `Level` and `Type`, both derived from `instruments.py` rather than respelled, and used for the filter list and the column's sort alike), `VALUE_LABELS` (display text for a stored value, currently Official/Custom for the `Official` booleans; the filter still matches the stored key), `FOOTER_LINKS` (the attribution links), and `UI` (interface wording, including the copyright and licence lines). `label()` falls back to the raw key, so a new metric column degrades gracefully instead of raising.
+The abbreviated keys (`pNPS`, `medVPS`, `COV`, `DurationS`) are the data contract: they come out of `density.calc_metrics` and `formula.calc_nvcov`, flow through the dataframes in `analyze.py`, and become the xlsx headers. Nothing keyed off a column name should change. `labels.py` maps those keys to readable text at display time only, via `COLUMN_LABELS`, `COLUMN_HELP` (tooltips), `TIME_COLUMNS` (seconds shown as m:ss), `DISPLAY_ORDER` (left-to-right column order on the page, which is deliberately not `analyze.COLUMN_ORDER`, so the site can lead with `D` and seat the page-built `Pct` beside it without touching the spreadsheet), `DEFAULT_HIDDEN` (the columns a first visit does not show; search still looks inside a hidden column, and a filter set on one still applies, so hiding is display-only), `VALUE_ORDER` (columns whose values are neither numeric nor alphabetical - `Level` and `Type`, both derived from `instruments.py` rather than respelled, and used for the filter list and the column's sort alike), `VALUE_LABELS` (display text for a stored value, currently Official/Custom for the `Official` booleans; the filter still matches the stored key), `FOOTER_LINKS` (the attribution links), and `UI` (interface wording, including the copyright and licence lines). `label()` falls back to the raw key, so a new metric column degrades gracefully instead of raising.
 
 `serve.py` and `publish.py` consume it through `web/boot.py`; the pipeline itself does not. The xlsx headers and the render header are deliberately still raw keys, since changing them would alter committed example outputs and anything downstream that reads the spreadsheet by column name. Wiring either one up is a display-layer change through this module, not a rename in the pipeline.
 
@@ -229,7 +231,7 @@ Render recomputes from the cache rather than reading stored metrics. `curves.cal
 
 ### `song.ini` backup and write-back (`functions/ini_updater.py`)
 
-Build **always** appends new songs to `caches/{header}_BackupData.csv` (append-only, deduplicated by `song_path`, one column per `diff_*` tag) regardless of config. It never writes to `song.ini`. Analyze's write modes and Restore both go through `update_ini_values`, which patches matching `key = value` lines inside the `[song]` section in place, appends missing keys at the end of the section, and preserves the file's original encoding (utf-8 / utf-8-sig / utf-16 / cp1252) and newline style. Don't replace it with `configparser`; `song.ini` files routinely contain `%` and other characters that break it, which is also why `ini_parser.parse_ini` is hand-rolled.
+Build **always** appends new songs to `caches/{header}_BackupData.csv` (append-only, deduplicated by `song_path`, one column per `diff_*` tag) regardless of config. It never writes to `song.ini`. When an instrument joins `DIFF_TAGS` after the file was written, `migrate_backup_header` rewrites the header once (run from `backup_data`, `restore_from_backup` and the top of `build_cache`), keeps every row, recovers a row already appended with the longer shape by position, leaves a longer header alone and refuses one it does not recognise; it is upstream's file, offered upstream as PR #9. Analyze's write modes and Restore both go through `update_ini_values`, which patches matching `key = value` lines inside the `[song]` section in place, appends missing keys at the end of the section, and preserves the file's original encoding (utf-8 / utf-8-sig / utf-16 / cp1252) and newline style. Don't replace it with `configparser`; `song.ini` files routinely contain `%` and other characters that break it, which is also why `ini_parser.parse_ini` is hand-rolled.
 
 ## Conventions worth knowing
 
@@ -248,7 +250,9 @@ no branch protection), and the source of parser, instrument and difficulty-formu
 improvements. The viewer was offered upstream as PR #6 and closed unmerged on
 2026-09-07; it is this fork's project now. Releases of the hosted site are tagged
 `fretladder-vX.Y.Z` - a separate namespace from upstream's `vX.Y` tags, which
-arrive with every fetch and must not be reused.
+arrive with every fetch and must not be reused. A deploy is tagged at the commit
+whose sources produced the live bundle, with the chart count and the bundle's
+publish time in the message.
 
 - **`main` on the fork is `upstream/main` plus the viewer.** Feature work branches
   from `main`, is named for the feature (`rank-column`), and merges back with a merge
@@ -271,6 +275,10 @@ arrive with every fetch and must not be reused.
 - **`elo` is the rating branch**, secondary to the viewer: `ScoreData.md` and
   `SkillRating.md` so far. Merge `main` into it periodically; it merges to `main`
   only when there is code worth shipping. The rating never touches `web/`.
+  `screenshots` is an orphan branch holding the four PNGs upstream PR #6 embeds
+  by URL and is kept for that reason; `hosting` was merged in `5e9f6b7` and
+  deleted. `backup-header` is the branch behind upstream PR #9 and goes when
+  that PR is merged or closed.
 - **Merge commits only, short informal one-line messages**, matching upstream.
   Example outputs under `metrics/` and `renders/` are force-added; if you regenerate
   them, `git add -f` the new files and remove the stale ones in the same commit.

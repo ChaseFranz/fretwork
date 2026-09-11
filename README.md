@@ -161,13 +161,14 @@ Graphs are available in light or dark mode depending on the config.
 
 `python serve.py`
 
-`serve.py` serves the most recent metrics spreadsheet for your header as a local web page, so you can sort and filter without opening Excel. It reads the **spreadsheet**, so run Analyze first.
+`serve.py` serves the most recent metrics spreadsheet for your header as a local web page, so you can sort and filter without opening Excel. It reads the **spreadsheet**, so run Analyze first. It serves exactly what Publish writes: `index.html`, `about.html`, `404.html` and `robots.txt`, and an unknown path gets the 404 page.
 
 Open **http://localhost:8000** once it starts. It binds `127.0.0.1` only, so nothing outside your machine can reach it. On WSL the URL works in a Windows browser as-is.
 
 **What the page does:**
 
 - **Sort** by clicking a column header, click again to flip direction. Opens sorted by D, hardest first
+- **Percentile**, beside D: where the chart sits among the charts on its sheet at the same level, officials and customs together, as a whole number (100 is the hardest). It is computed when the page is built, so it moves as the library grows and is not in the spreadsheet; the graph heading and each row's hover text spell it out
 - **Filter** any column from the caret next to its name - a checkbox list for things like Part or Remap Tier, a min/max box for wide numeric columns like D or Length. Value counts reflect your other active filters
 - **Search** song, artist, charter or source from the box in the toolbar
 - **Click a row** to render that chart's graph and see it in a lightbox - the same PNG `render.py` produces, written to your render folder. The copy icon on a Code cell copies the retrieval code instead
@@ -242,7 +243,7 @@ Three things need to be right once, and then never again:
 python build.py --search-path songs --header Local
 ```
 
-Walks every folder under the search path, parses each `notes.chart` / `notes.mid`, and writes a cache to `caches/Local_cache_<timestamp>.pkl`. It also appends any new songs to `caches/Local_BackupData.csv`, so the original `song.ini` difficulties are recoverable. Nothing is written back to the library.
+Walks every folder under the search path, parses each `notes.chart` / `notes.mid`, and writes a cache to `caches/Local_cache_<timestamp>.pkl`. It also appends any new songs to `caches/Local_BackupData.csv`, so the original `song.ini` difficulties are recoverable. If an instrument has joined the tool since that file was written, build prints `Backup CSV header updated` once and adds the column; a header it does not recognise stops the build before parsing. Nothing is written back to the library.
 
 Several minutes on a few thousand songs; MIDI parsing dominates. **Check before moving on:**
 
@@ -273,7 +274,9 @@ Opens the same viewer the website runs, against your local spreadsheet, at http:
 python publish.py --header Local
 ```
 
-Writes `site/Local/` - `index.html` with the table baked in, `404.html`, the assets, Bootstrap, and a PNG per chart under `graph/`. The first run on a large library takes around ten minutes; after that only charts whose inputs changed are re-rendered, so it is usually seconds. Add `--force` only after changing `functions/plot.py`, the render theme, or upgrading matplotlib - the manifest cannot see code changes.
+Writes `site/Local/` - `index.html` with the table baked in, `404.html`, `about.html`, `robots.txt`, the assets, Bootstrap, and a PNG per chart under `graph/`. The first run on a large library takes around ten minutes; after that only charts whose inputs changed are re-rendered, so it is usually seconds. Add `--force` only after changing `functions/plot.py`, the render theme, or upgrading matplotlib - the manifest cannot see code changes.
+
+Publish stops if the spreadsheet and the cache carry different build timestamps (`spreadsheet is from X but the cache is from Y`), because that means Analyze has not run since the last Build; run it and publish again. `--allow-mismatch` exists for the deliberate exception, and `deploy.py` does not take it: a mismatched bundle is published by hand and then sent with `deploy.py --no-publish`, so the decision is taken twice. One more thing that looks like a fault and is not: a commit that changes what the manifest fingerprint is made of (as `69b5a8f` did, when upstream dropped star-power spans from the cache) invalidates every stored hash, so the next publish re-renders every chart once, about 24 minutes for 12,000 charts.
 
 You can skip this step: `deploy.py` publishes first anyway. Run it separately when you want to look at the bundle before it goes anywhere.
 
@@ -297,19 +300,52 @@ python deploy.py               # publish, sync, invalidate
 ### Step 7 - confirm it landed
 
 ```
-curl -s -o /dev/null -w "%{http_code}\n" https://fretladder.com/
-curl -s https://fretladder.com/ | grep -o "Updated [^\"]*charts"
+python tools/check_site.py --site site/Local
 ```
 
-The second line should print the date of the build you just made. Then load the site and check the chart count in the header. CloudFront invalidation usually takes under a minute.
+Ten checks against the live site, one line each, and `--site` makes the first of them insist that the live strapline is the one in the bundle you just published, so a deploy that did not actually land fails here rather than in a browser. It also checks compression, the about page, `robots.txt`, the social-preview image, that the module script and every stylesheet are served with the right content type, that an unknown path gets our 404 page, and that a `?code=` link answers. It exits with the number of failures. CloudFront invalidation usually takes under a minute; if only the strapline check fails right after a deploy, wait and run it again. The two curl lines it replaces still work on any machine: `curl -s -o /dev/null -w "%{http_code}\n" https://fretladder.com/` and `curl -s https://fretladder.com/ | grep -o "Updated [^\"]*charts"`.
 
 `deploy.py` ends by asking S3 what content type it will serve for one file of each kind, and refuses to call the deploy done if any is wrong. A file served as `binary/octet-stream` is not a cosmetic problem: browsers refuse to run an ES module with the wrong type, so the page loads and then does nothing.
+
+### After it is live
+
+Three things to look at, weekly, for the first couple of weeks after any announcement, and after every deploy. Everything here needs `aws sso login --profile <the AWS_PROFILE in .env>` first (the CLI's own message calls it `aws login`; same thing).
+
+```
+python tools/check_site.py --site site/Local          # the ten live checks; the live strapline must match the one just published
+gh issue list --repo ChaseFranz/fretwork --label "song pack"
+gh issue list --repo ChaseFranz/fretwork --label rating
+gh issue list --repo ChaseFranz/fretwork --label accessibility
+gh issue list --repo ChaseFranz/fretwork --search "no:label"
+D=$(python -c "from functions import envfile; print(envfile.load('.env')['FRETWORK_DISTRIBUTION'])")
+export AWS_PROFILE=$(python -c "from functions import envfile; print(envfile.load('.env').get('AWS_PROFILE', ''))")   # deploy.py reads it from .env; a bare aws does not
+aws cloudwatch get-metric-statistics --region us-east-1 --namespace AWS/CloudFront \
+  --metric-name Requests --statistics Sum --period 86400 \
+  --dimensions Name=DistributionId,Value=$D Name=Region,Value=Global \
+  --start-time $(date -u -d '30 days ago' +%FT%TZ) --end-time $(date -u +%FT%TZ) \
+  --query 'sort_by(Datapoints,&Timestamp)[].[Timestamp,Sum]' --output text
+```
+
+Run the same call with `--metric-name BytesDownloaded` for bytes. CloudFront's metrics live in `us-east-1` whatever the bucket's region, and the `Region=Global` dimension is required. The date arithmetic is GNU `date` (Linux and WSL); elsewhere type the two ISO timestamps by hand.
+
+**The allowance.** The distribution is on CloudFront's Free flat-rate plan: 1,000,000 requests and 100 GB a month, no overage billing, a short spike absorbed. A cold page view is 21 requests (the page, Bootstrap, the stylesheet, the favicon and 17 script modules) plus one per graph opened, and because everything but `graph/` is deployed `no-cache`, a returning visitor costs the same 21. That is about 47,000 page views a month with no graphs opened, and requests bind long before bytes do. The plan's own usage view is CloudFront console > Pricing plans. Two thresholds mean it is time to move the row data out of the page (section 05 of `docs/spec/`): 700,000 requests in any 30-day window, or one day over 35,000. The AWS Budget `fretladder-monthly` ($50 a month) e-mails at 50% and 100% actual and 80% forecast; the plan itself cannot bill, so a budget e-mail means S3 or Route 53, and Cost Explorer's breakdown is the first thing to read.
+
+**What each channel yields.** A `song pack` issue is an entry for the pack registry and a job for the ingest tool (sections 03 and 09 of the spec); until those exist, triage by hand: is the pack public, is it already in the Release column, how big is it. A `rating` issue is calibration evidence: if it describes flow (strumming, HOPOs, anchoring) it is the known gap the "How it works" panel names, and gets a link to that section; if it describes a density or length effect it goes to upstream's tracker with the code, because the formula is theirs. Either way it stays open on the fork until the number moves or the explainer covers it. A blank issue is a bug or an accessibility report; label it at triage, which is why the block above searches `no:label` too.
+
+**Browser checks**, which no script can make:
+
+- `https://fretladder.com/?code=10145439XG` opens with the graph of Through The Fire & Flames (Expert, Lead) and the dialog's `aria-label` ends with the code.
+- The graph's "Report this rating" link opens the rating form on GitHub with the code and the song already filled in (GitHub fills issue-form fields from the query string).
+- The footer's "Request a song pack" opens the pack form with the two acknowledgement boxes and no attachment control.
+- Paste `https://fretladder.com/` into a Discord message to yourself: the preview shows the title, description and the graph. Discord caches previews per URL, so a changed preview image needs a query string to re-check.
+- On the fork's GitHub page the Watch button reads "Unwatch" with "All activity", so new issues arrive by e-mail.
 
 ### When something is off
 
 | What you see | What it is | Fix |
 |---|---|---|
-| "spreadsheet is from X but the cache is from Y" | Analyze has not run since the last Build | `python analyze.py --header Local` |
+| Publish stops: "spreadsheet is from X but the cache is from Y" | Analyze has not run since the last Build | `python analyze.py --header Local`, then publish again (`--allow-mismatch` only if you mean it) |
+| Publish warns: "newest by mtime is A but newest by name is B" | An older cache or spreadsheet was copied or touched, so it looks newest | Delete or re-date the copy, or name the file you want with `--cache` / `--xlsx` |
 | Site shows an old date | The invalidation has not finished, or the browser cached the page | Wait a minute, then hard-reload |
 | A graph looks stale after changing plotting code | The manifest fingerprints data, not code | `python publish.py --header Local --force` |
 | `deploy.py` refuses: "holds files publish did not write" | `FRETWORK_SITE_DIR` points at the wrong folder | Point it at `site/<header>` |
