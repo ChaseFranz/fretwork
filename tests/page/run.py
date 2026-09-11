@@ -84,6 +84,19 @@ def album_query(plain):
     raise SystemExit("no album with a comma in the fixture")
 
 
+def genre_query(plain):
+    """A search for a genre that no searched column on the first sheet contains."""
+    data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
+    sheet = list(data)[0]
+    file = json.loads((plain.parent / data[sheet]["file"]).read_text(encoding="utf-8"))
+    cols, rows = file["columns"], file["rows"]
+    searched = [cols.index(c) for c in ("Song Title", "Artist", "Album", "Charter", "Release", "Code")]
+    for genre in sorted({str(r[cols.index("Genre")]) for r in rows if r[cols.index("Genre")]}, key=len, reverse=True):
+        if not any(genre.lower() in str(r[i]).lower() for r in rows for i in searched):
+            return "?" + urllib.parse.urlencode({"sheet": sheet, "q": genre}) + ALL_LEVELS
+    raise SystemExit("every genre on the first sheet is also in a searched column")
+
+
 def bass_code_query(plain):
     return "?code=" + _second_sheet_code(plain)[1]
 
@@ -104,7 +117,7 @@ SUITES = [
     ("launch.js",    {}),
     ("roundtrip.js", {"queries": [roundtrip_query], "storage": {"fw.hidden": '["Artist"]'}}),   # a stale saved hidden set, no fw.v
     ("load.js",      {"queries": [bass_code_query, bass_code_query_with_sheet, ""], "delay": {"data/": 600}}),
-    ("fields.js",    {"queries": ["", "?r.Difficulty=:3", "?r.Year=2000:2010", album_query, "?q=fixture+rock" + ALL_LEVELS]}),
+    ("fields.js",    {"queries": ["", "?r.Difficulty=:3", "?r.Year=2000:2010", album_query, genre_query]}),
     ("fade.js",      {"windows": ["700,900", "1000,900", "1440,900"]}),
     ("video.js",     {}),
     ("links.js",     {}),

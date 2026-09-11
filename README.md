@@ -95,7 +95,7 @@ Optionally, `analyze.py` can also update each instrument's `song.ini` `diff_*` t
 An .xlsx spreadsheet named `{header}_metrics_{timestamp}.xlsx` with:
 - One tab per instrument group that has data in the cache (`Guitar` - combining Guitar/Co-op/Rhythm, `Bass`, `Keys`). Easy/Medium/Hard/Expert share the same tab in the `Level` column
 - **Retrieval codes** - an 8-digit song hash plus a level letter (`E`/`M`/`H`/`X`) and an instrument letter (`G`/`C`/`R`/`B`/`K`), e.g. `04821993XG` for an Expert Guitar song - used to render graphs
-- Metadata: Song Title, Artist, Level, Type (Lead/Co-op/Rhythm/Bass/Keys), Charter, Release/Source, Difficulty (song.ini diff tags)
+- Metadata: Song Title, Artist, Level, Type (Lead/Co-op/Rhythm/Bass/Keys), Charter, Release/Source, Album, Year, Genre, Difficulty (song.ini diff tags). Year is the four-digit year found in the `year` tag, `-1` when it holds none
 - The difficulty metrics & updated Remap/CalcTier numbers
 
 Each tab is formatted for browsing using `xlsx_format.py`
@@ -172,7 +172,7 @@ Open **http://localhost:8000** once it starts. It binds `127.0.0.1` only, so not
 - **Added** (hidden by default) is the date the chart's pack was registered in `packs.toml`, joined when the page is built; the header's "Updated" line links to the "What's new" page, which lists every pack with its counts and the site's own changes
 - **Percentile**, beside D: where the chart sits among the charts on its sheet at the same level, officials and customs together, as a whole number (100 is the hardest). It is computed when the page is built, so it moves as the library grows and is not in the spreadsheet; the graph heading and each row's hover text spell it out
 - **Filter** any column from the caret next to its name - a checkbox list for things like Part or Remap Tier, a min/max box for wide numeric columns like D or Length. Value counts reflect your other active filters
-- **Search** song, artist, charter or source from the box in the toolbar
+- **Search** song, artist, album, charter or source from the box in the toolbar
 - **Click a row** to render that chart's graph and see it in a lightbox - the same PNG `render.py` produces, written to your render folder. The copy icon on a Code cell copies the retrieval code instead
 - **Columns** button hides any column you do not want, remembered in your browser
 - Friendly column names throughout, with the metric definitions on hover. Unrated songs (`diff_*` of -1) show a dash rather than the raw number
@@ -199,7 +199,7 @@ Stop the server with Ctrl+C.
 The first publish of a large library takes a while - measured at about 0.12 seconds per chart, so around ten minutes for 4,600 charts. After that it is incremental:
 
 - files whose bytes did not change are left alone, so a sync to your host uploads only what moved
-- a chart whose notes, header numbers, metadata, curve settings and render theme are unchanged skips its render, tracked in `graph/manifest.json`
+- a chart whose notes, header numbers, the metadata the graph header prints, curve settings and render theme are unchanged skips its render, tracked in `graph/manifest.json`
 - a chart that cannot be rendered this time keeps the graph an earlier publish made
 - only graphs an earlier publish recorded are ever removed; nothing else in the folder is touched
 
@@ -266,7 +266,7 @@ Opens the same viewer the website runs, against your local spreadsheet, at http:
 python publish.py --header Local
 ```
 
-Writes `site/Local/` - `index.html` with the table baked in, `404.html`, `about.html`, `robots.txt`, the assets, Bootstrap, and a PNG per chart under `graph/`. The first run on a large library takes around ten minutes; after that only charts whose inputs changed are re-rendered, so it is usually seconds. Add `--force` only after changing `functions/plot.py`, the render theme, or upgrading matplotlib - the manifest cannot see code changes.
+Writes `site/Local/` - `index.html` with the table baked in, `404.html`, `about.html`, `robots.txt`, the assets, Bootstrap, and a PNG per chart under `graph/`. The first run on a large library takes around ten minutes; after that only charts whose inputs changed are re-rendered, so it is usually seconds. Add `--force` only after changing `functions/plot.py`, the render theme, or upgrading matplotlib - the manifest cannot see code changes. A change that only touches metadata the graph header does not print (album, year, genre) re-renders no graphs.
 
 Publish stops if the spreadsheet and the cache carry different build timestamps (`spreadsheet is from X but the cache is from Y`), because that means Analyze has not run since the last Build; run it and publish again. `--allow-mismatch` exists for the deliberate exception, and `deploy.py` does not take it: a mismatched bundle is published by hand and then sent with `deploy.py --no-publish`, so the decision is taken twice. One more thing that looks like a fault and is not: a commit that changes what the manifest fingerprint is made of (as `69b5a8f` did, when upstream dropped star-power spans from the cache) invalidates every stored hash, so the next publish re-renders every chart once, about 24 minutes for 12,000 charts.
 
