@@ -154,6 +154,7 @@ def site_pages(body):
 # what tells you which library and which run you are looking at.
 def build(header, xlsx_path, bootstrap_css, public=False):
     xlsx_path, sheets = frames.load_frames(header, xlsx_path)
+    frames.add_percentiles(sheets)
     total = sum(len(df) for df in sheets.values())
     if public:
         title, source = config.SITE_NAME, public_source(header, xlsx_path, total)
