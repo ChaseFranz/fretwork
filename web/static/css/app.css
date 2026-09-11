@@ -144,8 +144,10 @@
   .sgrid .cell small { color:var(--fw-dim); font-size:11px; }
   .sgrid .cell.here { border-color:var(--fw-accent-text); box-shadow:inset 0 0 0 1px var(--fw-accent-text); }
   .sgrid .cell.none { color:var(--fw-dim); border-style:dashed; }
-  .mhead .lnk { display:flex; align-items:baseline; gap:0; font-size:11px; white-space:nowrap; }
-  .mhead .lnk a { color:var(--fw-accent-text); }
+  .mhead .lnk { display:flex; flex-wrap:wrap; align-items:baseline; gap:0; font-size:11px; }
+  .mhead .lnk a { white-space:nowrap; }
+  .mhead .lnk a, .mhead .ext { color:var(--fw-accent-text); }
+  #song p.meta .lnk { margin-left:8px; }
   /* the title cell's pip to the song panel: out of flow, revealed on hover like the code pip */
   td.song { position:relative; padding-right:18px; }
   td.song .sp { position:absolute; right:2px; top:5px; visibility:hidden; opacity:.7; cursor:pointer;

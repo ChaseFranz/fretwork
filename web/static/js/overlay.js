@@ -4,7 +4,8 @@ import { el, esc, rich } from "./dom.js";
 import { t, lab, isMissing } from "./format.js";
 import { cols, state, findRow } from "./state.js";
 import { writeUrl } from "./url.js";
-import { loadSheet, loadAll } from "./load.js";
+import { loadSheet, loadAll, loadLinks } from "./load.js";
+import { linkAnchors } from "./links.js";
 import { loadCurves, mountGraph, exportPng, outputFilename } from "./graph.js";
 import { songIsOpen, closeSong } from "./song.js";
 
@@ -85,15 +86,17 @@ function heading(code) {
   const song = typeof key === "string" && key
     ? '<a class="sng" href="?song=' + esc(key) + '" data-song="' + esc(key) + '">' + esc(UI.song_view) + "</a>"
     : "";
+  // the link group at the right edge: where the chart is published and its
+  // leaderboard (when the links file knows), the song panel, the report
+  const group = [linkAnchors(key), song, '<a class="rpt" target="_blank" rel="noopener" href="' + esc(report) + '">' + esc(UI.report) + "</a>"]
+    .filter(Boolean).join("").replace(/<\/a><a /g, '</a><span class="sep">/</span><a ');
   return '<div class="mhead"><strong>' + esc(row === undefined ? code : get("Song Title")) + '</strong>' +
     '<span class="text-secondary">' + esc(get("Artist")) + '</span>' +
     '<span class="badge rounded-pill lvl ' + esc(get("Level")) + '">' +
     esc(get("Level")) + '</span>' +
     '<span class="text-secondary">' + esc(get("Type")) + '</span>' +
     '<span class="text-secondary">' + esc(get("Charter")) + '</span>' + place +
-    '<span class="ms-auto lnk">' + song + (song ? '<span class="sep">/</span>' : "") +
-    '<a class="rpt" target="_blank" rel="noopener" href="' + esc(report) +
-    '">' + esc(UI.report) + "</a></span>" + same + "</div>";
+    '<span class="ms-auto lnk">' + group + "</span>" + same + "</div>";
 }
 
 // Line 2, what the PNG's metadata line said: the difficulty numbers, the
@@ -155,6 +158,13 @@ export function openGraph(code, vs = state.compare) {
   card.innerHTML = heading(code) + closeButton() + metaLine(code, null) +
     '<div class="gbody"><div class="text-secondary py-4">' + esc(UI.rendering) + "</div></div>" + tools();
   modal.focus();
+  // the heading is a function of state: when the links file lands after the
+  // open, line 1 alone is redrawn, and only while this graph is still up
+  if (!state.links) loadLinks().then(() => {
+    if (state.graph !== code || !graphIsOpen()) return;
+    const h = card.querySelector(".mhead");
+    if (h) h.outerHTML = heading(code);
+  }, () => {});
 
   const codes = codesOpen();
   Promise.all(codes.map(c => loadCurves(c).then(curves => ({ code: c, curves }), () => ({ code: c })))).then(results => {

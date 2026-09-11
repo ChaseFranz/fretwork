@@ -32,9 +32,10 @@ def render_profile():
     return profile
 
 
-def boot_payload(manifest, sheet_of_code):
+def boot_payload(manifest, sheet_of_code, links=None):
     return {
         'data': manifest,
+        'links': links,            # data/links.<hash8>.json, or null when no song has one
         'render': render_profile(),
         'sheetOfCode': sheet_of_code,
         'prefsVersion': labels_mod.PREFS_VERSION,
@@ -57,5 +58,5 @@ def boot_payload(manifest, sheet_of_code):
 
 # Escaping every "<" keeps spreadsheet text from closing the script tag or
 # entering its double-escaped state. A valid JSON escape, parsed back unchanged.
-def boot_json(manifest, sheet_of_code):
-    return json.dumps(boot_payload(manifest, sheet_of_code)).replace('<', '\\u003c')
+def boot_json(manifest, sheet_of_code, links=None):
+    return json.dumps(boot_payload(manifest, sheet_of_code, links)).replace('<', '\\u003c')

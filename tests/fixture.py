@@ -74,6 +74,16 @@ PACKS = {
     'Fixture Pack C': ('fixturepack', 'Custom', False),
 }
 
+# Values for a fake link registry (section 13): an Enchor md5 and a leaderboard
+# songHash, each made distinct per song by its last characters.
+LINKS_FAKE = {'md5': '0123456789abcdef0123456789abcdef', 'songHash': 'A' * 43}
+
+
+def fake_links(index):
+    tail = f'{index:02d}'
+    return {'md5': LINKS_FAKE['md5'][:-2] + tail, 'songHash': LINKS_FAKE['songHash'][:-2] + tail}
+
+
 # The table. Rows on the site = every level of every non-drums instrument.
 SONGS = [
     Song('Fixture Pack A', 'A1 - Grid Runner', 'chart', {'guitar': 'EMHX', 'bass': 'X'}, True, PACKS['Fixture Pack A'][1],

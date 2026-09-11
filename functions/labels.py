@@ -179,6 +179,10 @@ ENGINE_REPO = 'https://github.com/Staycation44/fretwork'
 CHANNEL = 'https://www.youtube.com/@StaycationGH'
 FORK_REPO = 'https://github.com/ChaseFranz/fretwork'
 VIDEO = 'https://youtu.be/emoWMpDJ4ls'
+# The two destinations a chart's graph links out to, when the offline lookups
+# (tools/enchor_lookup.py, tools/leaderboards_lookup.py) found it there.
+ENCHOR = 'https://enchor.us'
+LEADERBOARDS = 'https://leaderboards.clonehero.net'
 
 # The author is "Staycation44" everywhere in the prose, matching the GitHub
 # account and the video credit - except in the two copyright notices below, which
@@ -293,8 +297,9 @@ ABOUT = (
     ('What is stored here, and what is not',
      'The site hosts no audio and no chart files, and nothing can be downloaded from it. '
      'What it holds is numbers calculated from charts, the song, artist, charter and pack '
-     'names those charts already carry, and one graph per chart, drawn from its note density. It is not a '
-     'place to get songs.'),
+     'names those charts already carry, and one graph per chart, drawn from its note density. Where a '
+     'chart is published on Chorus Encore, or has a Clone Hero leaderboard, its graph links there; nothing '
+     'is hosted here. It is not a place to get songs.'),
     ('Ownership',
      'Guitar Hero, Rock Band and Clone Hero, and the names and marks that go with them, '
      'belong to their respective owners. The songs belong to their rights holders, and '
@@ -444,6 +449,14 @@ UI = {
     'song_also_in':     'Also in',
     'song_no_level':    'No {level} chart',
     'save_png':         'Save as PNG',
+
+    # where a chart is published and where its scores are, resolved offline
+    'enchor':           'On Chorus Encore',
+    'enchor_tip':       'This chart\u2019s page on Chorus Encore, where it is published',
+    'enchor_url':       f'{ENCHOR}/chart/{{md5}}',
+    'leaderboard':      'Leaderboard',
+    'leaderboard_tip':  'Scores for this song on the Clone Hero leaderboards',
+    'leaderboard_url':  f'{LEADERBOARDS}/scores/{{hash}}',
 
     # the page CloudFront serves for a path that is not in the bucket
     'not_found_title':  'Page not found',

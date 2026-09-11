@@ -55,6 +55,7 @@ export const state = {
   compare: [],          // up to two more codes drawn on the same graph (?vs=)
   picking: false,       // the graph is hidden while a row is chosen to compare with
   song: null,           // SongKey of the open song panel, for the URL (?song=)
+  links: null,          // {songKey: {enchor, lb}} once data/links.<hash>.json has arrived
 };
 
 // Remember hidden columns per browser; storage may be unavailable.

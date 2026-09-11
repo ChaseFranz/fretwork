@@ -49,7 +49,7 @@ class Pacer:
     """Spaces requests to per_minute and sleeps through a rate-limit reset.
 
     clock and sleep are injectable for tests. reset headers are epoch seconds
-    (Enchor sends them that way); a value under a day is taken as a delta.
+    (Enchor sends them that way); a value under 1e9 is taken as a delta.
     """
 
     def __init__(self, per_minute=48, clock=time.time, sleep=time.sleep):
@@ -76,7 +76,7 @@ class Pacer:
         except (TypeError, ValueError):
             return 60.0
         now = self.clock()
-        return max(1.0, (value - now if value > 86400 else value) + 1)
+        return max(1.0, (value - now if value > 1e9 else value) + 1)
 
     def after(self, headers):
         """Honour x-ratelimit-remaining: 0 by sleeping to the reset."""

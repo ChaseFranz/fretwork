@@ -13,7 +13,7 @@ import re
 
 import config
 from functions import instruments, labels, packs, timestamp
-from web import assets, boot, bootstrap, frames, markdown, methodology
+from web import assets, boot, bootstrap, frames, links as links_mod, markdown, methodology
 
 _PLACEHOLDER = re.compile(r'__([A-Z][A-Z_]*)__')
 
@@ -256,8 +256,10 @@ def sheet_of_code(sheets):
 # `resolved` is packs.resolve()'s answer, or None when there is no cache to
 # join: then the Added column is absent and the strapline is plain text. The
 # page-build columns are appended in a fixed order: Added, Copies, then Pct.
-def build(header, xlsx_path, bootstrap_css, public=False, resolved=None):
+def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_path=None):
     xlsx_path, sheets = frames.load_frames(header, xlsx_path)
+    if any(frames.slug(name) == links_mod.SLUG for name in sheets):
+        raise ValueError(f'a sheet slugs to {links_mod.SLUG!r}, the name of the links file under data/')
     if resolved is not None:
         sheets = frames.with_added(sheets, resolved.added_by_code)
     # the page-build columns, in this order: Added, Copies, Pct
@@ -272,7 +274,13 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None):
     files, names = assets.load_assets(bootstrap_css)
     data_files, manifest = frames.sheet_files(sheets)
     files.update(data_files)
-    files['index.html'] = render_page(title, source, names, boot.boot_json(manifest, sheet_of_code(sheets)),
+    # where each song is published and its leaderboard, from the offline registry, when there is one
+    links_file = None
+    published = links_mod.published(links_mod.load_registry(header, links_path))
+    if published is not None:
+        links_file = links_mod.file_name(published)
+        files[links_file] = published
+    files['index.html'] = render_page(title, source, names, boot.boot_json(manifest, sheet_of_code(sheets), links_file),
                                       public, linked=resolved is not None)
     files['404.html'] = render_404(names)
     files['about.html'] = render_about(names)

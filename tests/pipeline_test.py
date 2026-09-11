@@ -283,6 +283,17 @@ def run_all(work, header, args):
     st.check(re.search(rf'Distinct charts\s+{len(total) - 1:,} of {len(total):,}', st.out), 'the distinct-charts summary line')
     st.done(f"{len(total)} rows on {len(sheets)} sheets, columns as COLUMN_ORDER")
 
+    # ---- a fake link registry (section 13): the first four keyed songs ------------------
+    keyed = sorted({s['song_key'] for s in cache['songs'].values() if s.get('song_key')})[:4]
+    fake = [fixture.fake_links(i) for i in range(4)]
+    links_registry = {'v': 1,
+                      'enchor': {keyed[0]: {'md5': fake[0]['md5'], 'chartId': 1, 'via': 'meta'},
+                                 keyed[1]: {'md5': fake[1]['md5'], 'chartId': 2, 'via': 'meta'}},
+                      'leaderboard': {keyed[0]: {'songHash': fake[0]['songHash'], 'sure': True, 'twins': 1},
+                                      keyed[2]: {'songHash': fake[2]['songHash'], 'sure': True, 'twins': 1},
+                                      keyed[3]: {'songHash': fake[3]['songHash'], 'sure': False, 'twins': 1}}}
+    (work / 'caches' / f'{header}_links.json').write_text(json.dumps(links_registry), encoding='utf-8')
+
     # ---- publish without bootstrap -------------------------------------------------
     st = Stage('publish (fallback css)', work, env, args.python)
     proc = st.run('publish.py', '--header', header, '--no-bootstrap', expect=None)
@@ -313,7 +324,13 @@ def run_all(work, header, args):
     st.check(all(set(v) == {'file', 'rows', 'columns'} and (site / v['file']).is_file() for v in manifest_sheets.values()),
              f'sheet manifest {manifest_sheets}')
     data_files = sorted(p.name for p in (site / 'data').iterdir())
-    st.check(data_files == sorted(pathlib.PurePosixPath(v['file']).name for v in manifest_sheets.values())
+    links_files = [n for n in data_files if n.startswith('links.')]
+    st.check(len(links_files) == 1 and boot['links'] == f'data/{links_files[0]}', f'links file {links_files}, boot {boot.get("links")}')
+    published_links = json.loads((site / 'data' / links_files[0]).read_bytes())
+    st.check(published_links == {'v': 1, 'songs': {keyed[0]: {'enchor': fake[0]['md5'], 'lb': fake[0]['songHash']},
+                                                    keyed[1]: {'enchor': fake[1]['md5']}, keyed[2]: {'lb': fake[2]['songHash']}}},
+             f'published links {published_links}')
+    st.check(sorted(n for n in data_files if not n.startswith('links.')) == sorted(pathlib.PurePosixPath(v['file']).name for v in manifest_sheets.values())
              and all(re.fullmatch(r'[a-z0-9-]+\.[0-9a-f]{8}\.json', n) for n in data_files), f'data/ holds {data_files}')
     for name, entry in manifest_sheets.items():
         blob = (site / entry['file']).read_bytes()

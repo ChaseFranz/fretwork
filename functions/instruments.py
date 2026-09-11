@@ -52,6 +52,12 @@ SCORED_INSTRUMENTS = ('guitar', 'coop', 'rhythm', 'bass', 'keys')
 # keys, fixed forever, so the key does not move the day drums are scored
 SONG_KEY_INSTRUMENTS = ('guitar', 'coop', 'rhythm', 'bass', 'keys')
 
+# The Clone Hero leaderboards API's instrument vocabulary, for
+# tools/leaderboards_lookup.py. A superset of SONG_KEY_INSTRUMENTS; drums joins
+# when its literal is known.
+LEADERBOARD_INSTRUMENT = {'guitar': 'guitar', 'coop': 'guitarcoop', 'rhythm': 'rhythm', 'bass': 'bass', 'keys': 'keys'}
+assert set(SONG_KEY_INSTRUMENTS) <= set(LEADERBOARD_INSTRUMENT)
+
 # canonical level keys, in a stable display/iteration order
 LEVEL_KEYS = ['easy', 'medium', 'hard', 'expert']
 

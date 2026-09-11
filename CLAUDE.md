@@ -84,6 +84,20 @@ timestamp), and it emits Open Graph / Twitter tags, which need `SITE_URL` becaus
 social preview cannot use a relative image. `page.OG_IMAGE` picks the chart that serves
 as that preview.
 
+A graph's heading links out to where the chart is published, when that is known:
+`tools/enchor_lookup.py` resolves each song against Chorus Encore offline (exact
+title and artist, then the Expert guitar note count, then the charter; the probe in
+`tools/enchor_probe.py` showed Enchor's hash filter is not the notes file's MD5) into
+`caches/<header>_links.json`, keyed by `SongKey`, and `web/links.py` publishes the sure
+answers as `data/links.<hash8>.json` (immutable class, `boot['links']`, `state.links`
+after `load.js`'s `loadLinks()`). The page never contacts either service: the anchors
+(`static/js/links.js`, `linkAnchors()`) are built from that file, each value checked
+against its character class before it enters a URL template, so a hand-edited
+registry can cost a link and never point at another host. The leaderboard half
+(`tools/leaderboards_lookup.py`, `lb` in the file, `LEADERBOARD_INSTRUMENT` in
+`instruments.py`) waits on the leaderboards maintainer's answer about batch reads of
+api.clonehero.net; `web/links.py` and the page already handle an `lb` value.
+
 Three explanatory surfaces, and the split is deliberate. The "How it works" panel
 on the charts page is `labels.EXPLAINER` - what D measures, how the tiers read,
 what the formula cannot see, where the numbers come from - led by the engine
@@ -191,6 +205,7 @@ Root `serve.py` and `publish.py` are thin entry points in the same shape as the 
 | `web/page.py` | `build()` composes a header's page; substitutes `index.html`'s placeholders in one regex pass. `render_doc()` fills `doc.html` for the document pages (`about.html`, `changelog.html`, `methodology.html`); `site_pages()` is the dict of files a site is. |
 | `web/markdown.py` | The markdown subset renderer behind `methodology.html`: block and inline allow-lists, the LaTeX-to-MathML typesetter, `MarkdownError` on anything else. `python -m web.markdown FILE`. |
 | `web/methodology.py` | `load()` parses `Methodology.md` and `check_tables()` compares its calibration tables to `formula.py`, raising `MethodologyDrift`. `python -m web.methodology` for CI and after an upstream merge. |
+| `web/links.py` | The offline link registry's published form: `data/links.<hash8>.json` with each song's Enchor md5 and sure leaderboard hash, values filtered by character class; `None` when nothing is known. |
 | `web/bootstrap.py` | Bootstrap fetch/cache plus `FALLBACK_CSS`, its own fallback branch. |
 | `web/assets.py` | `load_assets()`: the bundle, stylesheet, favicon and Bootstrap under hashed names; the content-type table and `cache_class()`. |
 | `web/bundler.py` | Concatenates the ES modules into one file, refusing any import or export form outside its whitelist. |

@@ -263,6 +263,16 @@ python serve.py --header Local
 
 Opens the same viewer the website runs, against your local spreadsheet, at http://127.0.0.1:8000. Worth a minute: sort by D and check the top of the list is plausible, and search for a song from whatever pack you just added to confirm it is there.
 
+### Step 2b - resolve where each chart is published *(optional)*
+
+```
+python tools/enchor_lookup.py --header Local
+```
+
+Asks Chorus Encore (api.enchor.us), once per song not yet answered, whether it publishes the chart, and records the answer in `caches/Local_links.json` keyed by the song's content hash: the chart page's id, or "asked, not found". The match is an exact title and artist search narrowed by the Expert guitar note count and the charter, because Enchor's hash filter is not the notes file's MD5 (`tools/enchor_probe.py` records the experiment); a chart that cannot be singled out gets no link, since a wrong link is worse than none. 48 requests a minute (the service allows 50), so a 1,800-song library takes about 40 minutes the first time and seconds afterwards: the registry persists across builds like the backup CSV, `--recheck` re-asks the misses, `--recheck-all` everything, `--limit N` stops after N. Publish then writes `data/links.<hash>.json` and every graph whose song is in it carries an "On Chorus Encore" link beside "Report this rating"; without the registry, publish writes no file and the page shows no link. The registry is not committed and lives in `caches/`, so copy it somewhere before clearing that folder (`--links FILE` points at a copy).
+
+The leaderboard half (`tools/leaderboards_lookup.py`, a "Leaderboard" link per song) is not built: api.clonehero.net has no documented public status, and the spec (section 13) waits on the maintainer's answer before any batch tool reads it. `web/links.py` already publishes an `lb` value when a registry carries a sure match, so the tool is the only missing piece.
+
 ### Step 3 - build the site
 
 ```

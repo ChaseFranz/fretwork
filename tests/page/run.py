@@ -150,7 +150,7 @@ SUITES = [
     ("song_url.js",  {"queries": [song_query, "?song=000000000000"]}),
     ("fade.js",      {"windows": ["700,900", "1000,900", "1440,900"]}),
     ("video.js",     {}),
-    ("links.js",     {}),
+    ("links.js",     {"delay": {"data/links.": 800}}),
     ("about.js",     {}),
     ("notfound.js",  {}),
     ("contrast.js",  {"needs_bootstrap": True}),

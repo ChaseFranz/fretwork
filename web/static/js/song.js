@@ -10,7 +10,8 @@
 import { SHEETS, UI, LEVELS, VALUE_ORDER, VALUE_LABELS, MISS_TEXT } from "./boot.js";
 import { el, esc } from "./dom.js";
 import { t, lab, decimals, isMissing } from "./format.js";
-import { loadAll } from "./load.js";
+import { loadAll, loadLinks } from "./load.js";
+import { linkAnchors } from "./links.js";
 import { state } from "./state.js";
 import { writeUrl } from "./url.js";
 
@@ -117,8 +118,10 @@ function fill(key, from) {
     return esc(release ?? MISS_TEXT) + (charter ? " (" + esc(charter) + ")" : "") +
       (title !== cell(main, "Song Title") ? ", " + esc(title ?? "") : "");
   });
+  const out = linkAnchors(key);
   card.innerHTML = shell(cell(main, "Song Title") ?? "", cell(main, "Artist") ?? "",
-    '<p class="meta">' + meta.join('<span class="sep">/</span>') + "</p>" +
+    '<p class="meta">' + meta.join('<span class="sep">/</span>') +
+    (out ? '<span class="lnk">' + out.replace(/<\/a><a /g, '</a><span class="sep">/</span><a ') + "</span>" : "") + "</p>" +
     (also.length ? '<p class="also"><span class="text-secondary">' + esc(UI.song_also_in) + ":</span> " + also.join("; ") + "</p>" : "") +
     grid(own, from || null));
   el("song").setAttribute("aria-label", UI.song_label + ": " + (cell(main, "Song Title") ?? key));
@@ -146,7 +149,7 @@ export function openSong(key, { from } = {}) {
   panel.setAttribute("aria-label", UI.song_label);
   panel.classList.add("on");
   panel.focus();
-  return loadAll().then(() => {
+  return Promise.all([loadAll(), loadLinks().catch(() => null)]).then(() => {
     if (!songIsOpen() || state.song !== key) return;
     const failed = Object.keys(SHEETS).some(s => !state.data[s]);
     if (failed && !chartsOf(key).length) {
