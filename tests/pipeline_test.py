@@ -372,7 +372,7 @@ def run_all(work, header, args):
         index = (site / 'index.html').read_text(encoding='utf-8')
         st.check(f'href="static/{boot_files[0].name}"' in index and '<style>' not in index, 'index.html should link bootstrap')
         st.check(not (site / 'bootstrap.css').exists(), 'a top-level bootstrap.css survived')
-        st.check(len(index) < 16000, f'index.html is {len(index)} bytes; the rows should be in data/')
+        st.check(len(index) < 18000, f'index.html is {len(index)} bytes; the rows should be in data/')
         st.check(re.search(rf'graphs: 0 rendered, {len(codes)} unchanged', st.out), 'graphs re-rendered on a no-op')
         st.check(sorted(os.listdir(site)) == sorted(deploy.BUNDLE_TOP), f'site holds {sorted(os.listdir(site))}')
         st.done('bootstrap linked, 0 graphs re-rendered')

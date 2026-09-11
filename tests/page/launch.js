@@ -158,6 +158,8 @@ if (row) {
       rpt.href.includes(encodeURIComponent(row.dataset.code)), rpt && rpt.href);
   say("heading carries title, artist, level, part, charter",
       modal.querySelectorAll(".mhead > *").length >= 5, modal.querySelectorAll(".mhead > *").length);
+  say("the graph is a canvas drawn from the curve file, not an image",
+      !!modal.querySelector(".gbody canvas") && !modal.querySelector("img"), modal.querySelector(".gbody") && modal.querySelector(".gbody").innerHTML.slice(0, 60));
   if (col("Pct") >= 0) {
     const sentence = new RegExp(UI.pct_of.replace(/\{\w+\}/g, ".+?"));
     say("heading says where the chart sits, before the report link",

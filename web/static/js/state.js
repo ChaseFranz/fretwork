@@ -1,6 +1,6 @@
 // All mutable page state, in one object because ES module imports are
 // read-only bindings and several of these are reassigned wholesale.
-import { SHEETS, ORDER, HIDDEN_DEFAULT, PREFS_VERSION } from "./boot.js";
+import { SHEETS, SHEET_OF_CODE, ORDER, HIDDEN_DEFAULT, PREFS_VERSION } from "./boot.js";
 
 const STORAGE_KEY = "fw.hidden";
 const ORDER_KEY = "fw.order";
@@ -52,6 +52,8 @@ export const state = {
   order: loadOrder(),   // viewer's own column order; [] means the site default
   widths: loadWidths(), // column -> pixels, only for columns dragged wider or narrower
   graph: null,          // code of the chart whose graph is open, for the URL
+  compare: [],          // up to two more codes drawn on the same graph (?vs=)
+  picking: false,       // the graph is hidden while a row is chosen to compare with
 };
 
 // Remember hidden columns per browser; storage may be unavailable.
@@ -90,6 +92,21 @@ export const cols = () => SHEETS[state.sheet].columns;
 export const rowsAll = () => (state.data[state.sheet] || { rows: [] }).rows;
 export const loaded = name => name in state.data;
 export const idx = name => cols().indexOf(name);
+
+// A code's row wherever it is loaded: its own sheet first (the instrument
+// letter says which), then any other. null until that sheet has arrived.
+export function findRow(code) {
+  const own = SHEET_OF_CODE[String(code).slice(-1).toUpperCase()];
+  const order = [own, ...Object.keys(state.data)].filter((s, i, a) => s && a.indexOf(s) === i);
+  for (const sheet of order) {
+    const data = state.data[sheet];
+    if (!data) continue;
+    const at = data.columns.indexOf("Code");
+    const row = data.rows.find(r => r[at] === code);
+    if (row) return { sheet, columns: data.columns, row };
+  }
+  return null;
+}
 
 // Left-to-right column names: whatever the viewer dragged into place first, then
 // anything they have not moved, in the site's default order.

@@ -20,6 +20,17 @@ say("it keeps a 16:9 box", f && Math.abs(f.getBoundingClientRect().width / f.get
 say("the video is credited under it", /Staycation44/.test(document.querySelector("#about p.cap").textContent));
 say("the caption's embed url is the payload's", f && f.src === BOOT.ui.video_embed, f && f.src);
 
+// the trap (section 06): Tab reaches the panel's links and wraps, never the page behind
+const about = document.getElementById("about");
+const inside = [...about.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter(e => e.offsetParent !== null);
+about.focus();
+key("Tab");
+say("Tab reaches the panel's first control", inside.length > 1 && document.activeElement === inside[0], document.activeElement.tagName + "." + document.activeElement.className);
+for (let i = 0; i < inside.length; i++) key("Tab");
+say("and wraps inside the panel", document.activeElement === inside[0] && about.contains(document.activeElement), document.activeElement.tagName);
+key("Tab", document.activeElement, true);
+say("Shift+Tab from the first goes to the last", document.activeElement === inside[inside.length - 1], document.activeElement.tagName + "." + document.activeElement.className);
+
 // Closing must post pauseVideo to YouTube's origin. The cross-origin contentWindow
 // cannot be assigned, so shadow the getter with a stub that records the call.
 const calls = [];

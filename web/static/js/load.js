@@ -24,6 +24,11 @@ export function loadSheet(name) {
   return inflight[name];
 }
 
+// Every sheet, for a search across the library; a sheet that fails is skipped.
+export function loadAll() {
+  return Promise.all(Object.keys(SHEETS).map(s => loadSheet(s).catch(() => null))).then(() => undefined);
+}
+
 export function prefetchIdle() {
   if (navigator.connection && navigator.connection.saveData) return;
   const others = Object.keys(SHEETS).filter(s => !state.data[s]);

@@ -1,7 +1,7 @@
 // Every text pair on the page at AA: 4.5:1 for text, 3:1 for large text and
 // clickable chrome, measured from computed styles with alpha and opacity
 // flattened over the nearest opaque ancestor. Prints the ratio table as ok lines.
-import { say, note, done, wait, click, ready } from "./lib.js";
+import { BOOT, say, note, done, wait, click, key, ready } from "./lib.js";
 await ready();
 
 const lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
@@ -68,6 +68,46 @@ check("filter buttons", document.querySelector("#dd [data-act]"), true);
 check("chooser label", cd.querySelector(".form-check-label"));
 check("chooser grip", cd.querySelector(".grip"), true);
 check("chooser reset button", cd.querySelector("[data-act]"), true);
+
+// the graph card (section 06): text on the figure background, and the picker
+document.body.click();
+await wait(50);
+const firstRow = document.querySelector("#body tr[data-code]");
+if (firstRow) {
+  click(firstRow);
+  await wait(600);
+  const modal = document.getElementById("modal");
+  check("graph readout", modal.querySelector(".readout"));
+  check("graph legend", modal.querySelector(".legend li"));
+  check("graph meta line", modal.querySelector(".mmeta"));
+  check("graph meta value", modal.querySelector(".mmeta b"));
+  check("graph heading dim text", modal.querySelector(".mhead .text-secondary"));
+  check("graph close button", modal.querySelector(".x"), true);
+  check("graph tool button", modal.querySelector(".gtools button"), true);
+  click(modal.querySelector('[data-act="compare"]'));
+  await wait(400);
+  check("picker box text", document.getElementById("cmpq"));
+  check("picker result", modal.querySelector("#cmpr [data-add] .tt") || modal.querySelector("#cmpr .note"));
+  check("picker note", modal.querySelector("#cmpr .note") || modal.querySelector("#cmpr [data-add] .tt"));
+  // the three series swatches against the card: 3:1, the floor for non-text
+  const cardBg = bgOf(modal.querySelector(".legend"));
+  for (const [name, colour] of [["~D", BOOT.render.color_d], ["Notes", BOOT.render.color_nps], ["Variability", BOOT.render.color_vps]]) {
+    const s = document.createElement("span"); s.style.color = colour; document.body.appendChild(s);
+    const fg = parse(getComputedStyle(s).color).slice(0, 3); s.remove();
+    const r = ratio(fg, cardBg);
+    measured++; if (r < 3) failures++;
+    const line = ("series " + name).padEnd(24) + (r.toFixed(2) + ":1").padStart(8) + "  " + hex(fg) + " on " + hex(cardBg);
+    if (r >= 3) note(line); else say("contrast series " + name, false, line + " needs 3");
+  }
+  click(modal.querySelector('[data-act="pick"]'));
+  await wait(100);
+  check("pick bar text", document.getElementById("pick"));
+  check("pick bar button", document.querySelector("#pick button"), true);
+  key("Escape");
+  await wait(300);
+  key("Escape");
+  await wait(100);
+}
 
 // every level badge, not only the one on screen
 let worst = null;

@@ -421,6 +421,7 @@ UI = {
     'compare_full':     'Three charts is the most the graph will hold',
     'compare_dup':      'That chart is already on the graph',
     'compare_remove':   'Remove {code} from the graph',
+    'compare_missing':  'No graph for {code}',
     'song_compare':     'Compare all levels',
     'save_png':         'Save as PNG',
 

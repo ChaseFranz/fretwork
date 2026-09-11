@@ -24,7 +24,10 @@ function params() {
     if (f.type === "set") out.set(SET + col, [...f.sel].join(","));
     else out.set(RANGE + col, (f.lo ?? "") + ":" + (f.hi ?? ""));
   }
-  if (state.graph) out.set("code", state.graph);
+  if (state.graph) {
+    out.set("code", state.graph);
+    if (state.compare.length) out.set("vs", state.compare.join(","));
+  }
   return out;
 }
 
@@ -52,6 +55,11 @@ export function readUrl() {
   if (code && !sheet) {
     const guess = SHEET_OF_CODE[code.slice(-1).toUpperCase()];
     if (guess && SHEETS[guess]) state.sheet = guess;
+  }
+  // the charts drawn beside it: at most two, well-formed, not the code itself
+  const vs = got.get("vs");
+  if (code && vs) {
+    state.compare = [...new Set(vs.split(",").filter(c => /^[A-Za-z0-9]{10}$/.test(c) && c !== code))].slice(0, 2);
   }
   const q = got.get("q");
   if (q) document.getElementById("q").value = q;

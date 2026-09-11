@@ -51,4 +51,39 @@ export async function narrowFrame(src) {
 
 const f = await narrowFrame("plain.html");
 measure(f.contentDocument, f.contentWindow);
+
+// The graph on a phone (section 06): the card takes the full width, the canvas
+// is 358px, the close button and the tools are on screen, the readout wraps to
+// at most two lines, and picking from the table widens nothing.
+const d = f.contentDocument, w = f.contentWindow;
+const row = d.querySelector("#body tr[data-code]");
+const wrap = d.querySelector(".fw-wrap");
+const wrapWidth = wrap.scrollWidth;
+row.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+await wait(700);
+const modal = d.getElementById("modal");
+const canvas = modal.querySelector("canvas");
+say("graph opens at 390px", modal.classList.contains("on") && !!canvas);
+if (canvas) {
+  const cb = canvas.getBoundingClientRect();
+  say("the canvas is 358px wide", Math.round(cb.width) === 358 && cb.left >= 0 && cb.right <= 390, Math.round(cb.left) + " -> " + Math.round(cb.right));
+  const on = el => { const b = el.getBoundingClientRect(); return b.left >= 0 && b.right <= 390 && b.width > 0; };
+  say("the close button is on screen", on(modal.querySelector(".x")));
+  say("Save as PNG is on screen", on(modal.querySelector('[data-act="save"]')));
+  const ro = modal.querySelector(".readout").getBoundingClientRect();
+  note("readout " + Math.round(ro.width) + "x" + Math.round(ro.height) + "px: " + modal.querySelector(".readout").textContent);
+  say("the readout is at most two lines", ro.height < 40, Math.round(ro.height));
+  const card = modal.querySelector(".mcard").getBoundingClientRect();
+  say("the card does not exceed the viewport", card.left >= 0 && card.right <= 390, Math.round(card.left) + " -> " + Math.round(card.right));
+  // pick from the table: the bar must not widen the table
+  modal.querySelector('[data-act="pick"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+  await wait(100);
+  const bar = d.getElementById("pick");
+  say("the pick bar shows", !bar.classList.contains("d-none") && bar.getBoundingClientRect().height > 0);
+  say("and does not widen the table", wrap.scrollWidth === wrapWidth, wrap.scrollWidth + " vs " + wrapWidth);
+  say("and stays within the viewport", bar.scrollWidth <= 390, bar.scrollWidth);
+  d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await wait(600);
+  say("Escape brings the graph back", modal.classList.contains("on"));
+}
 done();

@@ -52,8 +52,8 @@ window.addEventListener("unhandledrejection", e => {
 export const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Returns dispatchEvent's result: false when the page called preventDefault.
-export const key = (k, target) => (target || document.activeElement).dispatchEvent(
-  new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+export const key = (k, target, shift) => (target || document.activeElement).dispatchEvent(
+  new KeyboardEvent("keydown", { key: k, shiftKey: !!shift, bubbles: true, cancelable: true }));
 export const pt = (type, clientX, target) => target.dispatchEvent(
   new PointerEvent(type, { clientX, bubbles: true, cancelable: true, pointerId: 1 }));
 // A synthetic click does not move focus; suites that assert focus return call

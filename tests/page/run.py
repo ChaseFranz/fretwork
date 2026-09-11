@@ -84,6 +84,22 @@ def album_query(plain):
     raise SystemExit("no album with a comma in the fixture")
 
 
+def compare_query(plain):
+    """?code=<an Expert code>&vs=<the same song's Hard, else the second row>, from the first sheet."""
+    data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
+    sheet = list(data)[0]
+    file = json.loads((plain.parent / data[sheet]["file"]).read_text(encoding="utf-8"))
+    cols, rows = file["columns"], file["rows"]
+    at = lambda n: cols.index(n)   # noqa: E731
+    for r in rows:
+        if r[at("Level")] != "Expert":
+            continue
+        hard = next((h for h in rows if h[at("Level")] == "Hard" and str(h[at("Code")])[:8] == str(r[at("Code")])[:8]), None)
+        if hard:
+            return "?" + urllib.parse.urlencode({"code": r[at("Code")], "vs": hard[at("Code")]})
+    return "?" + urllib.parse.urlencode({"code": rows[0][at("Code")], "vs": rows[1][at("Code")]})
+
+
 def genre_query(plain):
     """A search for a genre that no searched column on the first sheet contains."""
     data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
@@ -119,6 +135,8 @@ SUITES = [
     ("load.js",      {"queries": [bass_code_query, bass_code_query_with_sheet, ""], "delay": {"data/": 600}}),
     ("fields.js",    {"queries": ["", "?r.Difficulty=:3", "?r.Year=2000:2010", album_query, genre_query]}),
     ("copies.js",    {"queries": ["", "?f.Copies=2" + ALL_LEVELS]}),
+    ("graph.js",     {"queries": ["", "?code=00000000XD"]}),
+    ("compare.js",   {"queries": [compare_query]}),
     ("fade.js",      {"windows": ["700,900", "1000,900", "1440,900"]}),
     ("video.js",     {}),
     ("links.js",     {}),
@@ -167,11 +185,18 @@ def stage(site, work, suites):
     for name in ("manifest.json", "curves-manifest.json"):
         if (site / "graph" / name).is_file():
             shutil.copy(site / "graph" / name, work / "graph" / name)
-    for png in sorted((site / "graph").glob("*.png"))[:40]:
-        shutil.copy(png, work / "graph" / png.name)
-        curve = png.with_suffix(".json")
-        if curve.is_file():
-            shutil.copy(curve, work / "graph" / curve.name)
+    # the graphs of the first 40 rows of every sheet: the curve JSON the page
+    # draws from, and the PNG when publish still made one (only the social
+    # preview, after section 06)
+    data = json.loads(ISLAND.search(src).group(1))["data"]
+    for sheet in data.values():
+        file = json.loads((site / sheet["file"]).read_text(encoding="utf-8"))
+        at = file["columns"].index("Code")
+        for row in file["rows"][:40]:
+            for ext in (".json", ".png"):
+                f = site / "graph" / (str(row[at]) + ext)
+                if f.is_file():
+                    shutil.copy(f, work / "graph" / f.name)
     (work / "src").mkdir()
     shutil.copy(REPO / "web" / "static" / "js" / "dom.js", work / "src" / "dom.js")   # links.js tests rich()
     (work / "plain.html").write_text(src.replace(anchor, storage_script(None) + anchor), encoding="utf-8")
@@ -184,6 +209,18 @@ def stage(site, work, suites):
                            '\n<script type="module" src="' + name + '"></script>')
         (work / suite_page(name)).write_text(page, encoding="utf-8")
     return 'static/bootstrap.' in src              # False means FALLBACK_CSS is inlined
+
+
+# The graphs a query string names (?code=, ?vs=) join the staged copy too, since
+# a compare partner is rarely among a sheet's first 40 rows.
+def stage_query_graphs(site, work, query):
+    got = urllib.parse.parse_qs(query.lstrip("?"))
+    codes = [c for key in ("code", "vs") for value in got.get(key, []) for c in value.split(",")]
+    for code in codes:
+        for ext in (".json", ".png"):
+            f = site / "graph" / (code + ext)
+            if f.is_file() and not (work / "graph" / f.name).exists():
+                shutil.copy(f, work / "graph" / f.name)
 
 
 # Injected pages are named apart from the bundle's own files: a suite called
@@ -316,6 +353,7 @@ def main():
                 queries = [q(work / "plain.html") if callable(q) else q for q in opts.get("queries", [""])]
                 windows = opts.get("windows", [opts.get("window", "1440,900")])
                 for query in queries:
+                    stage_query_graphs(site, work, query)
                     for window in windows:
                         lines = run_suite(chrome, f"{base}/{page}{query}", args.budget, window, profile)
                         label = name + (f" @{window}" if len(windows) > 1 else "") + (f" {query}" if len(queries) > 1 else "")

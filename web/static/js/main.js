@@ -3,7 +3,7 @@ import { DOC_PAGES, FOOTER, UI } from "./boot.js";
 import { el, esc, rich } from "./dom.js";
 import { initDropdown } from "./dropdown.js";
 import { initChooser } from "./chooser.js";
-import { openGraph } from "./overlay.js";
+import { openGraph, initGraphModal } from "./overlay.js";
 import { initRouter, render } from "./router.js";
 import { edgeFade } from "./scroll.js";
 import { loadSheet, prefetchIdle } from "./load.js";
@@ -52,6 +52,7 @@ initDropdown();
 initChooser();
 initWidths();
 initRouter();
+initGraphModal();
 edgeFade(el("tools"));
 edgeFade(document.querySelector(".fw-wrap"));
 
