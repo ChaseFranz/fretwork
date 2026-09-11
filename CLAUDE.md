@@ -57,7 +57,7 @@ upload does - so a headers pass that does not name `--content-type` writes
 `binary/octet-stream` over every object, and the browser then refuses to run the
 page's ES modules. The bucket looks fine from the AWS side when this happens.
 
-`deploy.py` is the sixth entry point and the only one that talks to AWS: it calls `publish()` and then shells out to the AWS CLI (`aws s3 sync ... --delete`, then a CloudFront invalidation of `/*`). No boto3, nothing added to `requirements.txt`. Settings come from a gitignored `.env` in the repo root read by `functions/envfile.py` (a ten-line KEY=VALUE reader; `.env.example` is committed). Only `FRETWORK_*` keys and `AWS_PROFILE`/`AWS_REGION`/`AWS_DEFAULT_REGION` are read (the `.env` value overrides the shell for those); **credentials never go in `.env`** and a file containing any is refused - the AWS CLI's own profile/SSO chain supplies them. Because the sync uses `--delete`, two guards protect the bucket: the site folder may hold only the four things publish writes (`index.html`, `bootstrap.css`, `static/`, `graph/`), so `FRETWORK_SITE_DIR=.` is refused instead of uploading the repo, and it must contain a publish output before anything is sent. `--dry-run` publishes nothing and sends nothing:
+`deploy.py` is the sixth entry point and the only one that talks to AWS: it calls `publish()` and then shells out to the AWS CLI (`aws s3 sync ... --delete`, then a CloudFront invalidation of `/*`). No boto3, nothing added to `requirements.txt`. Settings come from a gitignored `.env` in the repo root read by `functions/envfile.py` (a ten-line KEY=VALUE reader; `.env.example` is committed). Only `FRETWORK_*` keys and `AWS_PROFILE`/`AWS_REGION`/`AWS_DEFAULT_REGION` are read (the `.env` value overrides the shell for those); **credentials never go in `.env`** and a file containing any is refused - the AWS CLI's own profile/SSO chain supplies them. Because the sync uses `--delete`, two guards protect the bucket: the site folder may hold only what publish writes (`deploy.BUNDLE_TOP`: `index.html`, `404.html`, `about.html`, `robots.txt`, `bootstrap.css`, `static/`, `graph/`; a new page must be added there and to `bundle.prune_page` in the same change), so `FRETWORK_SITE_DIR=.` is refused instead of uploading the repo, and it must contain a publish output before anything is sent. `--dry-run` publishes nothing and sends nothing:
 
 ```
 python deploy.py [--env FILE] [--no-publish] [--dry-run]
@@ -181,13 +181,13 @@ python analyze.py --header Local
 
 ### Three-stage pipeline keyed by HEADER + timestamp
 
-`build.py` -> cache `.pkl` -> `analyze.py` -> metrics `.xlsx`; `render.py` reads the same cache to draw PNGs. Every output is named `{header}_{kind}_{timestamp}.{ext}` via `functions/timestamp.py`, and `config.OUTPUT_DIRS` routes each kind to a folder (`caches/` for cache, errors CSV, and backup; `metrics/` for xlsx; `renders/` for PNG). Analyze and Render locate the *newest* cache for a header by parsing the timestamp out of the filename (`timestamp.latest_output`), so filename format is load-bearing. Analyze reuses the cache's timestamp for its xlsx so the pair can be matched.
+`build.py` -> cache `.pkl` -> `analyze.py` -> metrics `.xlsx`; `render.py` reads the same cache to draw PNGs. Every output is named `{header}_{kind}_{timestamp}.{ext}` via `functions/timestamp.py`, and `config.OUTPUT_DIRS` routes each kind to a folder (`caches/` for cache, errors CSV, and backup; `metrics/` for xlsx; `renders/` for PNG). Analyze and Render locate the *newest* cache for a header by globbing `{header}_{kind}_*` and taking the newest **mtime** (`timestamp.latest_output`), so the filename prefix is load-bearing and a copied or touched old file wins. Analyze reuses the cache's timestamp for its xlsx so the pair can be matched.
 
 All of these outputs are gitignored (`*.pkl`, `*.csv`, `*.xlsx`, `*.png`, `caches/`). The `.xlsx` and `.png` files under `metrics/` and `renders/` are committed examples that were force-added; don't expect new outputs to show up in `git status`.
 
 ### The cache is the data contract
 
-The pickled cache shape is documented at the top of `functions/cache.py`. Everything downstream (analyze, render, curves, density) consumes `notes = {'time_ms': ndarray, 'lanes': ndarray uint8}` plus `spans = {'star_power': [(ms, ms)], 'solo': [...]}` per (song, instrument, level). Both parsers must emit exactly that shape.
+The pickled cache shape is documented at the top of `functions/cache.py`. Everything downstream (analyze, render, curves, density) consumes `notes = {'time_ms': ndarray, 'lanes': ndarray uint8}` per (song, instrument, level); drums entries instead carry `notes = {'hand_mask': {...}, 'kick_mask': {...}}`, two streams of that same shape, which nothing downstream reads yet. Star-power and solo spans are no longer parsed or cached (upstream dropped them in the 2026-09-10 merge; the publish fingerprint stopped reading them at the same time). Both parsers must emit exactly that shape.
 
 **Lane encoding**: one `uint8` bitmask per note timestamp. Bits 0-4 are GRBYO frets, bit 7 is open. Bits 5-6 are reserved (chart tap/force modifiers) and unused. Strum/HOPO/tap state is deliberately discarded by both parsers.
 
@@ -195,11 +195,11 @@ The pickled cache shape is documented at the top of `functions/cache.py`. Everyt
 
 ### Parsers (`parsers/`)
 
-Build runs them in a fixed order for a reason: `ini_parser` first, because `multiplier_note`/`star_power_note` from `song.ini` tells `mid_parser` whether MIDI pitch 103 means star power (legacy) or solo. Then `mid_parser`, then `chart_parser`. When a song folder has both formats, **chart wins** (`build.build_note_index`).
+Build runs them in a fixed order: `ini_parser` first, then `mid_parser`, then `chart_parser`. When a song folder has both formats, **chart wins** (`build.build_note_index`).
 
-- `parsers/timing.py` holds the shared tempo-map and tick-to-ms conversion used by both formats. Use `ticks_to_ms` (vectorized) for note arrays and `tick_to_ms` for the handful of span endpoints.
+- `parsers/timing.py` holds the shared tempo-map and tick-to-ms conversion used by both formats. Use `ticks_to_ms` (vectorized) for note arrays.
 - `.chart` distinguishes level by section-name prefix (`ExpertSingle`, `HardDoubleBass`); `.mid` distinguishes level by pitch block within one track per instrument (`instruments.MID_PITCH_BASE`). Star power and solos are per-section in `.chart` but track-wide (shared across levels) in `.mid`.
-- Songs that fail to parse are appended to an `errors` list as `(path, ErrorType, message)` and written to the errors CSV; a single bad file never aborts a build. Non-fatal data loss (unclosed solos, malformed SP, unknown-channel legacy opens) is tallied in `dropped` counters instead.
+- Songs that fail to parse are appended to an `errors` list as `(path, ErrorType, message)` and written to the errors CSV; a single bad file never aborts a build.
 
 ### `functions/instruments.py` is the single source of truth
 

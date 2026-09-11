@@ -71,7 +71,6 @@ def fingerprint(entry, original_diff):
     parts = (
         entry['code'], entry['instrument'], entry['level'], entry.get('source_format'),
         entry['notes']['time_ms'].tobytes(), entry['notes']['lanes'].tobytes(),
-        repr(sorted(entry['spans'].items())),
         expert['time_ms'].tobytes() if expert is not None else b'',
         expert['lanes'].tobytes() if expert is not None else b'',
         repr(sorted(entry['meta'].items())), repr(original_diff),
