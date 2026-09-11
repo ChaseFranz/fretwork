@@ -16,6 +16,7 @@ Shape:
                 'meta':          {...},   # Name, Artist, Charter, Release, Official, Genre, Year (int, -1 sentinel),
                                           # Album, and the per-instrument Difficulty dict (Expert-referenced)
                 'source_format': 'chart' | 'mid',
+                'chart_md5':     str,   # MD5 of the raw notes file that produced source_format; never in meta
                 'codes':         {instrument_key: {level_key: code, ...}, ...},
                 'instruments': {
                     instrument_key: {

@@ -110,6 +110,7 @@ def build_cache(search_path=None, header=None, out_dir=None):
             'song_key': cache_mod.song_key(song_instruments),
             'meta': {k: ini_row[k] for k in META_KEYS} | {'Difficulty': ini_row['Difficulty']},
             'source_format': stream['source_format'],
+            'chart_md5': stream.get('chart_md5'),   # never in meta: the graph fingerprint hashes meta
             'instruments': song_instruments,
         }
 

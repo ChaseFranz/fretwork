@@ -52,6 +52,7 @@ Kick lane 1x base, kick lane 2x = base - 1 (expert only)
 
 """
 
+import hashlib
 import concurrent.futures as cf
 import os
 import pathlib
@@ -297,6 +298,8 @@ def mid_notes(mid_source):
         'source_format': 'mid',
         'resolution': tick_res,
         'instruments': instruments_out,
+        # the raw file's MD5, the identity an external index would compute
+        'chart_md5': hashlib.md5(pathlib.Path(mid_source).read_bytes()).hexdigest(),
     }
 
 
