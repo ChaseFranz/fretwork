@@ -1,5 +1,5 @@
 // Selecting and ordering rows: what the active filters and sort resolve to.
-import { RANGE_MIN_DISTINCT, VALUE_ORDER } from "./boot.js";
+import { MISS_TEXT, RANGE_MIN_DISTINCT, VALUE_ORDER } from "./boot.js";
 import { el } from "./dom.js";
 import { isMissing, key } from "./format.js";
 import { state, cols, idx, rowsAll } from "./state.js";
@@ -26,12 +26,16 @@ export function distinct(col) {
   const order = VALUE_ORDER[col];
   if (order)
     return values.sort((a, b) => rank(order, a) - rank(order, b) || a.localeCompare(b));
-  // Number(), not parseFloat(): a date like 2026-09-07 or a code like 12345678XG
-  // is text, and parseFloat would read a number off its front.
-  return values.sort((a, b) => {
-    const x = Number(a), y = Number(b);
-    return a !== "" && b !== "" && !isNaN(x) && !isNaN(y) ? x - y : a.localeCompare(b);
-  });
+  // Decided once per column, so the comparator is transitive: a list is numeric
+  // only when every value is (the dash for a missing value aside), else it is
+  // text in localeCompare order. Number(), not parseFloat(): a date like
+  // 2026-09-07 or a code like 12345678XG is text, and parseFloat would read a
+  // number off its front; and mixing the two rules per pair would put 999
+  // before 1000 before "18 And Life" before 999.
+  const isNum = v => v !== "" && !isNaN(Number(v));
+  if (values.every(v => v === MISS_TEXT || isNum(v)))
+    return values.sort((a, b) => (a === MISS_TEXT) - (b === MISS_TEXT) || Number(a) - Number(b));
+  return values.sort((a, b) => a.localeCompare(b));
 }
 
 // A min/max box suits a numeric column with too many values to list.

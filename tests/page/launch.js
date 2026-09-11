@@ -126,12 +126,13 @@ if (col("Added") >= 0) {
   }
   document.body.click(); await wait(100);
   say("filtering on one Added date shows every row of that update", shown() === wantDate, shown() + " vs " + wantDate);
-  say("the Clear button counts one filter", /\b1\b/.test(document.getElementById("clear").textContent), document.getElementById("clear").textContent);
+  if (dates.length > 1)   // with one registry date, ticking the only value is no filter at all (by design)
+    say("the Clear button counts one filter", /\b1\b/.test(document.getElementById("clear").textContent), document.getElementById("clear").textContent);
   for (const name of ["Hard", "Medium", "Easy"]) { click(chip("levels", name)); await wait(20); }   // all lit means no filter: switch the others off, re-querying since each click repaints
 
   say("plus Expert is the changelog's own link, official and custom", shown() === wantDateExpert, shown() + " vs " + wantDateExpert);
   await wait(400);
-  say("the URL carries f.Added", params().get("f.Added") === date, location.search);
+  if (dates.length > 1) say("the URL carries f.Added", params().get("f.Added") === date, location.search);
   // back to the state the deep-link block below expects: the search, Expert and Hard, Official, NoteCount sorted
   document.getElementById("clear").click(); await wait(50);
   click(document.getElementById("cols")); await wait(30);

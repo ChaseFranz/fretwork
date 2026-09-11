@@ -43,7 +43,11 @@ say("free text stays alphabetical", seq(ch.vals) === seq([...ch.vals].sort((a, b
 // Number(), not parseFloat(), orders the lists (section 03): a title starting with a
 // digit sorts as text, and a song's level codes list E, H, M, X rather than in row order.
 const titles = await openFilter("Song Title");
-say("Song Title list is in localeCompare order", seq(titles.vals) === seq([...titles.vals].sort((a, b) => a.localeCompare(b))), seq(titles.vals.slice(0, 4)));
+const textOrder = vals => [...vals].sort((a, b) => a.localeCompare(b));
+say("Song Title list is in localeCompare order", seq(titles.vals) === seq(textOrder(titles.vals)), seq(titles.vals.slice(0, 4)));
+const digitFirst = titles.vals.filter(v => /^\d/.test(v));
+if (digitFirst.length >= 2)
+  say("titles starting with digits sort as text, not by the number", seq(digitFirst) === seq(textOrder(digitFirst)), seq(digitFirst.slice(0, 3)));
 click(document.getElementById("cols")); await wait(30);
 const codeBox = document.querySelector('#cd input[data-col="Code"]');
 if (!codeBox.checked) codeBox.click();
