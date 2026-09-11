@@ -71,7 +71,8 @@ def write_page(out_dir, files):
 
 
 # Everything the PNG depends on: the chart, its Expert anchor, the numbers the
-# header prints, the metadata, and the curve and render settings.
+# header prints, the metadata the header prints (difficulty.HEADER_META_KEYS,
+# never the rest of meta), and the curve and render settings.
 def fingerprint(entry, original_diff):
     expert = entry.get('expert_notes')
     parts = (
@@ -79,7 +80,8 @@ def fingerprint(entry, original_diff):
         entry['notes']['time_ms'].tobytes(), entry['notes']['lanes'].tobytes(),
         expert['time_ms'].tobytes() if expert is not None else b'',
         expert['lanes'].tobytes() if expert is not None else b'',
-        repr(sorted(entry['meta'].items())), repr(original_diff),
+        repr(sorted((k, v) for k, v in entry['meta'].items() if k in difficulty.HEADER_META_KEYS)),
+        repr(original_diff),
         repr(difficulty.entry_difficulty(entry)),
         curves.TAU_MS, density.WINDOW_MS, density.STEP_MS,
         repr(config.RENDER_DEFAULT), repr(config.RENDER_THEMES),

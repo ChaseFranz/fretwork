@@ -144,6 +144,23 @@ class CurvesTest(unittest.TestCase):
         for a, b, c in zip(nps, vps, ref['d_raw']):
             self.assertAlmostEqual(math.sqrt(a * b), c, places=12)
 
+    # HEADER_META_KEYS mirrors what upstream's plot.py prints; the mirror is checked
+    # against plot.py's source so an upstream change turns into a red test here.
+    def test_header_meta_keys_mirror_plot(self):
+        from functions import difficulty
+        src = (REPO / 'functions' / 'plot.py').read_text(encoding='utf-8')
+        for key in difficulty.HEADER_META_KEYS:
+            self.assertIn(f"'{key}'", src, f'{key} is in HEADER_META_KEYS but plot.py never reads it')
+        for key in ('Genre', 'Year', 'Album'):
+            self.assertNotIn(f"meta['{key}']", src)
+            self.assertNotIn(f"meta.get('{key}'", src)
+        entry = self.entry()
+        before = bundle.fingerprint(entry, None)
+        entry['meta']['Genre'] = 'Rock'
+        self.assertEqual(bundle.fingerprint(entry, None), before)
+        entry['meta']['Name'] = 'other'
+        self.assertNotEqual(bundle.fingerprint(entry, None), before)
+
     def test_curve_fingerprint_ignores_the_theme(self):
         entry = self.entry()
         before = bundle.fingerprint_curves(entry)
