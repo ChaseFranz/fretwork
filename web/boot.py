@@ -19,6 +19,7 @@ def boot_payload(frames_data):
         'valueOrder': {k: list(v) for k, v in labels_mod.VALUE_ORDER.items()},
         'valueLabels': labels_mod.VALUE_LABELS,
         'footer': [list(pair) for pair in labels_mod.FOOTER_LINKS],
+        'docPages': [list(pair) for pair in labels_mod.DOC_PAGES],
         'help': labels_mod.COLUMN_HELP,
         'explainer': [list(pair) for pair in labels_mod.EXPLAINER],
         'ui': {**labels_mod.UI, 'title': config.SITE_NAME},

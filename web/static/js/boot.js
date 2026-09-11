@@ -9,6 +9,7 @@ export const HIDDEN_DEFAULT = BOOT.hiddenDefault;
 export const VALUE_ORDER = BOOT.valueOrder;
 export const VALUE_LABELS = BOOT.valueLabels;
 export const FOOTER = BOOT.footer;
+export const DOC_PAGES = BOOT.docPages || [];   // [[file, ui key], ...] the footer lists
 export const HELP = BOOT.help;
 export const EXPLAINER = BOOT.explainer;
 export const UI = BOOT.ui;

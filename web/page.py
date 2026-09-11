@@ -11,7 +11,7 @@ import html
 import re
 
 import config
-from functions import labels, timestamp
+from functions import labels, packs, timestamp
 from web import assets, boot, bootstrap, frames
 
 _PLACEHOLDER = re.compile(r'__([A-Z][A-Z_]*)__')
@@ -65,21 +65,34 @@ def meta_head(public, canonical=''):
     return '\n'.join(tags)
 
 
+# "7 September 2026": the strapline's date shape, shared with the changelog.
+def fmt_date(d):
+    return f"{d.day} {d:%B %Y}"
+
+
 # "Updated 7 September 2026  -  4,634 charts", from the spreadsheet's own timestamp.
 def public_source(header, xlsx_path, total):
     try:
         stamp = timestamp.ext_ts(xlsx_path, 'metrics', header)
         when = datetime.datetime.strptime(stamp, timestamp.TS_FORMAT)
-        date = f"{when.day} {when:%B %Y}"
     except (ValueError, TypeError):
         return labels.t_count(total)
-    return f"{labels.UI['updated'].format(date=date)}  -  {labels.t_count(total)}"
+    return f"{labels.UI['updated'].format(date=fmt_date(when))}  -  {labels.t_count(total)}"
 
 
-def render_page(title, source, bootstrap_css, boot_json, public=False):
+# The strapline links to the changelog when there is one; a serve with no cache
+# has no changelog, so its text stays plain rather than pointing at the 404 page.
+def strapline(source, linked):
+    text = html.escape(source)
+    if not linked:
+        return text
+    return f'<a href="changelog.html" title="{html.escape(labels.UI["changelog_tip"])}">{text}</a>'
+
+
+def render_page(title, source, bootstrap_css, boot_json, public=False, linked=False):
     values = {
         'TITLE': html.escape(title),
-        'SOURCE': html.escape(source),
+        'SOURCE': strapline(source, linked),
         'META': meta_head(public),
         'BOOTSTRAP': bootstrap_head(bootstrap_css),
         'BOOT': boot_json,
@@ -117,20 +130,19 @@ def render_404():
     return fill(assets.read_text('404.html'), values)
 
 
-# The about page: who runs this, what it does and does not hold, and who owns
-# what. Static text and no scripts, like the 404, so it keeps working when the
-# app around it does not.
-def render_about():
-    body = '\n'.join(
-        f'  <h2>{html.escape(heading)}</h2>\n  <p>{rich_text(text)}</p>'
-        for heading, text in labels.ABOUT)
+# The document pages: about and the changelog. One template, static text and
+# no scripts, like the 404, so they keep working when the app around them does
+# not. The link list leads with the site's other document pages.
+def render_doc(name, title, body):
+    others = [(labels.UI[key], page) for page, key in labels.DOC_PAGES if page != name]
     links = '\n'.join(
-        f'    <li><a href="{html.escape(href)}" rel="noopener">{html.escape(text)}</a></li>'
-        for text, href in labels.FOOTER_LINKS)
+        [f'    <li><a href="{html.escape(href)}">{html.escape(text)}</a></li>' for text, href in others] +
+        [f'    <li><a href="{html.escape(href)}" rel="noopener">{html.escape(text)}</a></li>'
+         for text, href in labels.FOOTER_LINKS])
     values = {
-        'TITLE': html.escape(f"{labels.UI['about']} - {config.SITE_NAME}"),
-        'META': meta_head(public=True, canonical='about.html'),
-        'BRAND': html.escape(f"{config.SITE_NAME} \u2013 {labels.UI['about']}"),
+        'TITLE': html.escape(f"{title} - {config.SITE_NAME}"),
+        'META': meta_head(public=True, canonical=name),
+        'BRAND': html.escape(f"{config.SITE_NAME} \u2013 {title}"),
         'BACK': html.escape(labels.UI['about_back']),
         'BODY': body,
         'LINKS': links,
@@ -138,22 +150,82 @@ def render_about():
         'LICENSE_LABEL': html.escape(labels.UI['license_label']),
         'LICENSE_URL': html.escape(labels.UI['license_url']),
     }
-    return fill(assets.read_text('about.html'), values)
+    return fill(assets.read_text('doc.html'), values)
 
 
-# The four files a site is, keyed by their relative name. publish writes them;
-# serve serves them at '/' + name, so the two answer the same bytes.
-def site_pages(body):
-    return {'index.html': body, '404.html': render_404(),
-            'about.html': render_about(), 'robots.txt': ROBOTS.encode('utf-8')}
+# Who runs this, what it does and does not hold, and who owns what.
+def render_about():
+    body = '\n'.join(
+        f'  <h2>{html.escape(heading)}</h2>\n  <p>{rich_text(text)}</p>'
+        for heading, text in labels.ABOUT)
+    return render_doc('about.html', labels.UI['about'], body)
+
+
+# Every pack newest first, grouped by date with the site's own changes, each
+# date heading a link to the table filtered to that update (Expert only,
+# official and custom, since a custom pack's update would otherwise show
+# nothing). Counts come from the cache and the sheets, never from the file.
+def render_changelog(resolved, codes):
+    counts = packs.tally(resolved, codes)
+    registry = resolved.registry
+    by_date = {}
+    for change in registry.changes:
+        by_date.setdefault(change.date, [[], []])[0].append(change)
+    for pack in registry.packs:
+        by_date.setdefault(pack.added, [[], []])[1].append(pack)
+    parts = [f'  <p class="intro">{rich_text(labels.UI["changelog_intro"])}</p>',
+             '  <p class="totals">' + html.escape(labels.UI['changelog_totals'].format(
+                 packs=f'{len(registry.packs):,}', songs=f'{sum(s for s, _ in counts.values()):,}',
+                 charts=f'{sum(c for _, c in counts.values()):,}')) + '</p>']
+    for date in sorted(by_date, reverse=True):
+        changes, date_packs = by_date[date]
+        href = f'./?f.Added={date.strftime(packs.DATE)}&amp;f.Level=Expert'
+        parts.append(f'  <h2><a href="{href}" title="{html.escape(labels.UI["changelog_date_tip"])}">'
+                     f'{html.escape(fmt_date(date))}</a></h2>')
+        for change in changes:
+            parts.append(f'  <p class="item">{rich_text(change.text)}</p>')
+        for pack in sorted(date_packs, key=lambda p: p.name.lower()):
+            songs, charts = counts[pack.folder]
+            name = html.escape(pack.name)
+            if pack.source:
+                name = f'<a href="{html.escape(pack.source)}" rel="noopener">{name}</a>'
+            item = f'<strong>{name}</strong>, ' + html.escape(
+                labels.UI['pack_counts'].format(songs=f'{songs:,}', charts=f'{charts:,}')) + '.'
+            if pack.notes:
+                item += ' ' + rich_text(pack.notes)
+            parts.append(f'  <p class="item">{item}</p>')
+    return render_doc('changelog.html', labels.UI['changelog'], '\n'.join(parts))
+
+
+# The changelog exists exactly when the page has a pack join to build it from.
+def changelog_pages(resolved, sheets):
+    if resolved is None:
+        return {}
+    return {'changelog.html': render_changelog(resolved, frames.codes_in(sheets))}
+
+
+# The files a site is, keyed by their relative name. publish writes them; serve
+# serves them at '/' + name, so the two answer the same bytes. `extra` is the
+# changelog when there is one.
+def site_pages(body, extra=None):
+    pages = {'index.html': body, '404.html': render_404(),
+             'about.html': render_about(), 'robots.txt': ROBOTS.encode('utf-8')}
+    if extra:
+        pages.update(extra)
+    return pages
 
 
 # What serve and publish both need: (xlsx_path, sheets, total rows, page body).
 # A published page names no internal file: the title is just the site and the
 # strapline is when the data was built. Serving locally keeps both, which is
 # what tells you which library and which run you are looking at.
-def build(header, xlsx_path, bootstrap_css, public=False):
+# `resolved` is packs.resolve()'s answer, or None when there is no cache to
+# join: then the Added column is absent and the strapline is plain text. The
+# page-build columns are appended in a fixed order: Added, then Pct.
+def build(header, xlsx_path, bootstrap_css, public=False, resolved=None):
     xlsx_path, sheets = frames.load_frames(header, xlsx_path)
+    if resolved is not None:
+        sheets = frames.with_added(sheets, resolved.added_by_code)
     frames.add_percentiles(sheets)
     total = sum(len(df) for df in sheets.values())
     if public:
@@ -162,5 +234,6 @@ def build(header, xlsx_path, bootstrap_css, public=False):
         title = f"{config.SITE_NAME} - {header}"
         source = f"{xlsx_path.name}  -  {total} rows  -  {', '.join(sheets)}"
     body = render_page(title, source, bootstrap_css,
-                       boot.boot_json(frames.frames_payload(sheets)), public)
+                       boot.boot_json(frames.frames_payload(sheets)), public,
+                       linked=resolved is not None)
     return xlsx_path, sheets, total, body

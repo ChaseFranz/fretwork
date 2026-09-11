@@ -26,9 +26,10 @@ that.
 
 import argparse
 import pathlib
+import sys
 
 import config
-from functions import timestamp
+from functions import packs, timestamp
 from web import assets, banner, bootstrap, bundle, frames, page
 from web.graph import GraphRenderer
 
@@ -75,22 +76,44 @@ def check_pair(header, xlsx_path, cache_path, allow_mismatch=False):
                      f"graphs come from the same build, or pass --allow-mismatch.")
 
 
+# The pack registry against the cache: publish is for the one library the site
+# is built from, so a folder the registry does not name, or a registered folder
+# the cache does not have, stops the run before anything is written.
+def resolve_packs(cache, packs_path):
+    try:
+        registry = packs.load(packs_path)
+    except FileNotFoundError:
+        sys.exit(f"no pack registry at {packs_path}; every pack in the library must be listed there")
+    except packs.PacksError as exc:
+        sys.exit(str(exc))
+    try:
+        resolved = packs.resolve(cache, registry)
+    except packs.PacksError as exc:
+        sys.exit(str(exc))
+    if not resolved.clean:
+        sys.exit(packs.report(resolved))
+    return resolved
+
+
 def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
-            use_bootstrap=True, force=False, allow_mismatch=False):
+            use_bootstrap=True, force=False, allow_mismatch=False, packs_path=None):
     header = header or config.HEADER
     out_dir = pathlib.Path(out_dir).expanduser() if out_dir else pathlib.Path(config.SITE_DIR) / header
 
     renderer = GraphRenderer(header, cache_path)
-    renderer.cache()   # a missing cache fails here, before anything is written
+    cache = renderer.cache()   # a missing cache fails here, before anything is written
+    resolved = resolve_packs(cache, packs_path or packs.PACKS_FILE)
     bootstrap_css = bootstrap.ensure_bootstrap(use_bootstrap)
-    xlsx_path, sheets, _total, body = page.build(header, xlsx_path, bootstrap_css, public=True)
+    xlsx_path, sheets, _total, body = page.build(header, xlsx_path, bootstrap_css, public=True,
+                                                 resolved=resolved)
     check_pair(header, xlsx_path, renderer.cache_path, allow_mismatch)
 
     print(f"\nPublishing {xlsx_path}")
-    page_files, written, removed = bundle.write_page(
-        out_dir, page.site_pages(body), assets.load_static(), bootstrap_css)
+    pages = page.site_pages(body, page.changelog_pages(resolved, sheets))
+    page_files, written, removed = bundle.write_page(out_dir, pages, assets.load_static(), bootstrap_css)
     counts, graph_files = bundle.render_graphs(out_dir, frames.codes_in(sheets), renderer, force)
-    banner.print_published(out_dir, page_files, written, removed, counts, graph_files)
+    banner.print_published(out_dir, page_files, written, removed, counts, graph_files,
+                           packs_line=f"packs: {len(resolved.registry.packs)} registered from {resolved.registry.path.name}")
 
 
 def main():
@@ -105,11 +128,13 @@ def main():
     parser.add_argument('--force', action='store_true', help="re-render every graph")
     parser.add_argument('--allow-mismatch', action='store_true',
                         help="publish even if the spreadsheet and cache are from different builds")
+    parser.add_argument('--packs', default=None,
+                        help=f"pack registry to join and list (default: {packs.PACKS_FILE.name} in the repo root)")
     args = parser.parse_args()
 
     publish(header=args.header, xlsx_path=args.xlsx, cache_path=args.cache,
             out_dir=args.out_dir, use_bootstrap=not args.no_bootstrap, force=args.force,
-            allow_mismatch=args.allow_mismatch)
+            allow_mismatch=args.allow_mismatch, packs_path=args.packs)
 
 
 if __name__ == '__main__':

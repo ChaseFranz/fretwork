@@ -38,6 +38,10 @@
   #src2 { display:none; }
   /* an underlined text link, not another chip: it opens an explanation, it does
      not change what the table shows */
+  /* the strapline links to the changelog; the dotted underline is what says so,
+     in the header and in the footer copy a phone shows (.fw-foot a drops underlines) */
+  .fw-head #src a, #src2 a { color:inherit; text-decoration:underline dotted; text-underline-offset:2px; }
+  .fw-head #src a:hover, #src2 a:hover { color:var(--bs-body-color); text-decoration:underline dotted; }
   .fw-head .info { background:none; border:0; padding:0; font-size:12px; cursor:pointer;
     color:var(--fw-accent-text); text-decoration:underline; text-underline-offset:2px; }
   .fw-head .info:hover { color:var(--bs-body-color); }

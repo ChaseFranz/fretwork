@@ -38,6 +38,7 @@ COLUMN_LABELS = {
     'Type':       'Part',
     'Charter':    'Charter',
     'Release':    'Source',
+    'Added':      'Added',
     'Official':   'Official',
 
     # shape of the chart
@@ -78,6 +79,7 @@ COLUMN_HELP = {
     'Type':       'Which part this row is: Lead, Co-op, Rhythm, Bass or Keys.',
     'Charter':    'Who charted the song, from song.ini.',
     'Release':    'Release or source pack. Officials are matched against the tables in sources/.',
+    'Added':      'When the pack this chart came in was added to the site, from packs.toml.',
     'Official':   'True when the source pack is an official Guitar Hero or Rock Band release.',
 
     'NoteCount':  'Total notes in this chart. Frets played together count as one note, same as the games score it.',
@@ -123,6 +125,7 @@ MISSING_HELP = {
     'Difficulty': 'No difficulty rating in song.ini (diff_* is -1 or absent)',
     'RemapDiff':  'No Expert chart for this instrument to anchor the tier to',
     'CalcTier':   'No Expert chart for this instrument to anchor the tier to',
+    'Added':      'Not registered in packs.toml',
 }
 
 
@@ -179,12 +182,17 @@ FOOTER_LINKS = (
     ('Site source', FORK_REPO),
 )
 
+# The site's document pages, in footer order: the published file name and the UI
+# key of its title. page.render_doc links each to the others; the footer lists them
+# after the request link; the boot payload carries the names so a test can count.
+DOC_PAGES = (('about.html', 'about'), ('changelog.html', 'changelog'))
+
 # Left-to-right order on the page, which is not the spreadsheet's order: D is what
 # the site is for, so it sits beside the song instead of past the right edge.
 # Anything missing from this list keeps its spreadsheet position, at the end.
 DISPLAY_ORDER = (
     'Song Title', 'Artist', 'D', 'Pct', 'CalcTier', 'Level', 'Type',
-    'DurationS', 'NoteCount', 'Charter', 'Release',
+    'DurationS', 'NoteCount', 'Charter', 'Release', 'Added',
     'Difficulty', 'RemapDiff', 'Official', 'Code',
 )
 
@@ -195,9 +203,10 @@ DISPLAY_ORDER = (
 #   RemapDiff   CalcTier says the same thing without a 0-6 ceiling
 #   Official    the header has a chip for it, which is the useful form
 #   Code        only means something to render.py
+#   Added       the changelog page tells the same story with names and dates
 # Charter is deliberately NOT in this list: the people most likely to read this
 # site are the ones who charted what is in it.
-DEFAULT_HIDDEN = ('Difficulty', 'RemapDiff', 'Official', 'Code')
+DEFAULT_HIDDEN = ('Difficulty', 'RemapDiff', 'Official', 'Code', 'Added')
 
 
 # The in-page answer to "what is this number?", which until now lived only in a
@@ -336,6 +345,15 @@ UI = {
     'explainer_title':  'How difficulty is scored',
     'about':            'About this site',
     'about_back':       'Back to the charts',
+    'changelog':        'What\u2019s new',
+    'changelog_tip':    'Every pack on the site, and when it was added',
+    'changelog_intro':  'Every pack on the site, newest first, with the date it was added and where it is '
+                        'published, and what changed on the site itself. The date in the charts page '
+                        'header is when the numbers were last computed. Percentiles are relative to the '
+                        'whole library on that day, so they shift a little with every update.',
+    'changelog_totals': '{packs} packs, {songs} songs, {charts} charts',
+    'pack_counts':      '{songs} songs, {charts} charts',
+    'changelog_date_tip': 'Show the Expert charts added on this date',
     # The video is the origin of all of this, so it leads the explainer. Served
     # from the no-cookie host, and only requested if someone opens the panel -
     # the iframe is not in the page until then.

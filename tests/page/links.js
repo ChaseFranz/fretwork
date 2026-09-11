@@ -30,6 +30,17 @@ say("every other link is same-site", all.every(([, h]) => /^https?:/.test(h) || 
     JSON.stringify(all.filter(([, h]) => !/^https?:/.test(h)).map(x => x[1])));
 say("external links open in a new tab safely", [...document.querySelectorAll('#about a[href^="http"], #foot a[href^="http"]')]
     .every(a => a.rel.includes("noopener")));
+// the changelog (section 03) is a page of its own, linked from the footer
+const cl = document.querySelector('#foot a[href="changelog.html"]');
+if (cl) {
+  const res = await fetch("changelog.html");
+  say("changelog.html is published", res.status === 200, res.status);
+  const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+  say("it carries a totals line and at least one date", doc.querySelector("p.totals") !== null && doc.querySelectorAll("h2").length >= 1,
+      doc.querySelectorAll("h2").length + " dates");
+  say("every date heading links the table filtered to that update",
+      [...doc.querySelectorAll("h2 a")].every(a => /^\.\/\?f\.Added=\d{4}-\d{2}-\d{2}&f\.Level=Expert$/.test(a.getAttribute("href"))));
+}
 // the raw markup lives in the JSON island, which is not rendered text
 const shown = [document.querySelector(".fw-head"), document.getElementById("body"), document.getElementById("about"), document.getElementById("foot")]
   .map(e => e.textContent).join(" ");

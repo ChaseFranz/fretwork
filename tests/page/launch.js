@@ -44,14 +44,26 @@ if (col("Pct") >= 0) {
 
 // --- footer ---------------------------------------------------------------------
 const footLinks = [...document.querySelectorAll("#foot a")];
-const docPages = (BOOT.docPages || ["about.html"]).length;   // 12 adds DOC_PAGES to the payload; until then about.html alone
-const wantLinks = 1 + docPages + FOOTER.length + richLinks(UI.copyright) + 1;   // request link, document pages, FOOTER, copyright anchors, licence
+const docPages = (BOOT.docPages || [["about.html"]]).length;
+const strapAnchors = document.querySelectorAll("#src2 a").length;      // the strapline links to the changelog when there is one
+const wantLinks = 1 + docPages + FOOTER.length + richLinks(UI.copyright) + 1 + strapAnchors;   // request link, document pages, FOOTER, copyright anchors, licence
 say("footer link count", footLinks.length === wantLinks, footLinks.length + " vs " + wantLinks);
 say("request link is the pack form", /issues\/new\?template=song-pack\.yml$/
     .test(document.querySelector("#foot a.req").href));
 say("about link is same-site", document.querySelector('#foot a[href="about.html"]') !== null);
 say("footer strapline mirrors the header", document.getElementById("src2").textContent ===
     document.getElementById("src").textContent);
+
+// --- the pack registry (section 03): strapline link, Added column -------------------
+if (col("Added") >= 0) {
+  const srcLink = document.querySelector('#src a[href="changelog.html"]');
+  say("strapline is an anchor to changelog.html in the header", srcLink !== null);
+  say("and in the footer copy", document.querySelector('#src2 a[href="changelog.html"]') !== null);
+  say("changelog is linked from the footer", document.querySelector('#foot a[href="changelog.html"]') !== null);
+  say("Added is hidden by default", !headCols.includes("Added") && HIDDEN_DEFAULT.includes("Added"));
+  const dates = [...new Set(rows.map(r => r[col("Added")]).filter(v => typeof v === "string"))];
+  say("every row carries a registry date", rows.every(r => typeof r[col("Added")] === "string"), dates.length + " distinct");
+}
 
 // --- explainer panel ----------------------------------------------------------
 const how = document.getElementById("how");
@@ -93,6 +105,40 @@ const wantSearch = rows.filter(r =>
       String(r[col(n)] ?? "").toLowerCase().includes(title)) &&
     ["Expert", "Hard"].includes(r[col("Level")]) && r[col("Official")] === true).length;
 say("rows match the search", shown() === wantSearch && wantSearch > 0, shown() + " vs " + wantSearch);
+
+// --- filtering on an Added date (section 03) ----------------------------------------
+// The changelog's date links are ?f.Added=<date>&f.Level=Expert; roundtrip.js covers
+// the URL side, so here the same state is driven through the filter panel.
+if (col("Added") >= 0) {
+  const dates = [...new Set(rows.map(r => r[col("Added")]).filter(v => typeof v === "string"))].sort();
+  const date = dates[dates.length - 1];
+  const wantDate = rows.filter(r => r[col("Added")] === date).length;
+  const wantDateExpert = rows.filter(r => r[col("Added")] === date && r[col("Level")] === "Expert").length;
+  document.getElementById("clear").click();                          // no filters at all
+  q.value = ""; q.dispatchEvent(new Event("input", { bubbles: true })); await wait(50);
+  click(document.getElementById("cols")); await wait(30);
+  document.querySelector('#cd input[data-col="Added"]').click();      // show the column so its caret exists
+  document.body.click(); await wait(30);
+  click(document.querySelector('#head th[data-c="Added"] .flt')); await wait(50);
+  for (const v of document.querySelectorAll("#dd .v")) {             // a checklist applies on change
+    const box = v.closest(".form-check").querySelector("input");
+    if ((v.textContent === date) !== box.checked) box.click();
+  }
+  document.body.click(); await wait(100);
+  say("filtering on one Added date shows every row of that update", shown() === wantDate, shown() + " vs " + wantDate);
+  say("the Clear button counts one filter", /\b1\b/.test(document.getElementById("clear").textContent), document.getElementById("clear").textContent);
+  for (const name of ["Hard", "Medium", "Easy"]) { click(chip("levels", name)); await wait(20); }   // all lit means no filter: switch the others off, re-querying since each click repaints
+
+  say("plus Expert is the changelog's own link, official and custom", shown() === wantDateExpert, shown() + " vs " + wantDateExpert);
+  await wait(400);
+  say("the URL carries f.Added", params().get("f.Added") === date, location.search);
+  // back to the state the deep-link block below expects: the search, Expert and Hard, Official, NoteCount sorted
+  document.getElementById("clear").click(); await wait(50);
+  click(document.getElementById("cols")); await wait(30);
+  document.querySelector('#cd input[data-col="Added"]').click(); document.body.click(); await wait(30);
+  q.value = title; q.dispatchEvent(new Event("input", { bubbles: true }));
+  click(chip("levels", "Expert")); click(chip("levels", "Hard")); click(chip("official", UI.official_chip)); await wait(100);
+}
 
 // --- graph deep link ------------------------------------------------------------
 const row = document.querySelector("#body tr[data-code]");

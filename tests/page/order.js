@@ -40,6 +40,16 @@ say("Official list reads as words", seq(off.vals) === seq(wantOff), seq(off.vals
 
 const ch = await openFilter("Charter");
 say("free text stays alphabetical", seq(ch.vals) === seq([...ch.vals].sort((a, b) => a.localeCompare(b))), seq(ch.vals.slice(0, 5)));
+// Number(), not parseFloat(), orders the lists (section 03): a title starting with a
+// digit sorts as text, and a song's level codes list E, H, M, X rather than in row order.
+const titles = await openFilter("Song Title");
+say("Song Title list is in localeCompare order", seq(titles.vals) === seq([...titles.vals].sort((a, b) => a.localeCompare(b))), seq(titles.vals.slice(0, 4)));
+click(document.getElementById("cols")); await wait(30);
+const codeBox = document.querySelector('#cd input[data-col="Code"]');
+if (!codeBox.checked) codeBox.click();
+document.body.click(); await wait(30);
+const codes = await openFilter("Code");
+say("Code list is in text order, a song's levels E, H, M, X", seq(codes.vals) === seq([...codes.vals].sort((a, b) => a.localeCompare(b))), seq(codes.vals.slice(0, 4)));
 
 // Range box versus checkbox list: the threshold is RANGE_MIN_DISTINCT (25 distinct values, boot.js).
 const rows = await sheetRows(sheets[0]);

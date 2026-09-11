@@ -299,6 +299,20 @@ def write_mid(rng, song, folder, streams, name='notes.mid', truncate=False):
         path.write_bytes(data[:len(data) * 2 // 3])   # cut inside the last track's notes
 
 
+# The registry publish needs for this library: the three packs, dated a day
+# apart so the changelog groups them, and one site change. Written beside the
+# library, not inside it (it is not a song folder).
+def write_registry(path, lib):
+    lines = ['# fixture registry']
+    for i, (name, (icon, release, official)) in enumerate(PACKS.items()):
+        lines += ['', '[[pack]]', f'name = "{name}"', f'folder = "{name}"',
+                  f'source = "{"https://example.com/" + icon if official else ""}"',
+                  f'added = 2026-09-0{7 + i}', 'notes = "Fixture pack, invented."']
+    lines += ['', '[[change]]', 'date = 2026-09-07', 'text = "First fixture publish."', '']
+    pathlib.Path(path).write_text('\n'.join(lines), encoding='utf-8')
+    return pathlib.Path(path)
+
+
 def write(dest, seed=SEED):
     root = pathlib.Path(dest)
     for song in SONGS:

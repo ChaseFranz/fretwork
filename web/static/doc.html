@@ -6,9 +6,10 @@
 <title>__TITLE__</title>
 <link rel="icon" href="static/favicon.svg" type="image/svg+xml">
 __META__
-<!-- Self-contained on purpose: this page answers "is this the official site?"
-     and "can I download songs here?", so it should still render if the app's
-     stylesheet, its scripts or its data are broken or missing. -->
+<!-- The one template for the site's document pages (about, changelog).
+     Self-contained on purpose: these pages answer "is this the official site?",
+     "can I download songs here?" and "what is in it?", so they should still
+     render if the app's stylesheet, its scripts or its data are broken or missing. -->
 <style>
   :root { color-scheme: dark; --dim:#9ba3ab; --accent:#e879e8; }
   body { margin:0; background:#212529; color:#dee2e6; padding:40px 20px 60px;
@@ -19,6 +20,10 @@ __META__
   h2 { font-size:12px; text-transform:uppercase; letter-spacing:.6px;
        color:var(--accent); margin:2rem 0 .4rem; }
   p { margin:0; }
+  p.totals { color:var(--dim); font-size:13px; margin-bottom:.5rem; }
+  p.item { margin:0 0 .5rem; }
+  h2 a { color:inherit; text-decoration:none; }
+  h2 a:hover { text-decoration:underline; }
   hr { border:0; border-top:1px solid #343a40; margin:2.5rem 0 1.25rem; }
   ul { margin:0; padding:0; list-style:none; font-size:13px; }
   li { margin:.35rem 0; }

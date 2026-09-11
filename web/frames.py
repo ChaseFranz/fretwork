@@ -71,6 +71,14 @@ def add_percentiles(frames, distinct=None):
     return frames
 
 
+# The Added column: each row's pack date, joined by Code at page-build time.
+# Appended after the xlsx columns; the page-build columns of sections 10 and 02
+# follow it. A code outside the registry maps to NaN, which to_json makes null.
+def with_added(frames, added_by_code):
+    return {name: df.assign(Added=df['Code'].astype(str).map(added_by_code)) if 'Code' in df.columns else df
+            for name, df in frames.items()}
+
+
 def frames_payload(frames):
     return {
         name: {

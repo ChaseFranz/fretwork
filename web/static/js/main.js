@@ -1,5 +1,5 @@
 // Entry module: label the chrome, wire the panels, then first paint.
-import { FOOTER, UI } from "./boot.js";
+import { DOC_PAGES, FOOTER, UI } from "./boot.js";
 import { el, esc, rich } from "./dom.js";
 import { initDropdown } from "./dropdown.js";
 import { initChooser } from "./chooser.js";
@@ -32,11 +32,13 @@ const here = (text, href) => '<a href="' + esc(href) + '">' + esc(text) + "</a>"
 // The one thing a visitor can ask us for, then attribution, the explainer that
 // says what D means, and the licence.
 function buildFooter() {
-  const links = [link(UI.request, UI.request_url, "req"), here(UI.about, "about.html")]
+  const links = [link(UI.request, UI.request_url, "req")]
+    .concat(DOC_PAGES.map(([href, key]) => here(UI[key], href)))
     .concat(FOOTER.map(([text, href]) => link(text, href)))
     .join('<span class="sep">/</span>');
   el("foot").innerHTML =
-    '<div id="src2" class="mb-1">' + esc(el("src").textContent) + "</div>" +
+    // server-built and already escaped: an anchor exactly when the header copy is
+    '<div id="src2" class="mb-1">' + el("src").innerHTML + "</div>" +
     '<div class="beta-note mb-1">' + esc(UI.beta_note) + "</div>" +
     '<div class="d-flex flex-wrap align-items-center gap-1">' + links + "</div>" +
     '<div class="mt-1">' + rich(UI.copyright) + " " +

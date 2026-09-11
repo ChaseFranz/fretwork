@@ -26,9 +26,11 @@ export function distinct(col) {
   const order = VALUE_ORDER[col];
   if (order)
     return values.sort((a, b) => rank(order, a) - rank(order, b) || a.localeCompare(b));
+  // Number(), not parseFloat(): a date like 2026-09-07 or a code like 12345678XG
+  // is text, and parseFloat would read a number off its front.
   return values.sort((a, b) => {
-    const x = parseFloat(a), y = parseFloat(b);
-    return !isNaN(x) && !isNaN(y) ? x - y : a.localeCompare(b);
+    const x = Number(a), y = Number(b);
+    return a !== "" && b !== "" && !isNaN(x) && !isNaN(y) ? x - y : a.localeCompare(b);
   });
 }
 

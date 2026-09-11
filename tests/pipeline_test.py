@@ -139,6 +139,7 @@ def main():
 
 def run_all(work, header, args):
     lib = fixture.write(work / 'library')
+    registry = fixture.write_registry(work / 'packs.toml', lib)
     (work / 'bin').mkdir(exist_ok=True)
     stub = (REPO / 'tests' / 'bin' / 'aws').read_text(encoding='utf-8').splitlines()
     stub[0] = '#!' + args.python
@@ -230,10 +231,18 @@ def run_all(work, header, args):
 
     # ---- publish without bootstrap -------------------------------------------------
     st = Stage('publish (fallback css)', work, env, args.python)
-    st.run('publish.py', '--header', header, '--no-bootstrap')
+    proc = st.run('publish.py', '--header', header, '--no-bootstrap', expect=None)
+    st.check(proc.returncode != 0 and 'not registered' in st.out and not site.exists(),
+             'publish should refuse the fixture without its registry, before writing anything')
+    st.run('publish.py', '--header', header, '--no-bootstrap', '--packs', str(registry))
     st.check('spreadsheet is from' not in st.out, 'publish complained about the pair')
     st.check(sorted(os.listdir(site)) == sorted(deploy.BUNDLE_TOP - {'bootstrap.css'}), f'site holds {sorted(os.listdir(site))}')
+    changelog = (site / 'changelog.html').read_text(encoding='utf-8')
+    st.check(changelog.count('<h2') == 3 and f'{len(lib.charted)} songs' in changelog
+             and f'{sum(lib.rows_by_sheet.values())} charts' in changelog and not PLACEHOLDER.search(changelog),
+             f'changelog: {changelog.count("<h2")} dates')
     index = (site / 'index.html').read_text(encoding='utf-8')
+    st.check('<a href="changelog.html"' in index, 'strapline is not linked to the changelog')
     # A2's title is __SHOUT__ Two Tier on purpose (section 00): placeholder-shaped data
     # must survive in the island while no placeholder survives in the page around it.
     outside = re.sub(r'<script type="application/json" id="fw-boot">.*?</script>', '', index, flags=re.S)
@@ -245,8 +254,11 @@ def run_all(work, header, args):
     st.check(m and int(m.group(1).replace(',', '')) == len(total), f'strapline {m and m.group(0)}')
     st.check('Less \\u003c More' in index and 'Less < More' not in index, 'the < escape')
     boot = boot_island(index)
-    c4 = [r for r in boot['data']['Guitar']['rows'] if r[boot['data']['Guitar']['columns'].index('Song Title')] == 'Less < More']
+    gcols = boot['data']['Guitar']['columns']
+    c4 = [r for r in boot['data']['Guitar']['rows'] if r[gcols.index('Song Title')] == 'Less < More']
     st.check(len(c4) >= 1, 'C4 row missing from the island')
+    st.check('Added' in gcols and c4[0][gcols.index('Added')] == '2026-09-09', f"C4 Added {c4[0][gcols.index('Added')] if 'Added' in gcols else None}")
+    st.check(gcols[-1] == 'Pct' and gcols.index('Added') < gcols.index('Pct'), f'page-build column order {gcols[-3:]}')
     st.check({k: len(v['rows']) for k, v in boot['data'].items()} == lib.rows_by_sheet, 'island row counts')
     manifest = json.loads((site / 'graph' / 'manifest.json').read_text())
     codes = frames.codes_in(sheets)
@@ -257,7 +269,8 @@ def run_all(work, header, args):
     about = (site / 'about.html').read_text(encoding='utf-8')
     a = Anchors(); a.feed(about)
     st.check(a.scripts == 0 and a.h2 == len(labels.ABOUT), f'about.html: {a.scripts} scripts, {a.h2} h2')
-    st.check(all(h == './' or urllib.parse.urlparse(h).netloc in ('github.com', 'www.youtube.com', 'youtu.be')
+    same_site = {'./'} | {name for name in deploy.BUNDLE_TOP if name.endswith('.html')}
+    st.check(all(h in same_site or urllib.parse.urlparse(h).netloc in ('github.com', 'www.youtube.com', 'youtu.be')
                  for h in a.hrefs), f'about.html anchors {a.hrefs}')
     st.check(not PLACEHOLDER.search(about) and not PLACEHOLDER.search((site / '404.html').read_text()), 'placeholders')
     st.check((site / 'robots.txt').read_text() == page.ROBOTS, 'robots.txt')
@@ -270,7 +283,7 @@ def run_all(work, header, args):
         st = Stage('publish (bootstrap)', work, env, args.python)
         css = pathlib.Path(args.bootstrap_css)
         shutil.copy(css, work / 'caches' / f'bootstrap-{bootstrap.BOOTSTRAP_VERSION}.min.css')
-        st.run('publish.py', '--header', header)
+        st.run('publish.py', '--header', header, '--packs', str(registry))
         st.check((site / 'bootstrap.css').read_bytes() == css.read_bytes(), 'bootstrap.css differs from the source')
         index = (site / 'index.html').read_text(encoding='utf-8')
         st.check('href="bootstrap.css"' in index and '<style>' not in index, 'index.html should link bootstrap')
@@ -343,8 +356,10 @@ def run_all(work, header, args):
     guitar_code = next(c for c in cache['codes'] if c.endswith('XG'))
     st.check(renderer.lookup(drums_code) is None, f'lookup({drums_code}) should be None until drums are scored')
     st.check(renderer.lookup(guitar_code) is not None, f'lookup({guitar_code}) should resolve')
-    xlsx_path, sheets2, total2, body = page.build(header, xlsxs[0], None, public=True)
-    pages = {'/' + n: d for n, d in page.site_pages(body).items()}
+    from functions import packs as packs_mod
+    resolved = packs_mod.resolve(cache, packs_mod.load(registry))
+    xlsx_path, sheets2, total2, body = page.build(header, xlsxs[0], None, public=True, resolved=resolved)
+    pages = {'/' + n: d for n, d in page.site_pages(body, page.changelog_pages(resolved, sheets2)).items()}
     httpd = MetricsServer(0, pages, assets.load_static(), None, renderer)
     port = httpd.server_address[1]
     import threading
@@ -357,7 +372,7 @@ def run_all(work, header, args):
                     return r.status, r.read()
             except urllib.error.HTTPError as e:
                 return e.code, e.read()
-        for path, want in (('/about.html', 200), ('/robots.txt', 200), ('/nope', 404)):
+        for path, want in (('/about.html', 200), ('/changelog.html', 200), ('/robots.txt', 200), ('/nope', 404)):
             status, body_bytes = get(path)
             st.check(status == want, f'serve {path} -> {status}')
             if want == 200:
