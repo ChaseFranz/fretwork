@@ -19,7 +19,7 @@ Optionally, applies calculated difficulty to `song.ini` files for use in-game, o
 5. **Publish** *(optional)* - Write the viewer as a static site to host anywhere
 6. **Deploy** *(optional)* - Push that site to S3 and refresh the CDN in front of it
 
-In a hurry? [7. Updating the live site, start to finish](#7-updating-the-live-site-start-to-finish) is the whole rescan-to-published sequence as numbered steps.
+Python 3.11 or newer (the pack registry is read with the standard library's `tomllib`). In a hurry? [7. Updating the live site, start to finish](#7-updating-the-live-site-start-to-finish) is the whole rescan-to-published sequence as numbered steps.
 
 ## Index <!-- omit in toc -->
 - [1. Setup your Config](#1-setup-your-config)
@@ -160,7 +160,7 @@ Graphs are available in light or dark mode depending on the config.
 
 ## 5. Browsing in a browser
 
-`python serve.py`
+`python serve.py [--header NAME] [--xlsx FILE] [--cache FILE] [--port 8000] [--packs FILE] [--no-bootstrap]`
 
 `serve.py` serves the most recent metrics spreadsheet for your header as a local web page, so you can sort and filter without opening Excel. It reads the **spreadsheet**, so run Analyze first. It serves exactly what Publish writes: `index.html`, `about.html`, `404.html` and `robots.txt`, and an unknown path gets the 404 page.
 
@@ -169,6 +169,7 @@ Open **http://localhost:8000** once it starts. It binds `127.0.0.1` only, so not
 **What the page does:**
 
 - **Sort** by clicking a column header, click again to flip direction. Opens sorted by D, hardest first
+- **Added** (hidden by default) is the date the chart's pack was registered in `packs.toml`, joined when the page is built; the header's "Updated" line links to the "What's new" page, which lists every pack with its counts and the site's own changes
 - **Percentile**, beside D: where the chart sits among the charts on its sheet at the same level, officials and customs together, as a whole number (100 is the hardest). It is computed when the page is built, so it moves as the library grows and is not in the spreadsheet; the graph heading and each row's hover text spell it out
 - **Filter** any column from the caret next to its name - a checkbox list for things like Part or Remap Tier, a min/max box for wide numeric columns like D or Length. Value counts reflect your other active filters
 - **Search** song, artist, charter or source from the box in the toolbar
@@ -207,6 +208,7 @@ The first publish of a large library takes a while - measured at about 0.12 seco
 - `--cache`: explicit cache path, used for the graphs
 - `--out-dir`: the folder to write (default `site/<header>/`, from `site_dir` in `config.py`)
 - `--no-bootstrap`: skip the Bootstrap download and inline the built-in styles instead
+- `--packs`: the pack registry to join and list (default `packs.toml` in the repo root)
 - `--force`: re-render every graph. Needed after a change to `functions/plot.py` or a matplotlib upgrade, which the manifest cannot see
 - `--allow-mismatch`: publish even though the spreadsheet and the cache carry different build timestamps. Without it the run stops, because a table computed from one build beside graphs rendered from another is not a site anyone meant to publish
 
@@ -238,6 +240,10 @@ Three things need to be right once, and then never again:
 2. `.env` in the repo root - copy `.env.example` and set `FRETWORK_BUCKET`, and `FRETWORK_DISTRIBUTION` if CloudFront is in front of it. **No credentials go in this file**; `deploy.py` refuses one that has any.
 3. An AWS login the CLI can find - `aws configure sso` then `aws sso login`, or a named profile. Name it in `.env` as `AWS_PROFILE` so the deploy always uses the same one. Check it works: `aws sts get-caller-identity`.
 
+### Step 0 - register the pack
+
+Every top-level folder under the library is a pack, and every pack must be in `packs.toml` at the repo root, or publish refuses to run. A new pack is one `[[pack]]` block: `name` (as the changelog prints it), `folder` (the directory under `songs/`), `source` (where it is published, or `""`), `added` (today, as a bare `2026-09-11`), `notes`. `tools/ingest_pack.py` writes the block for you; by hand, copy the last one. Site changes worth a line on the "What's new" page go in the same file as `[[change]]` blocks with a `date` and a `text`. One rule for a change to the parsers or `functions/timing.py`: the rebuild after it moves every song's key, so add a `[[change]]` saying so, because `?song=` links from before it stop resolving.
+
 ### Step 1 - rescan the library
 
 ```
@@ -260,6 +266,8 @@ python analyze.py --header Local
 Reads the newest cache **for that header** and writes `metrics/Local_metrics_<timestamp>.xlsx`, reusing the cache's timestamp so the pair can be matched later. This is the step that computes D, RemapDiff and CalcTier.
 
 Run it with no `--diff-mode` unless you specifically want to write difficulties back into your `song.ini` files; those modes change your library.
+
+Then `python -m functions.packs --header Local` prints one row per registered pack with its songs and charts counted from the cache, and either `unregistered: none` or the folders publish will refuse. If a pack is missing from the table, register it (step 0) before going on.
 
 ### Step 3 - look at the result before anyone else does *(optional)*
 
@@ -304,7 +312,7 @@ python deploy.py               # publish, sync, invalidate
 python tools/check_site.py --site site/Local
 ```
 
-Ten checks against the live site, one line each, and `--site` makes the first of them insist that the live strapline is the one in the bundle you just published, so a deploy that did not actually land fails here rather than in a browser. It also checks compression, the about page, `robots.txt`, the social-preview image, that the module script and every stylesheet are served with the right content type, that an unknown path gets our 404 page, and that a `?code=` link answers. It exits with the number of failures. CloudFront invalidation usually takes under a minute; if only the strapline check fails right after a deploy, wait and run it again. The two curl lines it replaces still work on any machine: `curl -s -o /dev/null -w "%{http_code}\n" https://fretladder.com/` and `curl -s https://fretladder.com/ | grep -o "Updated [^\"]*charts"`.
+Ten checks against the live site, one line each (add `curl -s https://fretladder.com/changelog.html | grep -c '<h2'` for the changelog, which should print at least 1), and `--site` makes the first of them insist that the live strapline is the one in the bundle you just published, so a deploy that did not actually land fails here rather than in a browser. It also checks compression, the about page, `robots.txt`, the social-preview image, that the module script and every stylesheet are served with the right content type, that an unknown path gets our 404 page, and that a `?code=` link answers. It exits with the number of failures. CloudFront invalidation usually takes under a minute; if only the strapline check fails right after a deploy, wait and run it again. The two curl lines it replaces still work on any machine: `curl -s -o /dev/null -w "%{http_code}\n" https://fretladder.com/` and `curl -s https://fretladder.com/ | grep -o "Updated [^\"]*charts"`.
 
 `deploy.py` ends by asking S3 what content type it will serve for one file of each kind, and refuses to call the deploy done if any is wrong. A file served as `binary/octet-stream` is not a cosmetic problem: browsers refuse to run an ES module with the wrong type, so the page loads and then does nothing.
 
@@ -347,6 +355,8 @@ Run the same call with `--metric-name BytesDownloaded` for bytes. CloudFront's m
 |---|---|---|
 | Publish stops: "spreadsheet is from X but the cache is from Y" | Analyze has not run since the last Build | `python analyze.py --header Local`, then publish again (`--allow-mismatch` only if you mean it) |
 | Publish warns: "newest by mtime is A but newest by name is B" | An older cache or spreadsheet was copied or touched, so it looks newest | Delete or re-date the copy, or name the file you want with `--cache` / `--xlsx` |
+| Publish stops: "folder(s) not registered in packs.toml" | A pack folder under the library has no `[[pack]]` entry | Add the entry (step 0), then publish again |
+| Publish stops: "registered folder(s) with no songs in this cache" | A `folder` in `packs.toml` is misspelled, or the cache is another library's | Fix the spelling, or point `--packs` at that library's registry |
 | Site shows an old date | The invalidation has not finished, or the browser cached the page | Wait a minute, then hard-reload |
 | A graph looks stale after changing plotting code | The manifest fingerprints data, not code | `python publish.py --header Local --force` |
 | `deploy.py` refuses: "holds files publish did not write" | `FRETWORK_SITE_DIR` points at the wrong folder | Point it at `site/<header>` |

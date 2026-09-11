@@ -33,16 +33,16 @@ python analyze.py [--header NAME] [--cache FILE.pkl] [--diff-mode CalcTier|Remap
 python render.py CODE [CODE ...] [--codes-file FILE] [--header NAME] [--cache FILE.pkl] [--out-dir DIR]
 ```
 
-`serve.py` is an optional fourth entry point that browses an existing metrics `.xlsx` in a browser instead of Excel. Clicking a row renders that chart's graph on demand; columns have Excel-style filter dropdowns, can be hidden individually, dragged into any order in the column chooser, and resized by dragging the right edge of a header. All three preferences are remembered per browser in `localStorage` (`fw.hidden`, `fw.order`, `fw.widths`) and "Reset columns" clears all three. It reads the spreadsheet, not the cache, so `analyze.py` must have run first; the cache is loaded lazily only when a graph is clicked. It serves exactly the four pages publish writes (`page.site_pages`: `index.html`, `about.html`, `404.html`, `robots.txt`) and answers an unknown path with the 404 page, so the footer's About link works locally; a drums code (`...XD`) answers 404 rather than crashing, because `GraphRenderer.lookup` returns `None` for a stream shape `difficulty.scorable` rejects. A synthetic `Rank` column leads the table, numbering rows in the current view; it has no slot in the row arrays, so `state.visible()` pairs it with index -1. Long titles wrap rather than truncate, and a footer carries attribution and the licence. The level chips are a multi-select shortcut into the `Level` filter: a lit chip is a level on screen, so with no filter all four are lit, and clicking one adds or removes just that level. The Official/Custom pair beside them stays single-select, since its two values are complements and lighting both would mean the same thing as lighting neither. Stdlib `http.server` plus pandas, binds `127.0.0.1` only, nothing added to `requirements.txt`:
+`serve.py` is an optional fourth entry point that browses an existing metrics `.xlsx` in a browser instead of Excel. Clicking a row renders that chart's graph on demand; columns have Excel-style filter dropdowns, can be hidden individually, dragged into any order in the column chooser, and resized by dragging the right edge of a header. All three preferences are remembered per browser in `localStorage` (`fw.hidden`, `fw.order`, `fw.widths`) and "Reset columns" clears all three. It reads the spreadsheet, not the cache, for the table, so `analyze.py` must have run first; the cache is loaded at startup when present, for the pack join (the `Added` column and the changelog), and a graph click reuses it. Without a cache the page serves with neither. It serves exactly the four pages publish writes (`page.site_pages`: `index.html`, `about.html`, `404.html`, `robots.txt`) and answers an unknown path with the 404 page, so the footer's About link works locally; a drums code (`...XD`) answers 404 rather than crashing, because `GraphRenderer.lookup` returns `None` for a stream shape `difficulty.scorable` rejects. A synthetic `Rank` column leads the table, numbering rows in the current view; it has no slot in the row arrays, so `state.visible()` pairs it with index -1. Long titles wrap rather than truncate, and a footer carries attribution and the licence. The level chips are a multi-select shortcut into the `Level` filter: a lit chip is a level on screen, so with no filter all four are lit, and clicking one adds or removes just that level. The Official/Custom pair beside them stays single-select, since its two values are complements and lighting both would mean the same thing as lighting neither. Stdlib `http.server` plus pandas, binds `127.0.0.1` only, nothing added to `requirements.txt`:
 
 ```
-python serve.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--port 8000] [--no-bootstrap]
+python serve.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--port 8000] [--packs FILE] [--no-bootstrap]
 ```
 
 `publish.py` is the fifth entry point: the same page, written to `SITE_DIR/<header>/` as a static site (`index.html` with the data baked in, the assets, Bootstrap, and every chart pre-rendered to `graph/<code>.png`) so it can be hosted with no server-side code. The page's URLs are relative, so the bundle works at a domain root or under a sub-path. Re-publishing is incremental: files are rewritten only when their bytes change (so `aws s3 sync` uploads only what moved), and `graph/manifest.json` holds a fingerprint of each chart's render inputs - notes, Expert anchor, the difficulty numbers the header prints, metadata, `source_format`, the curve constants and the render theme - so unchanged charts skip the render. Safety rules in `web/bundle.py`: a chart that cannot be rendered keeps its previous PNG, only graphs a previous publish recorded are ever pruned, nothing is pruned when no code resolves (a cache/xlsx mismatch), and the manifest is saved every 200 charts so an interrupted run keeps its work. `--force` re-renders everything, which a change to `functions/plot.py` or a matplotlib upgrade requires since the fingerprint cannot see code; a change to the fingerprint's own composition re-renders everything once without it. Measured at ~0.12 s per chart. Publish refuses a spreadsheet and cache from different builds (`check_pair` raises `SystemExit`) unless `--allow-mismatch`, a flag `deploy.py` deliberately does not take, and warns when the newest file by mtime is not the newest by name. `site/` is gitignored:
 
 ```
-python publish.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--out-dir DIR] [--no-bootstrap] [--force]
+python publish.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--out-dir DIR] [--packs FILE] [--no-bootstrap] [--force] [--allow-mismatch]
 ```
 
 The full rescan-to-published sequence, as numbered steps with the checks worth
@@ -147,6 +147,23 @@ blue. Everything the page renders as text now measures 5.2:1 or better against
 its own background - keep it there: AA wants 4.5:1 for text and 3:1 for anything
 clickable.
 
+### `packs.toml` is the registry of what is on the site
+
+Every top-level folder under the library is a pack, and `packs.toml` at the repo
+root names each one (`name`, `folder`, `source`, `added`, `notes`) and carries the
+site's own dated `[[change]]` entries. `functions/packs.py` (stdlib only) loads and
+validates it, joins it to the cache by folder (`resolve()`: the first path
+component of each `song_path` under the library root, recovered from the songs
+when the stored `search_path` is relative), counts songs and charts from the cache
+(never stored in the file), and is the one writer (`append_pack`, which proves the
+result with a re-read before renaming it into place). Publish refuses a folder
+the registry does not name or a registered folder the cache does not have; serve
+only warns, since it is for looking at any header's library. The join produces
+the page-built `Added` column (`frames.with_added`, appended before `Pct`) and
+`changelog.html` (`page.render_changelog`), and links the strapline to it.
+`instruments.SCORED_INSTRUMENTS` is what "charts on the site" counts through; no
+instrument name is spelled outside `instruments.py`.
+
 ### `web/` is the viewer, and only the viewer
 
 Root `serve.py` and `publish.py` are thin entry points in the same shape as the other three: docstring, one orchestration function, `main()`. They share everything below; publish writes what serve serves. Everything else lives in `web/`, a namespace package (no `__init__.py`, matching `functions/` and `parsers/`). It is named `web/` rather than `serve/` because a `serve/` directory beside `serve.py` loses to the module in Python's import resolution and would be silently unimportable.
@@ -155,7 +172,7 @@ Root `serve.py` and `publish.py` are thin entry points in the same shape as the 
 |---|---|
 | `web/frames.py` | Reads the metrics `.xlsx` into JSON-safe rows, and lists its codes. Adds the page-built `Pct` column (a per-sheet, per-level percentile of `D`, `rank(method='max')` floored to 0-100, `Int64`), which exists on the site and in serve and never in the spreadsheet. The only pandas importer. |
 | `web/boot.py` | Builds the JSON payload the page reads, and escapes `</` in it. |
-| `web/page.py` | `build()` composes a header's page; substitutes `index.html`'s placeholders in one regex pass. |
+| `web/page.py` | `build()` composes a header's page; substitutes `index.html`'s placeholders in one regex pass. `render_doc()` fills `doc.html` for the document pages (`about.html`, `changelog.html`); `site_pages()` is the dict of files a site is. |
 | `web/bootstrap.py` | Bootstrap fetch/cache plus `FALLBACK_CSS`, its own fallback branch. |
 | `web/assets.py` | Locates `static/` relative to `__file__` and loads it at startup. |
 | `web/graph.py` | `GraphRenderer`: lazy cache load, `lookup`/`render` per code, memoised `png` for serve. |
