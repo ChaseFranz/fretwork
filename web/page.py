@@ -141,6 +141,13 @@ def render_about():
     return fill(assets.read_text('about.html'), values)
 
 
+# The four files a site is, keyed by their relative name. publish writes them;
+# serve serves them at '/' + name, so the two answer the same bytes.
+def site_pages(body):
+    return {'index.html': body, '404.html': render_404(),
+            'about.html': render_about(), 'robots.txt': ROBOTS.encode('utf-8')}
+
+
 # What serve and publish both need: (xlsx_path, sheets, total rows, page body).
 # A published page names no internal file: the title is just the site and the
 # strapline is when the data was built. Serving locally keeps both, which is
