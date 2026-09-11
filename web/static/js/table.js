@@ -89,9 +89,9 @@ export function draw() {
   if (first) first.tabIndex = 0;
 
   applyWidths();
-  refreshFades();
   writeUrl();
   paintFooter(rows.length, rowsAll().length);
   paintLevelChips();
   paintOfficialChips();
+  refreshFades();   // after the chips: they are what makes the control strip wide
 }
