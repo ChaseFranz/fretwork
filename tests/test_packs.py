@@ -173,7 +173,7 @@ class ColumnAndChangelogTest(unittest.TestCase):
                               packs.Pack('Beta', 'Pack B', '', datetime.date(2026, 9, 9), '')),
                              (packs.Change(datetime.date(2026, 9, 9), 'Site [changed](https://x.test/c).'),), root)
         res = packs.resolve(cache, reg)
-        html_out = page.render_changelog(res, list(cache['codes'])).decode('utf-8')
+        html_out = page.render_changelog(res, list(cache['codes']), {'favicon': 'static/favicon.00000000.svg'}).decode('utf-8')
         h2 = re.findall(r'<h2><a href="([^"]+)"[^>]*>([^<]+)</a></h2>', html_out)
         self.assertEqual([t for _, t in h2], ['9 September 2026', '7 September 2026'])
         self.assertTrue(h2[0][0].startswith('./?f.Added=2026-09-09&amp;f.Level=Expert'))
