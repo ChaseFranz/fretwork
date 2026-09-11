@@ -24,7 +24,7 @@ from parsers import chart_parser, ini_parser, mid_parser
 from functions import cache as cache_mod
 
 # The ini columns that survive to the metrics spreadsheet, aside from per-instrument Difficulty
-META_KEYS = ('Name', 'Artist', 'Charter', 'Release', 'Official')
+META_KEYS = ('Name', 'Artist', 'Charter', 'Release', 'Official', 'Genre', 'Year', 'Album')
 
 # parse mid & chart files into per-instrument note streams keyed to song folder path
 # each stream contains every recognized instrument (at least 1 must be present)

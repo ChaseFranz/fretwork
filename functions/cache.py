@@ -13,7 +13,8 @@ Shape:
             song_path: {
                 'song_path':     str,
                 'song_key':      str | None,   # 12 hex digits over every 5-fret stream; same charts, same key, whatever folder
-                'meta':          {...},   # trimmed ini row, incl. per-instrument Level dict (Expert-referenced)
+                'meta':          {...},   # Name, Artist, Charter, Release, Official, Genre, Year (int, -1 sentinel),
+                                          # Album, and the per-instrument Difficulty dict (Expert-referenced)
                 'source_format': 'chart' | 'mid',
                 'codes':         {instrument_key: {level_key: code, ...}, ...},
                 'instruments': {

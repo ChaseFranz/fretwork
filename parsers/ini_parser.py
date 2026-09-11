@@ -1,5 +1,5 @@
 """
-INI_PARSER - Parses song.ini files for metadata (name/artist/charter/difficulty/release)
+INI_PARSER - Parses song.ini files for metadata (name/artist/charter/genre/year/album/difficulty/release)
 
 Difficulty is captured per-instrument (see instruments.DIFF_TAGS)
 
@@ -55,6 +55,15 @@ def release_sources():
 # regex to strip html tags from ini metadata fields
 DETAG = re.compile(r"<.*?>")
 
+# the first run of exactly four digits anywhere in the value, first digit 1-9:
+# '2007 (re-issue)' -> 2007, 'Vol. 2 (2001)' -> 2001, 'Unknown Year' -> -1
+YEAR = re.compile(r'(?<!\d)([1-9]\d{3})(?!\d)')
+
+
+def _year(text):
+    match = YEAR.search(str(text))
+    return int(match.group(1)) if match else -1
+
 
 # --------
 # Parsing
@@ -97,6 +106,11 @@ def ini_parse(file):
     artist = DETAG.sub("", ini.get('artist', 'unk'))
     charter = DETAG.sub("", ini.get('charter', 'unk'))
     icon = ini.get('icon', '')
+    # the record the song came from: text as the charter wrote it, year as an int
+    # with the -1 sentinel when no four-digit year is in the value
+    genre = DETAG.sub("", ini.get('genre', '')).strip()
+    album = DETAG.sub("", ini.get('album', '')).strip()
+    year = _year(ini.get('year', ''))
 
     # one difficulty value per instrument, keyed the same way as everywhere else
     # (instrument key, not the raw ini tag name) - '-1' default matches prior single-tag behavior
@@ -121,6 +135,9 @@ def ini_parse(file):
         'Name': name,
         'Artist': artist,
         'Charter': charter,
+        'Genre': genre,
+        'Year': year,
+        'Album': album,
         'Difficulty': difficulties,
         'Release': release,
         'Official': official,
