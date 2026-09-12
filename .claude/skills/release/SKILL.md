@@ -54,7 +54,8 @@ it. GitHub renders the body as Markdown; `**bold**` and bullets are enough.
 
 `git push origin fretladder-vX.Y.Z`. The release workflow runs on the tag push and
 creates the release with `--notes-from-tag`; check it with `gh run list --workflow
-release --limit 1` and `gh release view fretladder-vX.Y.Z`.
+release --limit 1` and `gh release view fretladder-vX.Y.Z --json body --jq .body`,
+which must begin with the tag message's first line.
 
 Two gotchas:
 
@@ -62,6 +63,11 @@ Two gotchas:
   A tag on a commit older than `.github/workflows/release.yml` (before 7262c7b)
   publishes nothing; then create it by hand:
   `gh release create fretladder-vX.Y.Z --verify-tag --notes-from-tag --title "fretladder vX.Y.Z"`.
+- `actions/checkout` peels the pushed tag to a lightweight one, so without the
+  workflow's re-fetch of the tag `--notes-from-tag` publishes the commit message
+  as the notes (v1.3.0's did, and was edited by hand with `gh release edit
+  fretladder-vX.Y.Z --notes-file -`). After a tag push, `gh release view
+  fretladder-vX.Y.Z --json body --jq .body` must begin with the tag's first line.
 - `gh` in this clone resolved to the parent repository, `Staycation44/fretwork`,
   until `gh repo set-default ChaseFranz/fretwork` was run on 2026-09-11. Check
   `gh repo set-default --view` says `ChaseFranz/fretwork` before any `gh release`

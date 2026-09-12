@@ -19,6 +19,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # checkout leaves the pushed tag lightweight (the annotated object is
+      # peeled to its commit), and --notes-from-tag then falls back to the
+      # commit's message; fetching the tag again restores the annotation
+      - run: git fetch --force origin "+refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
       - run: gh release create "$GITHUB_REF_NAME" --verify-tag --notes-from-tag --title "${GITHUB_REF_NAME/fretladder-v/fretladder v}"
         env:
           GH_TOKEN: ${{ github.token }}
