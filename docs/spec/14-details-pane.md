@@ -1,6 +1,6 @@
 # 14. Details pane and the link columns
 
-**Status:** Written after the fact, on 2026-09-11 evening, from the maintainer's feedback on the live `fretladder-v1.7.0` site and the decisions taken in that conversation; implemented the same evening on `main`. The other sections were written before their code; this one is the record of a change that was designed and built in one sitting, kept in the section format so the index has a row to cite.
+**Status:** Landed (2026-09-11, 9a4add5..3c7eb06; live as fretladder-v1.8.0 and v1.8.1). Written after the fact the same evening, from the maintainer's feedback on the live v1.7.0 site and the decisions taken in that conversation. The other sections were written before their code; this one is the record of a change that was designed and built in one sitting, kept in the section format so the index has a row to cite.
 
 **Effort:** L. One new module (`pane.js`) replacing the graph half of `overlay.js` and the whole of the song dialog, `song.js` reduced to markup, the router's click and key maps rewritten, two page-built columns, and ten of the twenty page suites rewritten around a region instead of two dialogs.
 
