@@ -373,7 +373,7 @@ Run the same call with `--metric-name BytesDownloaded` for bytes. CloudFront's m
 | `deploy.py` refuses: a credential in `.env` | Keys were pasted into `.env` | Remove them; use an AWS profile or SSO |
 | Cache headers wrong on files already in the bucket | `sync` only sets headers on files it uploads | `python deploy.py --set-headers` |
 | A code rollback to before the `data/` split | The old `deploy.py` refuses `data/` as a stray and the old `prune_page` does not know the curve files | `rm -rf site/Local/data site/Local/graph/*.json site/Local/graph/curves-manifest.json`, then the old `publish.py` and `deploy.py` |
-| A code rollback to the PNG-per-chart page (before `fretladder-v1.6.0`) | `graph/manifest.json` records only the preview PNG now, so the old publish would render all 11,903 others (about 24 minutes, a 2.2 GB upload) | `cp caches/Local_manifest_pre06.json site/Local/graph/manifest.json` first (saved when the PNGs were pruned), so only files that are actually missing render |
+| A code rollback to the PNG-per-chart page (before `fretladder-v1.1.0`) | `graph/manifest.json` records only the preview PNG now, so the old publish would render all 11,903 others (about 24 minutes, a 2.2 GB upload) | `cp caches/Local_manifest_pre06.json site/Local/graph/manifest.json` first (saved when the PNGs were pruned), so only files that are actually missing render |
 | Blank page, console says "Expected a JavaScript-or-Wasm module script" | Objects are served as `binary/octet-stream` | `python deploy.py --set-headers`, then hard-reload |
 
 **Rolling back:** every build's outputs are kept, so the previous site is one command away. Point publish at the older pair and deploy that:

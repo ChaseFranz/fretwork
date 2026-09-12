@@ -325,12 +325,16 @@ no branch protection), and the source of parser, instrument and difficulty-formu
 improvements. The viewer was offered upstream as PR #6 and closed unmerged on
 2026-09-07; it is this fork's project now. Releases of the hosted site are tagged
 `fretladder-vX.Y.Z` - a separate namespace from upstream's `vX.Y` tags, which
-arrive with every fetch and must not be reused. A deploy is tagged at the commit
-whose sources produced the live bundle, and pushing the tag publishes it under
-GitHub Releases (`.github/workflows/release.yml`, notes from the tag message), so
-the tag message is written as release notes: a first line naming the release with
-the chart count and the deploy time, a blank line, then what changed, as
-paragraphs or `-` bullets.
+arrive with every fetch and must not be reused. Releases are few and meaningful,
+not one per deploy (the maintainer collapsed a day's eleven into three): a tag at
+the commit whose sources produced the live bundle, whose message is the release
+notes, since pushing it publishes a GitHub Release from that message
+(`.github/workflows/release.yml`). The `/release` skill (`.claude/skills/release/`)
+is the procedure, with its two gotchas: a tag on a commit older than the workflow
+file publishes nothing, and `gh` in this clone defaulted to the parent repository
+until `gh repo set-default ChaseFranz/fretwork`, so check `gh repo set-default
+--view` before any `gh release` command and never create a release or a tag on
+upstream.
 
 - **`main` on the fork is `upstream/main` plus the viewer.** Feature work branches
   from `main`, is named for the feature (`rank-column`), and merges back with a merge

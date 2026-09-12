@@ -1,6 +1,6 @@
 # 14. Details pane and the link columns
 
-**Status:** Landed (2026-09-11, 9a4add5..3c7eb06; live as fretladder-v1.8.0 and v1.8.1). Written after the fact the same evening, from the maintainer's feedback on the live v1.7.0 site and the decisions taken in that conversation. The other sections were written before their code; this one is the record of a change that was designed and built in one sitting, kept in the section format so the index has a row to cite.
+**Status:** Landed (2026-09-11, 9a4add5..3c7eb06; live as fretladder-v1.2.0). Written after the fact the same evening, from the maintainer's feedback on the live v1.7.0 site and the decisions taken in that conversation. The other sections were written before their code; this one is the record of a change that was designed and built in one sitting, kept in the section format so the index has a row to cite.
 
 **Effort:** L. One new module (`pane.js`) replacing the graph half of `overlay.js` and the whole of the song dialog, `song.js` reduced to markup, the router's click and key maps rewritten, two page-built columns, and ten of the twenty page suites rewritten around a region instead of two dialogs.
 
@@ -8,7 +8,7 @@
 
 ## Goal
 
-Three pieces of feedback on the v1.7.0 site, taken together: the Chorus Encore link was hard to find; a small icon on the song title that opened a dialog whose cells opened a second dialog was clunky; a comparison of one song's levels named the title, artist and part three times over in the legend when only the level differed.
+Three pieces of feedback on the v1.1.0 site, taken together: the Chorus Encore link was hard to find; a small icon on the song title that opened a dialog whose cells opened a second dialog was clunky; a comparison of one song's levels named the title, artist and part three times over in the legend when only the level differed.
 
 ## Why
 
