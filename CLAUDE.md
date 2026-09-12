@@ -292,7 +292,7 @@ Render recomputes from the cache rather than reading stored metrics. `curves.cal
 
 ### `song.ini` backup and write-back (`functions/ini_updater.py`)
 
-Build **always** appends new songs to `caches/{header}_BackupData.csv` (append-only, deduplicated by `song_path`, one column per `diff_*` tag) regardless of config. It never writes to `song.ini`. When an instrument joins `DIFF_TAGS` after the file was written, `migrate_backup_header` rewrites the header once (run from `backup_data`, `restore_from_backup` and the top of `build_cache`), keeps every row, recovers a row already appended with the longer shape by position, leaves a longer header alone and refuses one it does not recognise; it is upstream's file, offered upstream as PR #9. Analyze's write modes and Restore both go through `update_ini_values`, which patches matching `key = value` lines inside the `[song]` section in place, appends missing keys at the end of the section, and preserves the file's original encoding (utf-8 / utf-8-sig / utf-16 / cp1252) and newline style. Don't replace it with `configparser`; `song.ini` files routinely contain `%` and other characters that break it, which is also why `ini_parser.parse_ini` is hand-rolled.
+Build **always** appends new songs to `caches/{header}_BackupData.csv` (append-only, deduplicated by `song_path`, one column per `diff_*` tag) regardless of config. It never writes to `song.ini`. When an instrument joins `DIFF_TAGS` after the file was written, `migrate_backup_header` rewrites the header once (run from `backup_data`, `restore_from_backup` and the top of `build_cache`), keeps every row, recovers a row already appended with the longer shape by position, leaves a longer header alone and refuses one it does not recognise; it is upstream's file, and the migration went upstream as PR #9, merged 2026-09-11. Analyze's write modes and Restore both go through `update_ini_values`, which patches matching `key = value` lines inside the `[song]` section in place, appends missing keys at the end of the section, and preserves the file's original encoding (utf-8 / utf-8-sig / utf-16 / cp1252) and newline style. Don't replace it with `configparser`; `song.ini` files routinely contain `%` and other characters that break it, which is also why `ini_parser.parse_ini` is hand-rolled.
 
 ## Conventions worth knowing
 
@@ -343,8 +343,8 @@ publish time in the message.
   only when there is code worth shipping. The rating never touches `web/`.
   `screenshots` is an orphan branch holding the four PNGs upstream PR #6 embeds
   by URL and is kept for that reason; `hosting` was merged in `5e9f6b7` and
-  deleted. `backup-header` is the branch behind upstream PR #9 and goes when
-  that PR is merged or closed.
+  deleted. `backup-header` was the branch behind upstream PR #9, merged on
+  2026-09-11, and is deleted.
 - **Merge commits only, short informal one-line messages**, matching upstream.
   Example outputs under `metrics/` and `renders/` are force-added; if you regenerate
   them, `git add -f` the new files and remove the stale ones in the same commit.
