@@ -1,6 +1,6 @@
 # 22. Pages for the queries people type
 
-**Status:** Landed (2026-09-12, a20fef2; awaiting the maintainer's deploy). Written 2026-09-12 against `main` at `47e6240`, from the maintainer's question "what else do we need to do to improve SEO", after 21 had made the site readable.
+**Status:** Landed (2026-09-12, a20fef2; live as fretladder-v1.5.0). Written 2026-09-12 against `main` at `47e6240`, from the maintainer's question "what else do we need to do to improve SEO", after 21 had made the site readable.
 
 **Effort:** M. Three renderers in `web/page.py` (a page per pack, the lists, a richer song page), the picture per song drawn by publish, per-page titles and descriptions on every document page, two more folders in the week class, and the tests.
 
