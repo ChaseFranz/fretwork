@@ -27,6 +27,7 @@ There is no Linux Chrome on the dev box; the runner finds Windows Chrome at `/mn
 
 - Headless Chrome floors its layout viewport at 500 px whatever `--window-size` says. A phone layout is measured inside a 390 px iframe (`page/narrow.js`), never from the window size. The spec's other sections call this measurement `frame.html`; `narrow.js` is that file. It won over an outer-page `frame.html` because an injected module can await the rows once section 05 loads them by fetch.
 - A too-small `--virtual-time-budget` gives `NO RESULTS` and nothing else. 30 s covers the 11,904-row library.
+- `load.js` observes the loading state at module evaluation, so the runner delays `data/` for it; 600 ms was a race on a slow CI runner (one of two runs of the same commit saw the rows first), 2,000 ms is not.
 - `--dump-dom` HTML-escapes the results block; the runner unescapes before matching. Never put `</pre>` in a detail string.
 - Inject only into a pristine copy. The runner asserts the module tag appears once, the page holds exactly three `<script` tags (the theme script in the head, the island, the module tag), and no suite name is already in the source.
 - The storage seed (`storage` in `SUITES`) is written right after `<head>`, before the theme script reads `fw.theme`; `plain.html` clears the store as it loads, so a suite that wants a stored theme in a fresh document loads `about.html` or `404.html` in an iframe, not `plain.html`.

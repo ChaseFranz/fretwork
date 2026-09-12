@@ -163,7 +163,7 @@ SUITES = [
     ("keys.js",      {}),
     ("launch.js",    {}),
     ("roundtrip.js", {"queries": [roundtrip_query], "storage": {"fw.hidden": '["Artist"]'}}),   # a stale saved hidden set, no fw.v
-    ("load.js",      {"queries": [bass_code_query, bass_code_query_with_sheet, ""], "delay": {"data/": 600}}),
+    ("load.js",      {"queries": [bass_code_query, bass_code_query_with_sheet, ""], "delay": {"data/": 2000}}),   # long enough for a slow CI runner to evaluate the suite first
     ("fields.js",    {"queries": ["", "?r.Difficulty=:3", "?r.Year=2000:2010", album_query, genre_query]}),
     ("copies.js",    {"queries": ["", "?f.Copies=2" + ALL_LEVELS]}),
     ("sheets.js",    {"queries": [carry_query]}),
