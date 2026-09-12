@@ -127,7 +127,17 @@ on anything else (a list, a link, fenced code, an unknown LaTeX command), so an
 upstream edit fails publish loudly rather than shipping literal asterisks; the
 seven display formulas become MathML Core through its own typesetter, no CDN. The
 page names the upstream file as the source of truth (`labels.METHODOLOGY_SOURCE`)
-and this fork never edits `Methodology.md`; a correction goes upstream.
+and this fork never edits `Methodology.md`; a correction goes upstream. A fourth
+page, `library.html` (`page.render_library`, section 20), is the library in
+numbers: charts per sheet and level with the distinct count under each, the
+Expert charts per Calc Tier as bar tables (a `span` of the brand colour, no
+script), official against custom, the ten highest D per sheet linked into the
+table, and the packs in the registry's order; every number is `frames.counts`
+over the same frames the page serves, so the page and the table cannot disagree.
+It exists exactly when the changelog does (both need the pack join), and the
+footer lists only the document pages the site has (`boot['docPages']`, filtered
+in `page.build`), so a serve with no cache links neither. The document pages are
+static text with one script, the theme's (`page.THEME_SCRIPT`).
 
 The video iframe is built on first open and never before, so a visitor who does
 not open the panel makes no request to YouTube; it is the no-cookie host, with no
@@ -219,8 +229,9 @@ when the stored `search_path` is relative), counts songs and charts from the cac
 result with a re-read before renaming it into place). Publish refuses a folder
 the registry does not name or a registered folder the cache does not have; serve
 only warns, since it is for looking at any header's library. The join produces
-the page-built `Added` column (`frames.with_added`, appended before `Pct`) and
-`changelog.html` (`page.render_changelog`), and links the strapline to it.
+the page-built `Added` column (`frames.with_added`, appended before `Pct`),
+`changelog.html` (`page.render_changelog`) and `library.html`
+(`page.render_library`), and links the strapline to the changelog.
 `instruments.SCORED_INSTRUMENTS` is what "charts on the site" counts through; no
 instrument name is spelled outside `instruments.py`.
 
@@ -230,9 +241,9 @@ Root `serve.py` and `publish.py` are thin entry points in the same shape as the 
 
 | Module | Responsibility |
 |---|---|
-| `web/frames.py` | Reads the metrics `.xlsx` into JSON-safe rows, and lists its codes. Adds the page-built `Pct` column (a per-sheet, per-level percentile of `D`, `rank(method='max')` floored to 0-100, `Int64`), which exists on the site and in serve and never in the spreadsheet. The only pandas importer. |
+| `web/frames.py` | Reads the metrics `.xlsx` into JSON-safe rows, and lists its codes. Adds the page-built `Pct` column (a per-sheet, per-level percentile of `D`, `rank(method='max')` floored to 0-100, `Int64`), which exists on the site and in serve and never in the spreadsheet; `counts()` is the library page's numbers. The only pandas importer. |
 | `web/boot.py` | Builds the JSON payload the page reads (the sheet manifest, never the rows; `render` is the four numbers that shape the graph, no colour), and escapes `</` in it. |
-| `web/page.py` | `build()` composes a header's page; substitutes `index.html`'s placeholders in one regex pass. `render_doc()` fills `doc.html` for the document pages (`about.html`, `changelog.html`, `methodology.html`); `site_pages()` is the dict of files a site is. |
+| `web/page.py` | `build()` composes a header's page; substitutes `index.html`'s placeholders in one regex pass. `render_doc()` fills `doc.html` for the document pages (`about.html`, `changelog.html`, `library.html`, `methodology.html`). |
 | `web/markdown.py` | The markdown subset renderer behind `methodology.html`: block and inline allow-lists, the LaTeX-to-MathML typesetter, `MarkdownError` on anything else. `python -m web.markdown FILE`. |
 | `web/methodology.py` | `load()` parses `Methodology.md` and `check_tables()` compares its calibration tables to `formula.py`, raising `MethodologyDrift`. `python -m web.methodology` for CI and after an upstream merge. |
 | `web/links.py` | The offline link registry's published form: `data/links.<hash8>.json` with each song's Enchor md5 and sure leaderboard hash, values filtered by character class; `None` when nothing is known. |

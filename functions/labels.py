@@ -225,7 +225,8 @@ FOOTER_LINKS = (
 # The site's document pages, in footer order: the published file name and the UI
 # key of its title. page.render_doc links each to the others; the footer lists them
 # after the request link; the boot payload carries the names so a test can count.
-DOC_PAGES = (('about.html', 'about'), ('changelog.html', 'changelog'), ('methodology.html', 'methodology'))
+DOC_PAGES = (('about.html', 'about'), ('changelog.html', 'changelog'), ('library.html', 'library'),
+             ('methodology.html', 'methodology'))
 
 # The line above the rendered Methodology.md, naming the upstream file as the
 # source of truth. A module constant rather than a UI key: every UI key rides
@@ -283,7 +284,8 @@ EXPLAINER = (
      'are computed from the Expert chart and then shown on every difficulty of that '
      'song, because song.ini carries only one rating per instrument. Percentile is '
      'where a chart\u2019s D sits among the charts on its sheet at the same level, so it '
-     'moves as the library grows, counting a chart once however many packs carry it.'),
+     'moves as the library grows, counting a chart once however many packs carry it. '
+     'How the library spreads over the tiers is on [the library page](library.html).'),
     ('What it does not know',
      'Strum, HOPO and tap state are discarded, so how a chart flows does not change '
      'its score. There is no pattern recognition \u2013 trills, anchoring and chord '
@@ -412,6 +414,37 @@ UI = {
     'changelog_totals': '{packs} packs, {songs} songs, {charts} charts',
     'pack_counts':      '{songs} songs, {charts} charts',
     'changelog_date_tip': 'Show the Expert charts added on this date',
+    # the library page (section 20): what the library is, in numbers
+    'library':          'The library',
+    'library_tip':      'What the site covers: charts by instrument, level and tier, and the packs',
+    'library_intro':    'What is on the site, in numbers: every count below comes from the same '
+                        'table the charts page shows, so the two always agree. A chart is one '
+                        'instrument at one level; a song has up to four levels of each instrument '
+                        'it is charted for.',
+    'library_charts':   'Charts',
+    'library_charts_note': 'Charts as the table lists them; the smaller number under a count is the '
+                        'distinct charts, counting a chart once however many packs carry it, which '
+                        'is how the percentiles count.',
+    'library_sheet':    'Sheet',
+    'library_all':      'All levels',
+    'library_songs':    'Songs',
+    'library_tiers':    'Expert charts by tier',
+    'library_tiers_note': 'Calc Tier is D on a log scale, anchored to the Expert chart; the bins and the '
+                        'constants are in [the methodology](methodology.html#calctier-calibration).',
+    'library_no_tier':  'No tier',
+    'library_official': 'Official and custom',
+    'library_official_note': 'At Expert. Official is a chart matched to a released game or DLC; the '
+                        'rest are customs.',
+    'library_hardest':  'The hardest',
+    'library_hardest_note': 'The ten highest D at Expert on each sheet, as the table ranks them; the top '
+                        'of the Guitar sheet is exercise charts, which is what the number says.',
+    'library_packs':    'Packs',
+    'library_packs_note': 'In the order of the registry; a name opens the table on the Expert charts '
+                        'added with the pack, and a source is where the pack is published.',
+    'library_pack':     'Pack',
+    'library_source':   'Source',
+    'library_mixed':    'Mixed',
+    'library_share':    'Share',
     # The video is the origin of all of this, so it leads the explainer. Served
     # from the no-cookie host, and only requested if someone opens the panel -
     # the iframe is not in the page until then.

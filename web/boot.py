@@ -29,7 +29,9 @@ def render_profile():
     return {k: merged[k] for k in WEB_RENDER_KEYS}
 
 
-def boot_payload(manifest, sheet_of_code, links=None):
+def boot_payload(manifest, sheet_of_code, links=None, doc_pages=None):
+    if doc_pages is None:
+        doc_pages = labels_mod.DOC_PAGES
     return {
         'data': manifest,
         'links': links,            # data/links.<hash8>.json, or null when no song has one
@@ -43,7 +45,7 @@ def boot_payload(manifest, sheet_of_code, links=None):
         'valueOrder': {k: list(v) for k, v in labels_mod.VALUE_ORDER.items()},
         'valueLabels': labels_mod.VALUE_LABELS,
         'footer': [list(pair) for pair in labels_mod.FOOTER_LINKS],
-        'docPages': [list(pair) for pair in labels_mod.DOC_PAGES],
+        'docPages': [list(pair) for pair in doc_pages],   # the document pages the site has, for the footer
         'help': labels_mod.COLUMN_HELP,
         'explainer': [list(pair) for pair in labels_mod.EXPLAINER],
         'ui': {**labels_mod.UI, 'title': config.SITE_NAME},
@@ -56,5 +58,5 @@ def boot_payload(manifest, sheet_of_code, links=None):
 
 # Escaping every "<" keeps spreadsheet text from closing the script tag or
 # entering its double-escaped state. A valid JSON escape, parsed back unchanged.
-def boot_json(manifest, sheet_of_code, links=None):
-    return json.dumps(boot_payload(manifest, sheet_of_code, links)).replace('<', '\\u003c')
+def boot_json(manifest, sheet_of_code, links=None, doc_pages=None):
+    return json.dumps(boot_payload(manifest, sheet_of_code, links, doc_pages)).replace('<', '\\u003c')

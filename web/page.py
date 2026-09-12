@@ -250,6 +250,161 @@ def changelog_pages(resolved, sheets, names):
     return {'changelog.html': render_changelog(resolved, frames.codes_in(sheets), names)}
 
 
+# --- the library page (section 20) --------------------------------------------------
+
+LIBRARY_PAGE = 'library.html'
+
+
+def _n(v):
+    return f'{v:,}'
+
+
+def _table(head, rows):
+    """One table: head is [(label, classes)], classes among 'r' (right) and 'nw' (no wrap); rows are cell HTML in that order."""
+    attr = lambda cls: f' class="{cls}"' if cls else ''   # noqa: E731
+    ths = ''.join(f'<th{attr(cls)}>{html.escape(label)}</th>' for label, cls in head)
+    trs = '\n'.join('    <tr>' + ''.join(f'<td{attr(cls)}>{cell}</td>' for (_, cls), cell in zip(head, row)) + '</tr>'
+                     for row in rows)
+    return f'  <div class="tbl"><table>\n    <thead><tr>{ths}</tr></thead>\n    <tbody>\n{trs}\n    </tbody>\n  </table></div>'
+
+
+# Official against custom per registered folder, at Expert, from the sheets'
+# own Official column joined by code, so the packs block says what the rows say.
+def pack_kinds(resolved, sheets):
+    kinds = {}
+    for df in sheets.values():
+        if not all(c in df.columns for c in ('Code', 'Official', frames.PCT_WITHIN)):
+            continue
+        expert = df[df[frames.PCT_WITHIN] == 'Expert']
+        for code, official in zip(expert['Code'], expert['Official']):
+            folder = resolved.folder_by_code.get(str(code))
+            if folder is None:
+                continue
+            have = kinds.setdefault(folder, [0, 0])
+            have[0 if str(official).lower() == 'true' else 1] += 1
+    return kinds
+
+
+def _kind_label(official, custom):
+    kinds = labels.VALUE_LABELS.get('Official', {})
+    if official and not custom:
+        return kinds.get('true', 'Official')
+    if custom and not official:
+        return kinds.get('false', 'Custom')
+    return labels.UI['library_mixed'] if official or custom else labels.MISSING_TEXT
+
+
+# What the library is, in numbers: charts per sheet and level (rows and
+# distinct), the Expert charts per tier as bar tables, official against
+# custom, the ten hardest per sheet, the packs. Every number comes from
+# frames.counts over the sheets the page serves, and from the pack join, so
+# the page and the table agree. Rendered into doc.html like the changelog:
+# static text, no script but the theme's.
+def render_library(resolved, sheets, names):
+    ui = labels.UI
+    stats = frames.counts(sheets)
+    levels = list(reversed(labels.VALUE_ORDER['Level']))
+    registry = resolved.registry
+    tally = packs.tally(resolved, frames.codes_in(sheets))
+    parts = [f'  <p class="intro">{rich_text(ui["library_intro"])}</p>',
+             '  <p class="totals">' + html.escape(ui['changelog_totals'].format(
+                 packs=_n(len(registry.packs)), songs=_n(stats['songs']), charts=_n(stats['rows']))) + '</p>']
+
+    # charts: rows and distinct per level, per sheet, with totals
+    parts += [f'  <h2>{html.escape(ui["library_charts"])}</h2>',
+              f'  <p class="note">{rich_text(ui["library_charts_note"])}</p>']
+    head = [(ui['library_sheet'], 'nw')] + [(l, 'r') for l in levels] + [(ui['library_all'], 'r'), (ui['library_songs'], 'r')]
+    rows, totals = [], {l: [0, 0] for l in levels}
+
+    # the smaller number under a count is the distinct charts, which the note says
+    def cell(n, distinct):
+        if not n:
+            return labels.MISSING_TEXT
+        return _n(n) + ('' if distinct == n else '<br><small>' + _n(distinct) + '</small>')
+
+    for sheet, st in stats['sheets'].items():
+        row = [html.escape(sheet)]
+        all_rows = all_distinct = 0
+        for level in levels:
+            n, distinct = st['levels'].get(level, (0, 0))
+            totals[level][0] += n
+            totals[level][1] += distinct
+            all_rows += n
+            all_distinct += distinct
+            row.append(cell(n, distinct))
+        row += [cell(all_rows, all_distinct), _n(st['songs'])]
+        rows.append(row)
+    if len(stats['sheets']) > 1:
+        rows.append(['<strong>' + html.escape(ui['library_all']) + '</strong>']
+                    + [cell(*totals[l]) for l in levels]
+                    + [cell(sum(t[0] for t in totals.values()), sum(t[1] for t in totals.values())), _n(stats['songs'])])
+    parts.append(_table(head, rows))
+
+    # tiers: Expert charts per CalcTier, a bar per tier, per sheet
+    parts += [f'  <h2>{html.escape(ui["library_tiers"])}</h2>',
+              f'  <p class="note">{rich_text(ui["library_tiers_note"])}</p>']
+    for sheet, st in stats['sheets'].items():
+        if not st['tiers']:
+            continue
+        top = max(st['tiers'].values())
+        parts.append(f'  <h3>{html.escape(sheet)}</h3>')
+        parts.append(_table([(labels.label('CalcTier'), 'r'), ('', ''), (ui['library_charts'], 'r')],
+                            [[_n(tier), f'<span class="bar" style="width:{max(0.5, 100 * n / top):.1f}%"></span>', _n(n)]
+                             for tier, n in sorted(st['tiers'].items())]))
+
+    # official against custom, at Expert
+    parts += [f'  <h2>{html.escape(ui["library_official"])}</h2>',
+              f'  <p class="note">{rich_text(ui["library_official_note"])}</p>']
+    kinds = labels.VALUE_LABELS.get('Official', {})
+    rows = []
+    for sheet, st in stats['sheets'].items():
+        official, custom = st['official']
+        share = f'{100 * official // (official + custom)}%' if official + custom else labels.MISSING_TEXT
+        rows.append([html.escape(sheet), _n(official), _n(custom), share])
+    parts.append(_table([(ui['library_sheet'], 'nw'), (kinds.get('true', 'Official'), 'r'),
+                         (kinds.get('false', 'Custom'), 'r'), (ui['library_share'], 'r')], rows))
+
+    # the hardest: the ten highest D at Expert per sheet, each a link into the table
+    parts += [f'  <h2>{html.escape(ui["library_hardest"])}</h2>',
+              f'  <p class="note">{rich_text(ui["library_hardest_note"])}</p>']
+    for sheet, st in stats['sheets'].items():
+        if not st['hardest']:
+            continue
+        parts.append(f'  <h3>{html.escape(sheet)}</h3>')
+        rows = []
+        for rank, r in enumerate(st['hardest'], 1):
+            link = f'<a href="./?code={html.escape(r["code"])}">{html.escape(r["title"])}</a>'
+            tier = labels.MISSING_TEXT if r['tier'] is None else _n(r['tier'])
+            rows.append([_n(rank), link, html.escape(r['artist']), html.escape(r['type']), f'{r["d"]:,.2f}', tier])
+        parts.append(_table([('#', 'r'), (labels.label('Song Title'), ''), (labels.label('Artist'), ''),
+                             (labels.label('Type'), ''), (labels.label('D'), 'r'), (labels.label('CalcTier'), 'r')], rows))
+
+    # the packs, in the registry's order
+    parts += [f'  <h2>{html.escape(ui["library_packs"])}</h2>',
+              f'  <p class="note">{rich_text(ui["library_packs_note"])}</p>']
+    by_folder = pack_kinds(resolved, sheets)
+    rows = []
+    for pack in registry.packs:
+        songs, charts = tally[pack.folder]
+        href = f'./?f.Added={pack.added.strftime(packs.DATE)}&amp;f.Level=Expert'
+        name = f'<a href="{href}" title="{html.escape(ui["changelog_date_tip"])}">{html.escape(pack.name)}</a>'
+        source = (f'<a href="{html.escape(pack.source)}" rel="noopener">{html.escape(ui["library_source"])}</a>'
+                  if pack.source else '')
+        rows.append([name, html.escape(pack.added.strftime(packs.DATE)), _n(songs), _n(charts),
+                     html.escape(_kind_label(*by_folder.get(pack.folder, (0, 0)))), source])
+    parts.append(_table([(ui['library_pack'], ''), (labels.label('Added'), 'nw'), (ui['library_songs'], 'r'),
+                         (ui['library_charts'], 'r'), (labels.label('Official'), ''), (ui['library_source'], '')], rows))
+    body = '<div class="lib">\n' + '\n'.join(parts) + '\n</div>'
+    return render_doc(LIBRARY_PAGE, ui['library'], body, names)
+
+
+# The library page exists exactly when the changelog does: both need the pack join.
+def library_pages(resolved, sheets, names):
+    if resolved is None:
+        return {}
+    return {LIBRARY_PAGE: render_library(resolved, sheets, names)}
+
+
 # Which sheet a code's instrument letter lands on, derived from the instrument
 # tables and restricted to the sheets the workbook has, so ?code=...XB opens
 # Bass with a filled heading rather than the default sheet with a blank one.
@@ -297,11 +452,16 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_p
     if published is not None:
         links_file = links_mod.file_name(published)
         files[links_file] = published
-    files['index.html'] = render_page(title, source, names, boot.boot_json(manifest, sheet_of_code(sheets), links_file),
-                                      public, linked=resolved is not None)
     files['404.html'] = render_404(names)
     files['about.html'] = render_about(names)
     files['methodology.html'] = render_methodology(names)
     files['robots.txt'] = ROBOTS.encode('utf-8')
     files.update(changelog_pages(resolved, sheets, names))
+    files.update(library_pages(resolved, sheets, names))
+    # the document pages first, so the footer lists only the ones this site has
+    # (a serve with no cache has no changelog and no library page)
+    doc_pages = [pair for pair in labels.DOC_PAGES if pair[0] in files]
+    files['index.html'] = render_page(title, source, names,
+                                      boot.boot_json(manifest, sheet_of_code(sheets), links_file, doc_pages),
+                                      public, linked=resolved is not None)
     return Built(xlsx_path, sheets, total, files)

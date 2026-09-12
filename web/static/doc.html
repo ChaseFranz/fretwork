@@ -54,6 +54,20 @@ __THEME__
   .md .r { text-align:right; }
   .md .c { text-align:center; }
   .md code { font-size:.9em; }
+  /* The library page (section 20): tables of counts and a bar per tier, the
+     bar a span of the brand colour, so the page stays a document with no script. */
+  .lib p.intro { margin:0 0 .5rem; }
+  .lib p.note { color:var(--dim); font-size:13px; margin:0 0 .5rem; }
+  .lib h3 { font-size:.95rem; font-weight:600; margin:1rem 0 .3rem; }
+  .lib .tbl { overflow-x:auto; margin:.5rem 0 1rem; }
+  .lib table { border-collapse:collapse; font-size:14px; min-width:100%; }
+  .lib th, .lib td { padding:.25rem .7rem .25rem 0; border-bottom:1px solid var(--rule); vertical-align:top; }
+  .lib th { text-align:left; color:var(--dim); font-size:13px; }
+  .lib .r { text-align:right; }
+  .lib small { color:var(--dim); font-size:12px; }
+  .lib .nw { white-space:nowrap; }
+  .lib .bar { display:block; height:.75em; margin-top:.3em; background:var(--brand); border-radius:2px; }
+  .lib td:has(.bar) { width:45%; min-width:120px; }
 </style>
 </head>
 <body>

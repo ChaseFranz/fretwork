@@ -41,6 +41,54 @@ def codes_in(frames):
     return list(dict.fromkeys(codes))
 
 
+# The library's numbers for library.html (section 20), from the same frames
+# the page serves, so the two cannot disagree: per sheet, rows and distinct
+# charts per level (distinct by COPY_KEY within the level, the Copies rule;
+# rows when the sheet has no hash), the songs by SongKey, the Expert rows per
+# CalcTier, official against custom at Expert, and the ten highest D at
+# Expert. Plain Python out, so the renderer formats without pandas.
+HARDEST = 10
+
+
+def counts(frames):
+    out = {'sheets': {}, 'songs': 0, 'rows': 0}
+    keys = set()
+    for sheet, df in frames.items():
+        levels = {}
+        for level in df[PCT_WITHIN].dropna().unique() if PCT_WITHIN in df.columns else []:
+            part = df[df[PCT_WITHIN] == level]
+            distinct = len(part)
+            if 'NotesHash' in df.columns and all(c in df.columns for c in COPY_KEY):
+                has = part[COPY_KEY].notna().all(axis=1)
+                distinct = int((~has).sum()) + len(part[has].drop_duplicates(subset=COPY_KEY))
+            levels[str(level)] = (len(part), distinct)
+        expert = df[df[PCT_WITHIN] == 'Expert'] if PCT_WITHIN in df.columns else df.iloc[0:0]
+        tiers = {}
+        if 'CalcTier' in expert.columns:
+            for tier, n in expert['CalcTier'].dropna().astype(int).value_counts().sort_index().items():
+                tiers[int(tier)] = int(n)
+        official = (0, 0)
+        if 'Official' in expert.columns:
+            flags = expert['Official'].map(lambda v: str(v).lower() == 'true')
+            official = (int(flags.sum()), int((~flags).sum()))
+        hardest = []
+        if 'D' in expert.columns:
+            top = expert.dropna(subset=['D']).sort_values('D', ascending=False).head(HARDEST)
+            for _, r in top.iterrows():
+                tier = r.get('CalcTier')
+                hardest.append({'code': str(r.get('Code', '')), 'title': str(r.get('Song Title', '')),
+                                'artist': str(r.get('Artist', '')), 'type': str(r.get('Type', '')),
+                                'd': float(r['D']),
+                                'tier': None if tier is None or pd.isna(tier) else int(tier)})
+        sheet_keys = set(df['SongKey'].dropna().astype(str)) if 'SongKey' in df.columns else set()
+        keys |= sheet_keys
+        out['sheets'][sheet] = {'levels': levels, 'rows': len(df), 'songs': len(sheet_keys),
+                                'tiers': tiers, 'official': official, 'hardest': hardest}
+        out['rows'] += len(df)
+    out['songs'] = len(keys)
+    return out
+
+
 # Share of the sheet's charts at the same level whose D is at or below this
 # row's, as a whole number 0-100. Ties take the top rank of their group, so
 # equal D means equal percentile, and the division floors, so a value never

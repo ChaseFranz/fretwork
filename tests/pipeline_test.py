@@ -306,8 +306,16 @@ def run_all(work, header, args):
     st.check(changelog.count('<h2') == 3 and f'{len(lib.charted)} songs' in changelog
              and f'{sum(lib.rows_by_sheet.values())} charts' in changelog and not PLACEHOLDER.search(changelog),
              f'changelog: {changelog.count("<h2")} dates')
+    # section 20: the library page, its totals the sheets' own, five blocks, the hardest linked into the table
+    library = (site / 'library.html').read_text(encoding='utf-8')
+    st.check(library.count('<h2>') == 5 and f'{len(lib.charted)} songs' in library
+             and f'{sum(lib.rows_by_sheet.values())} charts' in library and library.count('<a href="./?code=') >= 3
+             and '<span class="bar" style="width:100.0%">' in library and library.count('<script') == 1
+             and not PLACEHOLDER.search(library),
+             f'library.html: {library.count("<h2>")} blocks, {library.count(chr(60) + "a href=" + chr(34) + "./?code=")} chart links')
     index = (site / 'index.html').read_text(encoding='utf-8')
     st.check('<a href="changelog.html"' in index, 'strapline is not linked to the changelog')
+    st.check('["library.html", "library"]' in index and '["changelog.html", "changelog"]' in index, 'the footer lists the library page and the changelog')
     # A2's title is __SHOUT__ Two Tier on purpose (section 00): placeholder-shaped data
     # must survive in the island while no placeholder survives in the page around it.
     outside = re.sub(r'<script type="application/json" id="fw-boot">.*?</script>', '', index, flags=re.S)
@@ -502,7 +510,7 @@ def run_all(work, header, args):
                     return r.status, r.read()
             except urllib.error.HTTPError as e:
                 return e.code, e.read()
-        for path, want in (('/about.html', 200), ('/changelog.html', 200), ('/robots.txt', 200), ('/nope', 404)):
+        for path, want in (('/about.html', 200), ('/changelog.html', 200), ('/library.html', 200), ('/robots.txt', 200), ('/nope', 404)):
             status, body_bytes = get(path)
             st.check(status == want, f'serve {path} -> {status}')
             if want == 200:
