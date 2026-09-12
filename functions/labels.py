@@ -445,6 +445,16 @@ UI = {
     'library_source':   'Source',
     'library_mixed':    'Mixed',
     'library_share':    'Share',
+    # a page per song (section 16): what a shared link previews with, and the button that copies one
+    'share':            'Copy link',
+    'share_tip':        'Copy a link to this chart that previews as the song when pasted',
+    'share_copied':     'Link copied',
+    'share_failed':     'Could not copy; the address bar has the link',
+    'share_line':       '{level} {type}: {facts}',
+    'share_d':          'D {d}',
+    'share_tier':       'Calc Tier {tier}',
+    'share_pct':        'at or above {pct}%',
+    'share_open':       'Open on {site}',
     # The video is the origin of all of this, so it leads the explainer. Served
     # from the no-cookie host, and only requested if someone opens the panel -
     # the iframe is not in the page until then.

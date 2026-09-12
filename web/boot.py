@@ -29,10 +29,11 @@ def render_profile():
     return {k: merged[k] for k in WEB_RENDER_KEYS}
 
 
-def boot_payload(manifest, sheet_of_code, links=None, doc_pages=None):
+def boot_payload(manifest, sheet_of_code, links=None, doc_pages=None, site_url=None):
     if doc_pages is None:
         doc_pages = labels_mod.DOC_PAGES
     return {
+        'siteUrl': site_url or None,   # the published address, for Copy link; None on serve, which copies its own
         'data': manifest,
         'links': links,            # data/links.<hash8>.json, or null when no song has one
         'hosts': [[key, host] for key, host in labels_mod.CHART_HOSTS],   # where a chart can be published
@@ -58,5 +59,5 @@ def boot_payload(manifest, sheet_of_code, links=None, doc_pages=None):
 
 # Escaping every "<" keeps spreadsheet text from closing the script tag or
 # entering its double-escaped state. A valid JSON escape, parsed back unchanged.
-def boot_json(manifest, sheet_of_code, links=None, doc_pages=None):
-    return json.dumps(boot_payload(manifest, sheet_of_code, links, doc_pages)).replace('<', '\\u003c')
+def boot_json(manifest, sheet_of_code, links=None, doc_pages=None, site_url=None):
+    return json.dumps(boot_payload(manifest, sheet_of_code, links, doc_pages, site_url)).replace('<', '\\u003c')

@@ -42,20 +42,23 @@ def write_if_changed(path, data):
 # hashed asset or sheet, bootstrap.css from before it moved under static/ -
 # would otherwise sit in the folder forever and go on being uploaded. Only the
 # page's own territory is swept: the top-level files it writes and everything
-# under static/ and data/, plus a directory that sweep has emptied. graph/ has
-# its own pruning, with its own rules, and is never touched from here.
-PAGE_TOP = ('index.html', '404.html', 'about.html', 'changelog.html', 'library.html', 'methodology.html', 'robots.txt', 'bootstrap.css')
+# under static/, data/ and song/ (a page per song, section 16), plus a
+# directory that sweep has emptied. graph/ has its own pruning, with its own
+# rules, and is never touched from here.
+PAGE_TOP = ('index.html', '404.html', 'about.html', 'changelog.html', 'library.html', 'methodology.html',
+            'robots.txt', 'sitemap.xml', 'bootstrap.css')
+SWEPT_DIRS = (*assets.IMMUTABLE_DIRS, assets.SONG_DIR)
 
 
 def prune_page(out, files):
     keep = {(out / name).resolve() for name in files}
-    stale = [path for d in assets.IMMUTABLE_DIRS for path in (out / d).rglob('*')
+    stale = [path for d in SWEPT_DIRS for path in (out / d).rglob('*')
              if path.is_file() and path.resolve() not in keep]
     stale += [out / name for name in PAGE_TOP
               if (out / name).is_file() and (out / name).resolve() not in keep]
     for path in stale:
         path.unlink()
-    for d in assets.IMMUTABLE_DIRS:
+    for d in SWEPT_DIRS:
         for sub in sorted((p for p in (out / d).rglob('*') if p.is_dir()), reverse=True):
             if not any(sub.iterdir()):
                 sub.rmdir()

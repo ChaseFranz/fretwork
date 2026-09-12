@@ -19,7 +19,7 @@ from web import bundler
 
 STATIC_DIR = pathlib.Path(__file__).resolve().parent / 'static'
 
-REQUIRED = ('index.html', '404.html', 'doc.html', 'js/main.js', 'css/app.css', 'favicon.svg')
+REQUIRED = ('index.html', '404.html', 'doc.html', 'song.html', 'js/main.js', 'css/app.css', 'favicon.svg')
 
 CONTENT_TYPES = {
     '.html': 'text/html; charset=utf-8',
@@ -29,12 +29,16 @@ CONTENT_TYPES = {
     '.svg': 'image/svg+xml',
     '.json': 'application/json',
     '.png': 'image/png',
+    '.xml': 'application/xml',
 }
 CACHE_PAGE = 'no-cache'                                  # revalidate: rewritten in place
 CACHE_IMMUTABLE = 'public, max-age=31536000, immutable'  # a hashed name never changes
-CACHE_GRAPHS = 'public, max-age=604800'                  # a week; a chart's files change when it does
+CACHE_WEEK = 'public, max-age=604800'                    # a week: derived per chart or per song, changes with the library
+CACHE_GRAPHS = CACHE_WEEK
 IMMUTABLE_DIRS = ('static', 'data')
 GRAPH_DIR = 'graph'
+SONG_DIR = 'song'                                        # a page per song (section 16), the week class like graph/
+WEEK_DIRS = (GRAPH_DIR, SONG_DIR)
 
 
 def content_type(name):
@@ -45,8 +49,8 @@ def cache_class(name):
     name = str(name).lstrip('/')
     if any(name.startswith(d + '/') for d in IMMUTABLE_DIRS):
         return CACHE_IMMUTABLE
-    if name.startswith(GRAPH_DIR + '/'):
-        return CACHE_GRAPHS
+    if any(name.startswith(d + '/') for d in WEEK_DIRS):
+        return CACHE_WEEK
     return CACHE_PAGE
 
 

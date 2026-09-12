@@ -25,13 +25,14 @@ The sync uses --delete, so the bucket must hold nothing but this site. Two
 guards enforce that on this side: the site folder may contain only what
 publish writes, and it must contain a publish output before anything is sent.
 
-It goes up in three cache classes, each its own sync. The entry pages
-(index.html and the document pages) are rewritten in place, so they carry
-no-cache and are revalidated. Everything under static/ and data/ carries a
-content hash in its name, so it is immutable and cached for a year: a change is
-a new name. A chart's files change only when that chart does, so graph/ carries
-a week. The order keeps a page in flight consistent: graphs, then the hashed
-files without --delete, then the entry pages with --delete, then the CloudFront
+It goes up in three cache classes over four folders, each its own sync. The
+entry pages (index.html, the document pages, the sitemap) are rewritten in
+place, so they carry no-cache and are revalidated. Everything under static/ and
+data/ carries a content hash in its name, so it is immutable and cached for a
+year: a change is a new name. A chart's files change only when that chart does
+and a song's page only when the song does, so graph/ and song/ carry a week.
+The order keeps a page in flight consistent: graphs and the song pages, then
+the hashed files without --delete, then the entry pages with --delete, then the CloudFront
 invalidation and a wait for it to complete, then the hashed files again with
 --delete, which removes the previous generation only once no edge can still
 serve the page that named it. sync sets those headers on the files it uploads,
@@ -54,7 +55,7 @@ import config
 from functions import envfile
 from publish import publish
 from web import assets
-from web.assets import CACHE_GRAPHS, CACHE_IMMUTABLE, CACHE_PAGE, IMMUTABLE_DIRS
+from web.assets import CACHE_WEEK, CACHE_IMMUTABLE, CACHE_PAGE, IMMUTABLE_DIRS, SONG_DIR
 
 ENV_FILE = '.env'
 AWS_ENV = ('AWS_PROFILE', 'AWS_REGION', 'AWS_DEFAULT_REGION')
@@ -63,7 +64,7 @@ BUCKET_RE = re.compile(r'^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$')
 # the entry pages publish writes, plus the three directories; a new page joins
 # this set and bundle.PAGE_TOP in the same change
 BUNDLE_TOP = {'index.html', '404.html', 'about.html', 'changelog.html', 'library.html', 'methodology.html', 'robots.txt',
-              'static', 'data', 'graph'}
+              'sitemap.xml', 'static', 'data', 'graph', SONG_DIR}
 REQUIRED = ('index.html', 'graph/manifest.json')                   # proof it came from publish
 GRAPHS = assets.GRAPH_DIR
 
@@ -74,14 +75,15 @@ GRAPHS = assets.GRAPH_DIR
 # both the cache class and the type.
 HEADER_PASSES = (
     # prefix, cache, globs
-    (f'{GRAPHS}/', CACHE_GRAPHS, ('*.png', '*.json')),
+    (f'{GRAPHS}/', CACHE_WEEK, ('*.png', '*.json')),
+    (f'{SONG_DIR}/', CACHE_WEEK, ('*.html',)),
     ('static/', CACHE_IMMUTABLE, ('*.js', '*.css', '*.svg')),
     ('data/', CACHE_IMMUTABLE, ('*.json',)),
-    ('', CACHE_PAGE, ('*.html', '*.txt')),
+    ('', CACHE_PAGE, ('*.html', '*.txt', '*.xml')),
 )
 # one sample of each kind verify() asks S3 about, as a glob under the site folder
-SAMPLES = ('index.html', 'robots.txt', 'static/*.js', 'static/*.css', 'static/*.svg',
-           'data/*.json', f'{GRAPHS}/*.png', f'{GRAPHS}/*.json')
+SAMPLES = ('index.html', 'robots.txt', 'sitemap.xml', 'static/*.js', 'static/*.css', 'static/*.svg',
+           'data/*.json', f'{GRAPHS}/*.png', f'{GRAPHS}/*.json', f'{SONG_DIR}/*.html')
 
 
 def settings(env_path):
@@ -191,16 +193,19 @@ def verify(bucket, site_dir):
 # create call's output at run time; the plan shows it as <pending>.
 def plan(bucket, distribution, site_dir, dry_run=False, present=None):
     site = pathlib.Path(site_dir)
-    have = present if present is not None else {d for d in IMMUTABLE_DIRS if (site / d).is_dir()}
+    have = present if present is not None else {d for d in (*IMMUTABLE_DIRS, SONG_DIR) if (site / d).is_dir()}
     dry = ['--dryrun'] if dry_run else []
     immutable = [['aws', 's3', 'sync', f"{site_dir}/{d}/", f"s3://{bucket}/{d}/",
                   '--cache-control', CACHE_IMMUTABLE] + dry
                  for d in IMMUTABLE_DIRS if d in have]
-    cmds = [['aws', 's3', 'sync', f"{site_dir}/{GRAPHS}/", f"s3://{bucket}/{GRAPHS}/",
-             '--delete', '--cache-control', CACHE_GRAPHS] + dry]
+    # the week class: graph/ always, song/ when the library has song keys; both
+    # derived per chart or per song, so a page that leaves the library leaves the bucket
+    cmds = [['aws', 's3', 'sync', f"{site_dir}/{d}/", f"s3://{bucket}/{d}/",
+             '--delete', '--cache-control', CACHE_WEEK] + dry
+            for d in (GRAPHS, SONG_DIR) if d == GRAPHS or d in have]
     cmds += immutable
     cmds.append(['aws', 's3', 'sync', f"{site_dir}/", f"s3://{bucket}/", '--delete']
-                + [arg for d in (GRAPHS, *IMMUTABLE_DIRS) for arg in ('--exclude', f'{d}/*')]
+                + [arg for d in (GRAPHS, SONG_DIR, *IMMUTABLE_DIRS) for arg in ('--exclude', f'{d}/*')]
                 + ['--cache-control', CACHE_PAGE] + dry)
     if distribution:
         cmds.append(['aws', 'cloudfront', 'create-invalidation',

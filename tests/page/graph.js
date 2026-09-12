@@ -109,7 +109,7 @@ say("exportPng gives a PNG blob", blob && blob.type === "image/png" && blob.size
 // the heading, the pane's buttons, the meta line, the tools, then the body: graph beside the song grid
 const order = [...modal.querySelectorAll(".pcard > *")].map(e => e.className.split(" ")[0]);
 say("the card's order is heading, buttons, meta, tools, body", order.join() === "mhead,pbtns,mmeta,gtools,pbody", order.join());
-say("the tools are Compare with a row and Save, no picker of the pane's own", [...modal.querySelectorAll(".gtools button")].map(b => b.textContent).join() === [UI.compare_pick, UI.save_png].join() &&
+say("the tools are Compare with a row, Save and Copy link, no picker of the pane's own", [...modal.querySelectorAll(".gtools button")].map(b => b.textContent).join() === [UI.compare_pick, UI.save_png, UI.share].join() &&
     !modal.querySelector(".picker, #cmpq"));
 say("the body is the graph and the song section", modal.querySelector(".pbody > .gbody") && modal.querySelector(".pbody > .sbody"));
 

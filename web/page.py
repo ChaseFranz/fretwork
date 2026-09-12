@@ -30,6 +30,14 @@ ROBOTS = ('User-agent: *\n'
           f'Allow: /{OG_IMAGE}\n'
           'Disallow: /graph/\n'
           'Disallow: /data/\n')
+SITEMAP = 'sitemap.xml'
+
+
+# The robots file names the sitemap when the site has an address for it.
+def robots_txt():
+    if not config.SITE_URL:
+        return ROBOTS
+    return ROBOTS + f'Sitemap: {config.SITE_URL.rstrip("/")}/{SITEMAP}\n'
 
 # What serve and publish both need: the spreadsheet path, the sheets, the row
 # count, and every file the site is, {relative name: bytes}, graphs excepted.
@@ -250,6 +258,137 @@ def changelog_pages(resolved, sheets, names):
     return {'changelog.html': render_changelog(resolved, frames.codes_in(sheets), names)}
 
 
+# --- a page per song (section 16) -----------------------------------------------------
+
+SONG_DIR = assets.SONG_DIR
+_KEY = re.compile(r'^[0-9a-f]{12}$')
+
+
+def _text(v):
+    return '' if v is None or (isinstance(v, float) and v != v) else str(v)
+
+
+def _isnum(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and v == v
+
+
+# What a shared link previews with, per song: the primary folder's title and
+# artist (the same choice song.folders makes on the page: official first, then
+# Release, then title, then the code prefix), and one line per part of that
+# folder, its Expert chart when it has one and else its highest level, with D,
+# the tier and the percentile as the table shows them. Keyed by SongKey.
+def song_facts(sheets):
+    levels = list(reversed(labels.VALUE_ORDER['Level']))
+    types = list(labels.VALUE_ORDER.get('Type', ()))
+    by_key = {}
+    for sheet, df in sheets.items():
+        if 'SongKey' not in df.columns or 'Code' not in df.columns:
+            continue
+        for r in df.to_dict('records'):
+            key = r.get('SongKey')
+            if isinstance(key, str) and _KEY.match(key):
+                by_key.setdefault(key, []).append(r)
+    facts = {}
+    for key, rows in by_key.items():
+        folders = {}
+        for r in rows:
+            folders.setdefault(str(r['Code'])[:8], []).append(r)
+
+        def rank(item):
+            prefix, rs = item
+            first = rs[0]
+            return (0 if str(first.get('Official')).lower() == 'true' else 1,
+                    _text(first.get('Release')), _text(first.get('Song Title')), prefix)
+        own = sorted(folders.items(), key=rank)[0][1]
+        parts = {}
+        for r in own:
+            parts.setdefault(_text(r.get('Type')), []).append(r)
+        lines = []
+        for part in sorted(parts, key=lambda t: (types.index(t) if t in types else len(types), t)):
+            best = sorted(parts[part], key=lambda r: levels.index(r['Level']) if r.get('Level') in levels else len(levels))[0]
+            lines.append({'level': _text(best.get('Level')), 'type': part,
+                          'd': best['D'] if _isnum(best.get('D')) else None,
+                          'tier': int(best['CalcTier']) if _isnum(best.get('CalcTier')) else None,
+                          'pct': int(best['Pct']) if _isnum(best.get('Pct')) else None})
+        facts[key] = {'title': _text(own[0].get('Song Title')), 'artist': _text(own[0].get('Artist')), 'lines': lines}
+    return facts
+
+
+def share_line(line):
+    ui = labels.UI
+    bits = [] if line['d'] is None else [ui['share_d'].format(d=f'{line["d"]:.2f}')]
+    if line['tier'] is not None:
+        bits.append(ui['share_tier'].format(tier=line['tier']))
+    if line['pct'] is not None:
+        bits.append(ui['share_pct'].format(pct=line['pct']))
+    return ui['share_line'].format(level=line['level'], type=line['type'], facts=', '.join(bits) or labels.MISSING_TEXT)
+
+
+# The tags a preview reads: the song as the title, the parts' lines as the
+# description, the page's own address as canonical and og:url. No image: the
+# site's one PNG is another song's graph.
+def song_meta(key, title, description):
+    tags = [f'<meta name="description" content="{html.escape(description)}">']
+    if config.SITE_URL:
+        url = f'{config.SITE_URL.rstrip("/")}/{SONG_DIR}/{key}.html'
+        tags.append(f'<link rel="canonical" href="{html.escape(url)}">')
+        for prop, content in (('og:type', 'website'), ('og:url', url), ('og:site_name', config.SITE_NAME),
+                              ('og:title', title), ('og:description', description)):
+            tags.append(f'<meta property="{prop}" content="{html.escape(content)}">')
+        tags.append('<meta name="twitter:card" content="summary">')
+    return '\n'.join(tags)
+
+
+# One page per song: the tags a shared link previews with (song_meta), the
+# facts as text, and a forward to the app with the exact chart in this page's
+# own query (song/<key>.html?code=A&vs=B opens that comparison; no query opens
+# the song). Unfurlers read the tags and follow nothing; browsers run the
+# forward script, or the refresh without one. Self-contained like the other
+# document pages (its own two palettes, the theme script), and never linked
+# from the app: the pane's Copy link button is what hands these out. The
+# template carries no comment of its own, since it goes out 1,748 times.
+def render_song_page(key, fact, names):
+    title = f'{fact["title"]} - {fact["artist"]}' if fact['artist'] else fact['title']
+    lines = [share_line(line) for line in fact['lines']]
+    values = {
+        'TITLE': html.escape(f'{title} - {config.SITE_NAME}'),
+        'FAVICON': names['favicon'],
+        'META': song_meta(key, title, '; '.join(lines)),
+        'THEME': THEME_SCRIPT,
+        'KEY': key,
+        'SONG': html.escape(fact['title']),
+        'ARTIST': html.escape(fact['artist']),
+        'LINES': ''.join(f'<li>{html.escape(line)}</li>' for line in lines),
+        'OPEN': html.escape(labels.UI['share_open'].format(site=config.SITE_NAME)),
+    }
+    return fill(assets.read_text('song.html'), values)
+
+
+def render_song_pages(sheets, names):
+    return {f'{SONG_DIR}/{key}.html': render_song_page(key, fact, names)
+            for key, fact in song_facts(sheets).items()}
+
+
+# Every page a crawler may index: the charts page, the document pages, the
+# song pages; lastmod is the spreadsheet's date when it has one.
+def render_sitemap(files, lastmod=None):
+    base = config.SITE_URL.rstrip('/')
+    when = f'<lastmod>{lastmod:%Y-%m-%d}</lastmod>' if lastmod else ''
+    urls = ['']
+    urls += [name for name, _ in labels.DOC_PAGES if name in files]
+    urls += sorted(name for name in files if name.startswith(SONG_DIR + '/'))
+    body = ''.join(f'<url><loc>{html.escape(base + "/" + name)}</loc>{when}</url>\n' for name in urls)
+    return ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + body + '</urlset>\n').encode('utf-8')
+
+
+def sheet_date(header, xlsx_path):
+    try:
+        return datetime.datetime.strptime(timestamp.ext_ts(xlsx_path, 'metrics', header), timestamp.TS_FORMAT).date()
+    except (ValueError, TypeError):
+        return None
+
+
 # --- the library page (section 20) --------------------------------------------------
 
 LIBRARY_PAGE = 'library.html'
@@ -455,13 +594,17 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_p
     files['404.html'] = render_404(names)
     files['about.html'] = render_about(names)
     files['methodology.html'] = render_methodology(names)
-    files['robots.txt'] = ROBOTS.encode('utf-8')
     files.update(changelog_pages(resolved, sheets, names))
     files.update(library_pages(resolved, sheets, names))
+    files.update(render_song_pages(sheets, names))
+    if config.SITE_URL:
+        files[SITEMAP] = render_sitemap(files, sheet_date(header, xlsx_path))
+    files['robots.txt'] = robots_txt().encode('utf-8')
     # the document pages first, so the footer lists only the ones this site has
     # (a serve with no cache has no changelog and no library page)
     doc_pages = [pair for pair in labels.DOC_PAGES if pair[0] in files]
     files['index.html'] = render_page(title, source, names,
-                                      boot.boot_json(manifest, sheet_of_code(sheets), links_file, doc_pages),
+                                      boot.boot_json(manifest, sheet_of_code(sheets), links_file, doc_pages,
+                                                     site_url=config.SITE_URL if public else None),
                                       public, linked=resolved is not None)
     return Built(xlsx_path, sheets, total, files)

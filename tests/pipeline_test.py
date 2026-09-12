@@ -399,7 +399,24 @@ def run_all(work, header, args):
              and method.count('<script') == 1 and page.THEME_SCRIPT in method and method.count('<h1') == 1 and '$$' not in method and '**' not in method,
              f'methodology.html: {method.count("<table")} tables, {method.count(chr(36) * 2)} $$')
     st.check(not PLACEHOLDER.search(about) and not PLACEHOLDER.search((site / '404.html').read_text()), 'placeholders')
-    st.check((site / 'robots.txt').read_text() == page.ROBOTS, 'robots.txt')
+    st.check((site / 'robots.txt').read_text() == page.robots_txt() and 'Sitemap: ' in page.robots_txt(), 'robots.txt')
+    # section 16: a page per song under song/, the week class; the sitemap names every page
+    song_keys = set()
+    for entry in manifest_sheets.values():
+        sheet_json = json.loads((site / entry['file']).read_bytes())
+        at = sheet_json['columns'].index('SongKey')
+        song_keys |= {r[at] for r in sheet_json['rows'] if r[at]}
+    song_pages = sorted(p.name for p in (site / 'song').iterdir())
+    st.check(song_pages == sorted(f'{k}.html' for k in song_keys) and len(song_pages) == len(lib.charted),
+             f'song/ holds {len(song_pages)} pages for {len(song_keys)} keys, {len(lib.charted)} charted songs')
+    one = (site / 'song' / song_pages[0]).read_text(encoding='utf-8')
+    st.check(one.count('<script') == 2 and 'og:title' in one and 'og:image' not in one and f'?song={song_pages[0][:-5]}' in one
+             and len(one) < 2200 and not re.search(r'__(TITLE|FAVICON|META|THEME|KEY|SONG|ARTIST|LINES|OPEN)__', one)   # A2's title is __SHOUT__ on purpose
+             and assets.cache_class(f'song/{song_pages[0]}') == assets.CACHE_WEEK,
+             f'song page: {len(one)} bytes, {one.count("<script")} scripts')
+    sitemap = (site / 'sitemap.xml').read_text(encoding='utf-8')
+    st.check(sitemap.count('<url>') == 1 + sum(1 for n, _ in labels.DOC_PAGES if (site / n).is_file()) + len(song_pages)
+             and sitemap.count('<lastmod>') == sitemap.count('<url>'), f'sitemap: {sitemap.count("<url>")} urls')
     static = sorted(str(p.relative_to(site / 'static')) for p in (site / 'static').rglob('*') if p.is_file())
     want_static = sorted(k[len('static/'):] for k in assets.load_assets(None)[0])
     st.check(static == want_static, f'static files {static} vs {want_static}')
@@ -420,7 +437,7 @@ def run_all(work, header, args):
         index = (site / 'index.html').read_text(encoding='utf-8')
         st.check(f'href="static/{boot_files[0].name}"' in index and '<style>' not in index, 'index.html should link bootstrap')
         st.check(not (site / 'bootstrap.css').exists(), 'a top-level bootstrap.css survived')
-        st.check(len(index) < 20000, f'index.html is {len(index)} bytes; the rows should be in data/')
+        st.check(len(index) < 22000, f'index.html is {len(index)} bytes; the rows should be in data/')
         st.check(re.search(rf'curves: 0 rendered, {len(codes)} unchanged', st.out), 'curves re-rendered on a no-op')
         st.check(not list((site / 'graph').glob('*.png')), 'a PNG appeared on the second publish')
         st.check(sorted(os.listdir(site)) == sorted(deploy.BUNDLE_TOP), f'site holds {sorted(os.listdir(site))}')
@@ -433,12 +450,13 @@ def run_all(work, header, args):
     log.write_text('')
     st.run('deploy.py', '--env', 'deploy.env', '--dry-run')
     lines = log.read_text().splitlines()
-    st.check(len(lines) == 6 and all(l.startswith('s3 sync') and l.endswith('--dryrun') for l in lines), f'aws.log {lines}')
+    st.check(len(lines) == 7 and all(l.startswith('s3 sync') and l.endswith('--dryrun') for l in lines), f'aws.log {lines}')
     st.check(f"site/{header}/graph/ s3://fixture-bucket/graph/ --delete --cache-control 'public, max-age=604800'" in lines[0], lines[0])
-    st.check("--exclude 'graph/*' --exclude 'static/*' --exclude 'data/*' --cache-control no-cache" in lines[3], lines[3])
-    st.check('--delete' not in lines[1] and '--delete' in lines[4] and 'immutable' in lines[1] and 'immutable' in lines[5], f'{lines[1]} | {lines[4]}')
+    st.check(f"site/{header}/song/ s3://fixture-bucket/song/ --delete --cache-control 'public, max-age=604800'" in lines[1], lines[1])
+    st.check("--exclude 'graph/*' --exclude 'song/*' --exclude 'static/*' --exclude 'data/*' --cache-control no-cache" in lines[4], lines[4])
+    st.check('--delete' not in lines[2] and '--delete' in lines[5] and 'immutable' in lines[2] and 'immutable' in lines[6], f'{lines[2]} | {lines[5]}')
     st.check('cloudfront' in st.out and 'create-invalidation' not in ''.join(lines), 'invalidation planned but not run')
-    st.done('six dry syncs recorded in order, no invalidation')
+    st.done('seven dry syncs recorded in order, no invalidation')
 
     # ---- deploy, wet, against the stub -----------------------------------------------
     st = Stage('deploy --no-publish', work, env, args.python)
@@ -446,16 +464,16 @@ def run_all(work, header, args):
     st.run('deploy.py', '--env', 'deploy.env', '--no-publish')
     lines = log.read_text().splitlines()
     samples = deploy.samples(site)
-    st.check(len(lines) == 8 + len(samples), f'{len(lines)} aws calls: {lines}')
-    st.check(all(l.startswith('s3 sync') and '--dryrun' not in l for l in lines[:4] + lines[6:8]), lines[:8])
-    st.check(lines[4] == "cloudfront create-invalidation --distribution-id E1FIXTURE0000 --paths '/*' --output json", lines[4])
-    st.check(lines[5] == 'cloudfront wait invalidation-completed --distribution-id E1FIXTURE0000 --id I1FIXTURE0000', lines[5])
-    heads = [re.search(r'--key (\S+)', l).group(1) for l in lines[8:]]
+    st.check(len(lines) == 9 + len(samples), f'{len(lines)} aws calls: {lines}')
+    st.check(all(l.startswith('s3 sync') and '--dryrun' not in l for l in lines[:5] + lines[7:9]), lines[:9])
+    st.check(lines[5] == "cloudfront create-invalidation --distribution-id E1FIXTURE0000 --paths '/*' --output json", lines[5])
+    st.check(lines[6] == 'cloudfront wait invalidation-completed --distribution-id E1FIXTURE0000 --id I1FIXTURE0000', lines[6])
+    heads = [re.search(r'--key (\S+)', l).group(1) for l in lines[9:]]
     st.check(heads == list(samples), f'head-object keys {heads} vs {list(samples)}')
-    # seven kinds: the fixture publishes no PNG (section 06), so the graph/*.png sample is skipped
-    st.check(len(samples) == 7 and 'graph/' not in ''.join(k for k in samples if k.endswith('.png'))
+    # nine kinds: the fixture publishes no PNG (section 06), so the graph/*.png sample is skipped
+    st.check(len(samples) == 9 and 'graph/' not in ''.join(k for k in samples if k.endswith('.png'))
              and st.out.count('ok  ') >= len(samples) and 'Done' in st.out, f'verify: {len(samples)} samples')
-    st.done(f'four syncs, invalidation and wait, two deletes, {len(samples)} head-objects all ok')
+    st.done(f'five syncs, invalidation and wait, two deletes, {len(samples)} head-objects all ok')
 
     # ---- deploy guards ---------------------------------------------------------------------
     st = Stage('deploy guards', work, env, args.python)
@@ -510,7 +528,8 @@ def run_all(work, header, args):
                     return r.status, r.read()
             except urllib.error.HTTPError as e:
                 return e.code, e.read()
-        for path, want in (('/about.html', 200), ('/changelog.html', 200), ('/library.html', 200), ('/robots.txt', 200), ('/nope', 404)):
+        for path, want in (('/about.html', 200), ('/changelog.html', 200), ('/library.html', 200), ('/robots.txt', 200),
+                           (f'/song/{song_pages[0]}', 200), ('/sitemap.xml', 200), ('/nope', 404)):
             status, body_bytes = get(path)
             st.check(status == want, f'serve {path} -> {status}')
             if want == 200:

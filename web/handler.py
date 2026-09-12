@@ -50,7 +50,7 @@ class MetricsHandler(http.server.BaseHTTPRequestHandler):
             return self._send(503, TEXT_TYPE, str(exc).encode())
         if data is None:
             return self._send(404, TEXT_TYPE, b'no graph for that code')
-        return self._send(200, assets.content_type(path), data, assets.CACHE_GRAPHS)
+        return self._send(200, assets.content_type(path), data, assets.CACHE_WEEK)
 
     # A viewer that navigates away mid-response is normal, not an error.
     def _send(self, status, content_type, data, cache=None):

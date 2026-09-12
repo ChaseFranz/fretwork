@@ -17,13 +17,13 @@ import sys
 
 TYPES = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
          '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json',
-         '.txt': 'text/plain'}
+         '.txt': 'text/plain', '.xml': 'application/xml'}
 
 
 def cache_class(key):
     if key.startswith(('static/', 'data/')):
         return 'public, max-age=31536000, immutable'
-    if key.startswith('graph/'):
+    if key.startswith(('graph/', 'song/')):
         return 'public, max-age=604800'
     return 'no-cache'
 

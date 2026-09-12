@@ -8,7 +8,7 @@
 // that opened it so the arrow keys keep moving (and the graph follows), and
 // Escape closes it and returns to the row. The height is dragged at the top
 // edge and remembered (fw.pane); the heading's caret collapses it.
-import { UI, VALUE_LABELS, MISS_TEXT, SHEET_OF_CODE, SHEETS } from "./boot.js";
+import { UI, VALUE_LABELS, MISS_TEXT, SHEET_OF_CODE, SHEETS, SITE_URL } from "./boot.js";
 import { el, esc } from "./dom.js";
 import { t, lab, isMissing } from "./format.js";
 import { cols, state, findRow, savePane } from "./state.js";
@@ -139,7 +139,8 @@ const codesOpen = () => [state.graph, ...state.compare];
 // are the picker, and the song grid beside the graph lists the song's other
 // charts, so a search box of its own would only duplicate both. With three
 // charts up the button is disabled and its tip says so; the row is rebuilt on
-// every add or remove, so the state is never stale.
+// every add or remove, so the state is never stale. Copy link (section 16)
+// puts the song page's address with this exact view on the clipboard.
 function toolRow(code) {
   const key = getter(code).get("SongKey");
   const full = codesOpen().length >= G_MOST;
@@ -147,7 +148,45 @@ function toolRow(code) {
     '<button type="button" class="btn btn-sm btn-outline-secondary" data-act="pick"' + (full ? " disabled" : "") +
     ' title="' + esc(full ? UI.compare_full : UI.compare_pick_tip) + '">' + esc(UI.compare_pick) + "</button>" +
     '<button type="button" class="btn btn-sm btn-outline-secondary" data-act="save">' + esc(UI.save_png) + "</button>" +
+    '<button type="button" class="btn btn-sm btn-outline-secondary" data-act="share" title="' + esc(UI.share_tip) + '">' + esc(UI.share) + "</button>" +
     "</div>";
+}
+
+// The link Copy link hands out: the song's page on the published site, which
+// previews as the song when pasted, with this chart and comparison in its
+// query so it opens exactly this view; a stale code falls back to the song
+// there (main.js). On serve, or for a chart whose song has no key, the app's
+// own address with the same query.
+export function shareLink() {
+  const key = getter(state.graph).get("SongKey");
+  const query = "?code=" + encodeURIComponent(state.graph) +
+    (state.compare.length ? "&vs=" + state.compare.map(encodeURIComponent).join(",") : "");
+  if (SITE_URL && typeof key === "string" && /^[0-9a-f]{12}$/.test(key))
+    return SITE_URL.replace(/\/+$/, "") + "/song/" + key + ".html" + query;
+  return location.origin + location.pathname + query;
+}
+
+// The clipboard API needs a secure context and permission; a hidden input
+// and execCommand is the fallback, and the toast says which way it went.
+function clipboardFallback(text) {
+  const input = document.createElement("input");
+  input.value = text; input.readOnly = true;
+  input.style.cssText = "position:fixed;opacity:0;top:0;left:0";
+  document.body.appendChild(input);
+  input.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  input.remove();
+  return ok;
+}
+
+function paneShare() {
+  if (!state.graph) return;
+  const url = shareLink();
+  const done = () => toast(UI.share_copied), fail = () => toast(UI.share_failed);
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(url).then(done, () => (clipboardFallback(url) ? done() : fail()));
+  else (clipboardFallback(url) ? done() : fail());
 }
 
 function applyHeight() {
@@ -375,6 +414,7 @@ export function initPane() {
     if (!act) return;
     if (act.dataset.act === "pick") startPicking();
     else if (act.dataset.act === "save") savePng();
+    else if (act.dataset.act === "share") paneShare();
     else if (act.dataset.act === "min") toggleMin();
     else if (act.dataset.act === "close") closePane();
   });

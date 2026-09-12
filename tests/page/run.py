@@ -109,6 +109,11 @@ def song_query(plain):
     return "?" + urllib.parse.urlencode({"song": row[cols.index("SongKey")], "code": row[cols.index("Code")]})
 
 
+def song_stale_query(plain):
+    """?song=<the first SongKey>&code=00000000XG: a code no row has beside a live key (section 16)."""
+    return song_only_query(plain) + "&code=00000000XG"
+
+
 def song_only_query(plain):
     """?song=<the first SongKey in the first sheet> alone: the page resolves it to a code (section 14)."""
     data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
@@ -170,7 +175,8 @@ SUITES = [
     ("graph.js",     {"queries": ["", "?code=00000000XD"]}),
     ("compare.js",   {"queries": [compare_query]}),
     ("song.js",      {}),
-    ("song_url.js",  {"queries": [song_query, song_only_query, "?song=000000000000"]}),
+    ("song_url.js",  {"queries": [song_query, song_only_query, song_stale_query, "?song=000000000000"]}),
+    ("share.js",     {"queries": [compare_query]}),
     ("pane.js",      {}),
     ("theme.js",     {"storage": {"fw.theme": "light"}}),      # opens light whatever the OS prefers
     ("fade.js",      {"windows": ["700,900", "1000,900", "1440,900"]}),
@@ -225,6 +231,8 @@ def stage(site, work, suites):
     # every graph file: the curve JSON the page draws from (about 4 KB each, 48 MB
     # for the Local library) and the one PNG, the social preview
     shutil.copytree(site / "graph", work / "graph")
+    if (site / "song").is_dir():                                                       # the song pages (section 16)
+        shutil.copytree(site / "song", work / "song")
     (work / "src").mkdir()
     shutil.copy(REPO / "web" / "static" / "js" / "dom.js", work / "src" / "dom.js")   # links.js tests rich()
     # the storage script goes at the top of the head: it must run before the

@@ -41,5 +41,6 @@ There is no Linux Chrome on the dev box; the runner finds Windows Chrome at `/mn
 - The cross-origin YouTube `contentWindow` cannot be assigned; `video.js` shadows the getter with `Object.defineProperty`.
 - Injected pages are staged as `suite-<name>.html` so a suite called `about.js` cannot overwrite `about.html`.
 - Windows Chrome cannot write to a WSL path, so the profile directory it is given is a Windows path asked of `cmd.exe`.
+- `share.js` replaces `navigator.clipboard` with a capturing stub: headless Chrome grants no clipboard permission, and the page's fallback (`execCommand`) copies nothing a suite can read.
 - The pipeline test refuses a `--keep` directory whose `caches/` or `metrics/` is not empty: output names are minute-resolution and would collide.
 - `config.DIFF_WRITE_MODE` must be `None`: the two write modes touch `song.ini` files and `Restore` writes no spreadsheet.

@@ -12,7 +12,7 @@ import { edgeFade } from "./scroll.js";
 import { loadSheet, loadAll, prefetchIdle } from "./load.js";
 import { readUrl } from "./url.js";
 import { initWidths } from "./widths.js";
-import { state } from "./state.js";
+import { state, findRow } from "./state.js";
 import { initTheme } from "./theme.js";
 
 function labelChrome() {
@@ -75,7 +75,9 @@ state.filters["Official"] = { type: "set", sel: new Set(["true"]) };
 // sheet is loaded too, in case the link names another). state.graph is set
 // first so the first draw's writeUrl keeps it in the address bar and marks
 // its row. A ?song= link without a code resolves to the song's primary chart
-// once every sheet is here, and the URL then carries that code instead.
+// once every sheet is here, and the URL then carries that code instead. With
+// both, the code opens when its row exists and the song stands in when it
+// does not: a code moves when its folder does, a song key survives (section 16).
 const shared = readUrl();
 if (shared.code) state.graph = shared.code;
 render();           // the loading row; draw() refreshes both fades once there is content to measure
@@ -83,7 +85,7 @@ const codeSheet = shared.code ? SHEET_OF_CODE[shared.code.slice(-1).toUpperCase(
 Promise.all([loadSheet(state.sheet), codeSheet && codeSheet in SHEETS ? loadSheet(codeSheet) : null])
   .then(() => {
     render();
-    if (shared.code) openPane(shared.code, state.compare, { reveal: true });
+    if (shared.code && (!shared.song || findRow(shared.code))) openPane(shared.code, state.compare, { reveal: true });
     else if (shared.song) loadAll().then(() => {
       const code = primaryCode(shared.song);
       if (code) openPane(code, [], { reveal: true }); else toast(UI.song_not_found);

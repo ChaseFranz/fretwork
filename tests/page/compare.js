@@ -44,7 +44,7 @@ say("the URL carries vs", params().get("vs") === vs && params().get("code") === 
 // there is no picker of the pane's own: the table's search is the search, so
 // a third chart is found by typing in the page's box and clicking its row
 const stem = code.slice(0, 8);
-say("the tools are the links, Compare with a row, and Save", [...modal.querySelectorAll(".gtools button")].map(b => b.dataset.act).join() === "pick,save" &&
+say("the tools are the links, Compare with a row, Save and Copy link", [...modal.querySelectorAll(".gtools button")].map(b => b.dataset.act).join() === "pick,save,share" &&
     !modal.querySelector(".picker, #cmpq"), [...modal.querySelectorAll(".gtools button")].map(b => b.dataset.act).join());
 const pick = () => modal.querySelector('[data-act="pick"]');   // re-queried: every swap rebuilds the card
 say("the button says what it does", pick().textContent === UI.compare_pick && pick().title === UI.compare_pick_tip, pick().textContent);

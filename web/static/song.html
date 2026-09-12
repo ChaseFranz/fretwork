@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<link rel="icon" href="../__FAVICON__" type="image/svg+xml">
+__META__
+<script>location.replace("../"+(location.search||"?song=__KEY__"))</script>
+<meta http-equiv="refresh" content="0; url=../?song=__KEY__">
+__THEME__
+<style>
+  :root { color-scheme: light; --bg:#fbfafd; --text:#232030; --dim:#5f5b6b; --link:#1a67b0; }
+  :root[data-bs-theme="dark"] { color-scheme: dark; --bg:#1a1920; --text:#e4e2ea; --dim:#a3a1ad; --link:#5eaee8; }
+  body { margin:0; background:var(--bg); color:var(--text); padding:40px 20px 60px;
+         font:15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:64ch; margin:0 auto; }
+  h1 { font-size:1.15rem; font-weight:600; margin:0 0 .35rem; }
+  p { margin:0 0 .5rem; }
+  p.by { color:var(--dim); }
+  ul { margin:0 0 1rem; padding:0 0 0 1.2rem; }
+  a { color:var(--link); }
+</style>
+</head>
+<body>
+<main>
+  <h1>__SONG__</h1>
+  <p class="by">__ARTIST__</p>
+  <ul>__LINES__</ul>
+  <p><a href="../?song=__KEY__">__OPEN__</a></p>
+</main>
+</body>
+</html>

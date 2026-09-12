@@ -8,6 +8,7 @@ import deploy
 from web import assets
 
 BOTH = {'static', 'data'}
+WITH_SONGS = {'static', 'data', 'song'}
 
 
 class PlanTest(unittest.TestCase):
@@ -28,7 +29,7 @@ class PlanTest(unittest.TestCase):
         self.assertEqual(pages[3:5], ['site/X/', 's3://b/'])
         self.assertIn('--delete', pages)
         excludes = [pages[i + 1] for i, a in enumerate(pages) if a == '--exclude']
-        self.assertEqual(excludes, ['graph/*', 'static/*', 'data/*'])
+        self.assertEqual(excludes, ['graph/*', 'song/*', 'static/*', 'data/*'])
         self.assertEqual(pages[pages.index('--cache-control') + 1], assets.CACHE_PAGE)
         self.assertEqual(create[3:], ['--distribution-id', 'E1X', '--paths', '/*', '--output', 'json'])
         self.assertEqual(wait[3:], ['invalidation-completed', '--distribution-id', 'E1X', '--id', '<pending>'])
@@ -36,6 +37,26 @@ class PlanTest(unittest.TestCase):
             self.assertIn('--delete', cmd)
             self.assertEqual(cmd[cmd.index('--cache-control') + 1], assets.CACHE_IMMUTABLE)
         self.assertEqual(static2[3:5], ['site/X/static/', 's3://b/static/'])
+
+    def test_nine_with_the_song_pages(self):
+        # section 16: song/ is the week class, synced with --delete right after graph/, before the hashed folders
+        cmds = deploy.plan('b', 'E1X', 'site/X', present=WITH_SONGS)
+        self.assertEqual(len(cmds), 9)
+        graphs, songs = cmds[0], cmds[1]
+        self.assertEqual(songs[3:5], ['site/X/song/', 's3://b/song/'])
+        self.assertIn('--delete', songs)
+        self.assertEqual(songs[songs.index('--cache-control') + 1], assets.CACHE_WEEK)
+        self.assertEqual(graphs[graphs.index('--cache-control') + 1], assets.CACHE_WEEK)
+        self.assertEqual(cmds[2][3:5], ['site/X/static/', 's3://b/static/'])
+        pages = cmds[4]
+        self.assertEqual(pages[3:5], ['site/X/', 's3://b/'])
+        self.assertIn('song/*', [pages[i + 1] for i, a in enumerate(pages) if a == '--exclude'])
+        with tempfile.TemporaryDirectory() as tmp:
+            site = pathlib.Path(tmp)
+            for d in ('static', 'data', 'song'):
+                (site / d).mkdir()
+            self.assertEqual(len(deploy.plan('b', None, site, dry_run=True)), 7)
+            self.assertEqual(deploy.skipped_dirs(site), [])
 
     def test_six_without_a_distribution(self):
         cmds = deploy.plan('b', None, 'site/X', present=BOTH)
@@ -80,6 +101,12 @@ class PlanTest(unittest.TestCase):
             self.assertEqual(found['data/guitar.abcd1234.json'], ('application/json', assets.CACHE_IMMUTABLE))
             self.assertEqual(found['graph/0001.png'], ('image/png', assets.CACHE_GRAPHS))
             self.assertNotIn('robots.txt', found)
+            (site / 'song').mkdir()
+            (site / 'song' / '0000000000a1.html').write_bytes(b'x')
+            (site / 'sitemap.xml').write_bytes(b'x')
+            found = deploy.samples(site)
+            self.assertEqual(found['song/0000000000a1.html'], ('text/html', assets.CACHE_WEEK))
+            self.assertEqual(found['sitemap.xml'], ('application/xml', assets.CACHE_PAGE))
 
 
 class CacheClassTest(unittest.TestCase):
@@ -91,6 +118,8 @@ class CacheClassTest(unittest.TestCase):
         self.assertEqual(assets.cache_class('data/guitar.1234abcd.json'), assets.CACHE_IMMUTABLE)
         self.assertEqual(assets.cache_class('graph/0001XG.png'), assets.CACHE_GRAPHS)
         self.assertEqual(assets.cache_class('graph/manifest.json'), assets.CACHE_GRAPHS)
+        self.assertEqual(assets.cache_class('song/0000000000a1.html'), assets.CACHE_WEEK)
+        self.assertEqual(assets.cache_class('sitemap.xml'), assets.CACHE_PAGE)
 
 
 if __name__ == '__main__':
