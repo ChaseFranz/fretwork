@@ -24,6 +24,13 @@ say("two charts are mounted", gbody().fw && gbody().fw.charts.length === 2 && gb
 say("the legend has one entry per chart, lettered", legend().length === 2 && legend()[0].textContent.trim().startsWith("A ") &&
     legend()[1].textContent.trim().startsWith("B "), legend().map(l => l.textContent.trim()).join(" | "));
 say("each entry has a remove button", legend().every(l => l.querySelector("button.rm[data-rm]")));
+// the same song and part twice: the entries name only the level (Expert, Hard)
+const rowOf = c => rows.find(r => r[col("Code")] === c);
+const levelOnly = (li, r) => li.querySelector(".lt").textContent.trim().split(" ").slice(1).join(" ") ===
+  UI.graph_legend_level.replace("{level}", r[col("Level")]);
+say("two levels of one song and part are named by level alone", rowOf(code) && rowOf(vs) &&
+    rowOf(code)[col("Type")] === rowOf(vs)[col("Type")] && levelOnly(legend()[0], rowOf(code)) && levelOnly(legend()[1], rowOf(vs)),
+    legend().map(l => l.querySelector(".lt").textContent.trim()).join(" | "));
 say("the series colours are the profile's, in order", legend()[0].querySelector(".sw").style.borderColor !== legend()[1].querySelector(".sw").style.borderColor);
 const many = new RegExp("^" + UI.graph_readout_many.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\{\w+\\\}/g, ".+") + "$");
 say("the readout carries a ~D per chart", many.test(readout()) && /A \S+\s+B \S+/.test(readout()), JSON.stringify(readout()));
@@ -57,6 +64,11 @@ const third = listed().includes(other[col("Code")]) ? other[col("Code")] : liste
 click(modal.querySelector('#cmpr [data-add="' + third + '"]'));
 await wait(600);
 say("adding a third draws three charts", gbody().fw && gbody().fw.charts.length === 3 && legend().length === 3, gbody().fw && gbody().fw.charts.length);
+// a different song on the graph: every entry names its song again
+const full = (li, r) => li.querySelector(".lt").textContent.trim().includes(String(r[col("Song Title")]));
+say("with another song on the graph the entries carry the titles", !rowOf(third) || (rowOf(third)[col("Song Title")] !== rowOf(code)[col("Song Title")]
+    ? full(legend()[0], rowOf(code)) && full(legend()[2], rowOf(third)) : true),
+    legend().map(l => l.querySelector(".lt").textContent.trim()).join(" | "));
 await wait(400);
 say("the URL names both extras", params().get("vs") === vs + "," + third, params().get("vs"));
 click(modal.querySelector('[data-act="compare"]'));

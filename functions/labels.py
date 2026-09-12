@@ -423,6 +423,8 @@ UI = {
     'graph_readout_part': '{letter} {d}',
     'graph_readout_many': '{t}  {parts}',
     'graph_legend':     '{title} - {artist}, {level} {type}',
+    'graph_legend_part': '{level} {type}',    # compared charts of one song
+    'graph_legend_level': '{level}',          # ... and one part
     'graph_hint':       'Hover or use the arrow keys to read values',
     'graph_alt':        'Difficulty graph of {song}: notes per second, fret changes per second and their geometric mean over time',
     'compare':          'Compare',

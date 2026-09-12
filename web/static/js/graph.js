@@ -167,14 +167,27 @@ function gPaint(ctx, W, H, charts, fonts, margin) {
   return { left, top, pw, ph, xMax, yMax, X, Y, compare };
 }
 
-// One row's words for the legend and the readout: title, artist, level, part.
+// One row's words for the legend and the alt text: title, artist, level, part.
+const gField = (chart, n) => {
+  const i = chart.columns ? chart.columns.indexOf(n) : -1;
+  return i < 0 || !chart.row ? "" : chart.row[i];
+};
 function gName(chart) {
-  const get = n => {
-    const i = chart.columns ? chart.columns.indexOf(n) : -1;
-    return i < 0 || !chart.row ? "" : chart.row[i];
-  };
   if (!chart.row) return chart.code;
-  return t("graph_legend", { title: get("Song Title"), artist: get("Artist"), level: get("Level"), type: get("Type") });
+  return t("graph_legend", { title: gField(chart, "Song Title"), artist: gField(chart, "Artist"),
+    level: gField(chart, "Level"), type: gField(chart, "Type") });
+}
+
+// The compared charts' legend entries, with only what tells them apart:
+// the levels of one song and part read "Expert" and "Hard", not the title
+// and artist three times over; two parts of one song keep the part; two
+// songs keep everything.
+function gNames(charts) {
+  const rows = charts.filter(c => c.row);
+  const same = n => rows.every(c => gField(c, n) === gField(rows[0], n));
+  if (rows.length < 2 || !same("Song Title") || !same("Artist")) return charts.map(gName);
+  const key = same("Type") ? "graph_legend_level" : "graph_legend_part";
+  return charts.map(c => c.row ? t(key, { level: gField(c, "Level"), type: gField(c, "Type") }) : c.code);
 }
 
 const gLetters = ["A", "B", "C"];
@@ -281,8 +294,9 @@ export function mountGraph(host, charts, opts = {}) {
         .map(([text, colour, dotted]) => "<li>" + swatch(colour, dotted) + esc(text) + "</li>").join("");
       return;
     }
+    const names = gNames(charts);
     legend.innerHTML = charts.map((c, k) => "<li>" + swatch(c.colour, false) +
-      '<span class="lt">' + esc(gLetters[k]) + " " + esc(gName(c)) + "</span>" +
+      '<span class="lt">' + esc(gLetters[k]) + " " + esc(names[k]) + "</span>" +
       '<button type="button" class="rm" data-rm="' + esc(c.code) + '" aria-label="' +
       esc(t("compare_remove", { code: c.code })) + '" title="' + esc(t("compare_remove", { code: c.code })) +
       '">&times;</button></li>').join("");
@@ -381,8 +395,9 @@ export function exportPng(charts, heading) {
   const geom = gPaint(ctx, c.width, c.height - headH - legendH, charts, { label: 11, tick: 10 }, G_MARGIN);
   ctx.restore();
   // legend centred under the axes, as the PNG has it
+  const names = gNames(charts);
   const entries = geom.compare
-    ? charts.map((ch, k) => [gLetters[k] + " " + gName(ch), ch.colour, false])
+    ? charts.map((ch, k) => [gLetters[k] + " " + names[k], ch.colour, false])
     : [[UI.graph_d, RENDER.color_d, false], [UI.graph_nps, RENDER.color_nps, true], [UI.graph_vps, RENDER.color_vps, true]];
   ctx.font = "11px system-ui, sans-serif"; ctx.textBaseline = "middle"; ctx.textAlign = "left";
   const widths = entries.map(([text]) => ctx.measureText(text).width + 34);
