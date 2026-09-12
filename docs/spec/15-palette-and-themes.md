@@ -1,6 +1,6 @@
 # 15. Palette roles and the two themes
 
-**Status:** Landed (2026-09-11, on `main` after fretladder-v1.2.0; not yet deployed). Written after the fact the same night, from the maintainer's "I think we need to revisit the color scheme and themes of this website" against the live v1.2.0 site, the analysis below, and a yes to all of it.
+**Status:** Landed (2026-09-11, 3361aac, after fretladder-v1.2.0; not yet deployed). Written after the fact the same night, from the maintainer's "I think we need to revisit the color scheme and themes of this website" against the live v1.2.0 site, the analysis below, and a yes to all of it.
 
 **Effort:** M. One new module (`theme.js`), the stylesheet's colour rules rewritten onto role tokens with two values each, `graph.js` reading its colours from the tokens instead of `boot.render`, a head script on every page, the document pages and the 404 given a light palette, one new suite and the contrast suite run twice.
 
