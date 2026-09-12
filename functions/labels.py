@@ -343,6 +343,11 @@ def t_count(n):
     return UI['chart_count'].format(n=f"{n:,}")
 
 
+# The alt text of a song page's graph image (section 22), from the graph's own alt string.
+def t_graph_alt(song):
+    return UI['graph_alt'].format(song=song)
+
+
 def label(column):
     return COLUMN_LABELS.get(column, column)
 
@@ -457,6 +462,42 @@ UI = {
     'share_tier':       'Calc Tier {tier}',
     'share_pct':        'at or above {pct}%',
     'share_open':       'Open in the table on {site}',
+    # the song page in words, its game and its picture; the game and list pages (section 22)
+    'song_sentence':    'On {level} {type} it scores D {d}, Calc Tier {tier}, at or above {pct}% of the site\u2019s {level} {sheet} charts.',
+    'song_sentence_pct': 'On {level} {type} it scores D {d}, at or above {pct}% of the site\u2019s {level} {sheet} charts.',
+    'song_sentence_tier': 'On {level} {type} it scores D {d}, Calc Tier {tier}.',
+    'song_sentence_d':  'On {level} {type} it scores D {d}.',
+    'song_game':        'From {game}, with every song of that setlist ranked by difficulty.',
+    'game_title':       '{game} setlist by difficulty',
+    'game_intro':       'Every song in {game} ranked by fretwork\u2019s difficulty on Expert guitar, D, with the Calc Tier '
+                        'and the percentile among the site\u2019s Expert Guitar charts, and the bass and keys charts beside it. '
+                        'A song opens its page; a number opens that chart\u2019s graph.',
+    'game_facts':       '{songs} songs, {charts} charts, {kind}, on the site since {date}',
+    'game_no_guitar':   'Songs with no Expert guitar chart follow, by their other parts.',
+    'list_hardest':     'The {n} hardest Guitar Hero and Rock Band songs on Expert {sheet}',
+    'list_hardest_custom': 'The {n} hardest Clone Hero custom charts on Expert {sheet}',
+    'list_easiest':     'The {n} easiest Guitar Hero and Rock Band songs on Expert {sheet}',
+    'list_intro_official': 'Ranked by fretwork\u2019s difficulty D on the Expert {sheet} chart, one entry per song at its '
+                        'hardest part, from the official charts on the site: the ones matched to a released game or DLC. '
+                        'The tier is Calc Tier, D on a log scale; the percentile is where the chart sits among every Expert '
+                        '{sheet} chart on the site.',
+    'list_intro_custom': 'Ranked by fretwork\u2019s difficulty D on the Expert {sheet} chart, one entry per song at its '
+                        'hardest part, from the custom charts on the site. The tier is Calc Tier, D on a log scale; the '
+                        'percentile is where the chart sits among every Expert {sheet} chart on the site.',
+    'list_game':        'Game',
+    'lists':            'Lists',
+    'lists_note':       'The site\u2019s ranked lists, one per instrument.',
+    'list_full':        'The full list',
+    # per-page titles and descriptions for the document pages
+    'about_desc':       'What fretladder is, who runs it, what it holds and does not, and where the numbers come from.',
+    'changelog_title':  'What\u2019s new on fretladder',
+    'changelog_desc':   'Every pack on the site, newest first, with the date it was added and where it is published.',
+    'library_title':    'The library: Guitar Hero and Clone Hero charts by instrument, level and tier',
+    'library_desc':     'What the site holds: {charts} charts of {songs} songs from {packs} packs, by instrument, level and difficulty tier, with the hardest of each and every pack.',
+    'songs_title':      'Every song on fretladder, A to Z',
+    'songs_desc':       'All {n} songs with chart difficulty ratings on fretladder, A to Z, each with its page.',
+    'methodology_title': 'How Guitar Hero chart difficulty is scored',
+    'methodology_desc': 'The fretwork method behind the ratings: note density, fret movement and their spread, the D formula, and the Calc Tier and Remap Tier calibration.',
     # the song page as a page, and the songs index (section 21)
     'songs':            'Songs',
     'songs_tip':        'Every song on the site, A to Z',

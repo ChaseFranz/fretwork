@@ -40,7 +40,14 @@ const tag = p => { const m = doc.querySelector('meta[property="' + p + '"]'); re
 say("its og:title names the song", tag("og:title") && title && tag("og:title").startsWith(title), tag("og:title") + " vs " + title);
 say("its og:description is the parts' facts", /^(Expert|Hard|Medium|Easy) \S+: D \d/.test(tag("og:description") || ""), tag("og:description"));
 say("its og:url is its own address", tag("og:url") === siteUrl.replace(/\/+$/, "") + "/song/" + key + ".html", tag("og:url"));
-say("no image, no placeholder", !tag("og:image") && !/__[A-Z][A-Z_]*__/.test(text));
+// section 22: the picture is the first part's Expert graph, as og:image and on the page
+say("its og:image is the song's own graph", /\/graph\/[A-Za-z0-9]{10}\.png$/.test(tag("og:image") || ""), tag("og:image"));
+const img = doc.querySelector("p.pic img");
+say("the page shows that graph with alt text", img && img.getAttribute("src") === "graph/" + tag("og:image").split("/").pop() && img.alt.startsWith("Difficulty graph of"), img && img.getAttribute("src"));
+const pic = img && await fetch(img.getAttribute("src"));
+say("and the PNG is in the bundle", pic && pic.status === 200 && (pic.headers.get("content-type") || "").startsWith("image/png"), pic && pic.status);
+say("it says what the numbers are, in words", /it scores D \d/.test(doc.body.textContent));
+say("no placeholder", !/__[A-Z][A-Z_]*__/.test(text));
 // section 21: a page that forwards only when a shared link's query is on it
 say("it forwards to the app only with a query, and is a page otherwise", text.includes('if(location.search)location.replace(location.search)') &&
     !text.includes('http-equiv="refresh"') && doc.querySelector("h1") && doc.querySelector("h1").textContent === title &&

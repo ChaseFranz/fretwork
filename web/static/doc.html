@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+__BASE__
 <title>__TITLE__</title>
 <link rel="icon" href="__FAVICON__" type="image/svg+xml">
 __META__
@@ -65,6 +66,9 @@ __THEME__
   .lib th { text-align:left; color:var(--dim); font-size:13px; }
   .lib .r { text-align:right; }
   .lib small { color:var(--dim); font-size:12px; }
+  .lib td small { display:block; }
+  /* the pages that are tables (the library, the games, the lists) get a wider measure than the prose pages */
+  main:has(.lib) { max-width:84ch; }
   .lib .nw { white-space:nowrap; }
   .lib .bar { display:block; height:.75em; margin-top:.3em; background:var(--brand); border-radius:2px; }
   .lib td:has(.bar) { width:45%; min-width:120px; }

@@ -33,12 +33,12 @@ def print_published(out_dir, page_files, written, removed, counts, graph_files, 
     print(f"    page files: {written} written, {len(page_files) - written} unchanged"
           + (f", {removed} removed" if removed else ""))
     for label, c in (('graphs', counts['png']), ('curves', counts['curves'])):
+        # the PNGs are the social preview and each song page's picture (section 22):
+        # the counts, then whether the preview itself is among them
+        shown = 'pictures' if label == 'graphs' else label
+        print(f"    {shown}: {c['rendered']} rendered, {c['unchanged']} unchanged, {c['kept']} kept "
+              f"from before, {c['no_graph']} without a graph, {c['failed']} failed, {c['pruned']} pruned")
         if label == 'graphs' and preview:
             code, present = preview
-            state = ('rendered' if c['rendered'] else 'unchanged' if c['unchanged'] else 'kept from before' if c['kept']
-                     else 'failed') if present else 'not in this spreadsheet'
-            print(f"    social preview {code}: {state}" + (f", {c['pruned']} pruned" if c['pruned'] else ""))
-            continue
-        print(f"    {label}: {c['rendered']} rendered, {c['unchanged']} unchanged, {c['kept']} kept "
-              f"from before, {c['no_graph']} without a graph, {c['failed']} failed, {c['pruned']} pruned")
+            print(f"    social preview {code}: {'among them' if present else 'not in this spreadsheet'}")
     print(f"    {len(paths)} files, {size_mb:.1f} MB\n")

@@ -110,14 +110,16 @@ def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
     print(f"\nPublishing {built.xlsx_path}")
     page_files, written, removed = bundle.write_page(out_dir, built.files)
     codes = frames.codes_in(built.sheets)
-    # one PNG, the social preview; every other graph is the curve JSON the page draws
-    png_codes = [page.OG_CODE] if page.OG_CODE in codes else []
-    if not png_codes:
-        print(f"  social preview chart {page.OG_CODE} is not in this spreadsheet; no PNG published, previous PNGs kept")
+    # the PNGs: the social preview and each song page's picture (Built.png_codes,
+    # section 22); every other graph is the curve JSON the page draws
+    have = set(codes)
+    png_codes = [c for c in built.png_codes if c in have]
+    if page.OG_CODE not in have:
+        print(f"  social preview chart {page.OG_CODE} is not in this spreadsheet; no preview PNG published")
     counts, graph_files = bundle.render_graphs(out_dir, codes, renderer, force, png_codes=png_codes)
     banner.print_published(out_dir, page_files, written, removed, counts, graph_files,
                            packs_line=f"packs: {len(resolved.registry.packs)} registered from {resolved.registry.path.name}",
-                           preview=(page.OG_CODE, bool(png_codes)))
+                           preview=(page.OG_CODE, page.OG_CODE in have))
 
 
 def main():

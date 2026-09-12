@@ -244,8 +244,9 @@ def stage(site, work, suites):
     # every graph file: the curve JSON the page draws from (about 4 KB each, 48 MB
     # for the Local library) and the one PNG, the social preview
     shutil.copytree(site / "graph", work / "graph")
-    if (site / "song").is_dir():                                                       # the song pages (section 16)
-        shutil.copytree(site / "song", work / "song")
+    for folder in ("song", "game", "list"):                                            # the pages per song, per pack, the lists (16, 22)
+        if (site / folder).is_dir():
+            shutil.copytree(site / folder, work / folder)
     (work / "src").mkdir()
     shutil.copy(REPO / "web" / "static" / "js" / "dom.js", work / "src" / "dom.js")   # links.js tests rich()
     # the storage script goes at the top of the head: it must run before the

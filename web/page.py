@@ -31,6 +31,7 @@ OG_CODE = OG_IMAGE.rsplit('/', 1)[-1].rsplit('.', 1)[0]   # the one chart publis
 ROBOTS = ('User-agent: *\n'
           'Allow: /\n'
           f'Allow: /{OG_IMAGE}\n'
+          'Allow: /graph/*.png\n'        # the song pages' pictures (section 22); the curve files stay out
           'Disallow: /graph/\n')
 SITEMAP = 'sitemap.xml'
 
@@ -43,7 +44,7 @@ def robots_txt():
 
 # What serve and publish both need: the spreadsheet path, the sheets, the row
 # count, and every file the site is, {relative name: bytes}, graphs excepted.
-Built = collections.namedtuple('Built', 'xlsx_path sheets total files')
+Built = collections.namedtuple('Built', 'xlsx_path sheets total files png_codes')   # png_codes: the graphs publish draws as PNGs (section 22)
 
 # The theme, decided before the first paint so a light-theme visitor never sees
 # a dark flash: the header toggle's stored choice (fw.theme, static/js/theme.js)
@@ -85,15 +86,17 @@ def site_title():
 
 
 # Description always; the social-preview tags need an absolute URL, so they are
-# emitted only for a published site with config.SITE_URL set.
-def meta_head(public, canonical=''):
-    description = labels.UI['description']
+# emitted only for a published site with config.SITE_URL set. A document page
+# passes its own title and description (section 22), so each result and each
+# preview says what that page is.
+def meta_head(public, canonical='', title=None, description=None):
+    description = description or labels.UI['description']
     tags = [f'<meta name="description" content="{html.escape(description)}">']
     if public and config.SITE_URL:
         url = config.SITE_URL.rstrip('/')
         tags.append(f'<link rel="canonical" href="{html.escape(url)}/{html.escape(canonical)}">')
-        for prop, content in (('og:type', 'website'), ('og:url', url),
-                              ('og:title', site_title()), ('og:description', description),
+        for prop, content in (('og:type', 'website'), ('og:url', f'{url}/{canonical}' if canonical else url),
+                              ('og:title', title or site_title()), ('og:description', description),
                               ('og:image', f'{url}/{OG_IMAGE}')):
             tags.append(f'<meta property="{prop}" content="{html.escape(content)}">')
         tags.append('<meta name="twitter:card" content="summary_large_image">')
@@ -183,17 +186,23 @@ def render_404(names):
 
 # The document pages: about and the changelog. One template, static text and
 # no script but the theme's, like the 404, so they keep working when the app
-# around them does not. The link list leads with the site's other document pages.
-def render_doc(name, title, body, names):
+# around them does not. The link list leads with the site's other document
+# pages. page_title is the <title> and og:title when the heading is not the
+# words a search carries; description the page's own; a page under a folder
+# (game/, list/) gets <base href="../"> so its relative links resolve from the
+# root, and must then carry no fragment links (a base breaks them).
+def render_doc(name, title, body, names, page_title=None, description=None):
     others = [(labels.UI[key], page) for page, key in labels.DOC_PAGES if page != name]
     links = '\n'.join(
         [f'    <li><a href="{html.escape(href)}">{html.escape(text)}</a></li>' for text, href in others] +
         [f'    <li><a href="{html.escape(href)}" rel="noopener">{html.escape(text)}</a></li>'
          for text, href in labels.FOOTER_LINKS])
+    full = f"{page_title or title} - {config.SITE_NAME}"
     values = {
         'FAVICON': names['favicon'],
-        'TITLE': html.escape(f"{title} - {config.SITE_NAME}"),
-        'META': meta_head(public=True, canonical=name),
+        'BASE': '<base href="../">' if '/' in name else '',
+        'TITLE': html.escape(full),
+        'META': meta_head(public=True, canonical=name, title=page_title or title, description=description),
         'THEME': THEME_SCRIPT,
         'BRAND': html.escape(f"{config.SITE_NAME} \u2013 {title}"),
         'BACK': html.escape(labels.UI['about_back']),
@@ -213,7 +222,8 @@ def render_methodology(names):
     blocks = methodology.load()
     body = (f'<p class="source">{rich_text(labels.METHODOLOGY_SOURCE)}</p>\n'
             f'<div class="md">\n{markdown.render(blocks, shift=1)}\n</div>')
-    return render_doc('methodology.html', labels.UI['methodology'], body, names)
+    return render_doc('methodology.html', labels.UI['methodology'], body, names,
+                      page_title=labels.UI['methodology_title'], description=labels.UI['methodology_desc'])
 
 
 # Who runs this, what it does and does not hold, and who owns what.
@@ -221,7 +231,7 @@ def render_about(names):
     body = '\n'.join(
         f'  <h2>{html.escape(heading)}</h2>\n  <p>{rich_text(text)}</p>'
         for heading, text in labels.ABOUT)
-    return render_doc('about.html', labels.UI['about'], body, names)
+    return render_doc('about.html', labels.UI['about'], body, names, description=labels.UI['about_desc'])
 
 
 # Every pack newest first, grouped by date with the site's own changes, each
@@ -257,7 +267,8 @@ def render_changelog(resolved, codes, names):
             if pack.notes:
                 item += ' ' + rich_text(pack.notes)
             parts.append(f'  <p class="item">{item}</p>')
-    return render_doc('changelog.html', labels.UI['changelog'], '\n'.join(parts), names)
+    return render_doc('changelog.html', labels.UI['changelog'], '\n'.join(parts), names,
+                      page_title=labels.UI['changelog_title'], description=labels.UI['changelog_desc'])
 
 
 # The changelog exists exactly when the page has a pack join to build it from.
@@ -296,6 +307,7 @@ def song_facts(sheets):
         for r in df.to_dict('records'):
             key = r.get('SongKey')
             if isinstance(key, str) and _KEY.match(key):
+                r['_sheet'] = sheet
                 by_key.setdefault(key, []).append(r)
     facts = {}
     for key, rows in by_key.items():
@@ -321,7 +333,7 @@ def song_facts(sheets):
                 level = _text(r.get('Level'))
                 if level in levels and level not in have:
                     have[level] = {'code': str(r['Code']), 'd': r['D'] if _isnum(r.get('D')) else None,
-                                   'pct': int(r['Pct']) if _isnum(r.get('Pct')) else None}
+                                   'pct': int(r['Pct']) if _isnum(r.get('Pct')) else None, 'sheet': r['_sheet']}
             parts.append({'type': part, 'tier': tier, 'levels': have})
         main = own[0]
         year = main.get('Year')
@@ -330,8 +342,67 @@ def song_facts(sheets):
                       'official': str(main.get('Official')).lower() == 'true',
                       'album': _text(main.get('Album')), 'genre': _text(main.get('Genre')),
                       'year': int(year) if _isnum(year) and int(year) > 0 else None,
-                      'parts': parts}
+                      'code': str(main['Code']), 'parts': parts}
     return facts
+
+
+# The chart whose graph is the song's picture: the preview line's chart, the
+# first part's Expert (else its highest level). None for a song with no chart.
+def song_image_code(fact):
+    levels = list(reversed(labels.VALUE_ORDER['Level']))
+    for part in fact['parts']:
+        for level in levels:
+            if level in part['levels']:
+                return part['levels'][level]['code']
+    return None
+
+
+# The packs as pages (section 22): a slug per registered pack from its name,
+# made unique in registry order, and the folder each song's primary chart is
+# in, so a song page can name its game and a game page can list its songs.
+def slug(name):
+    out = re.sub(r'[^a-z0-9]+', '-', str(name).casefold()).strip('-')
+    return out or 'pack'
+
+
+def pack_slugs(resolved):
+    slugs, seen = {}, set()
+    for pack in resolved.registry.packs:
+        base = slug(pack.name)
+        candidate, n = base, 2
+        while candidate in seen:
+            candidate, n = f'{base}-{n}', n + 1
+        seen.add(candidate)
+        slugs[pack.folder] = candidate
+    return slugs
+
+
+# Every Expert chart by the folder it is in, by song, by part: what a game page
+# lists. A song shipped in two packs appears on both pages with each pack's own
+# numbers (they are the same chart when the notes are).
+def charts_by_folder(sheets, resolved):
+    out = {}
+    for df in sheets.values():
+        need = ('Code', 'SongKey', 'Level', 'Type', 'D')
+        if not all(c in df.columns for c in need):
+            continue
+        expert = df[df['Level'] == 'Expert']
+        for r in expert.to_dict('records'):
+            key = r.get('SongKey')
+            folder = resolved.folder_by_code.get(str(r['Code']))
+            if folder is None or not (isinstance(key, str) and _KEY.match(key)):
+                continue
+            song = out.setdefault(folder, {}).setdefault(key, {
+                'title': _text(r.get('Song Title')), 'artist': _text(r.get('Artist')),
+                'official': str(r.get('Official')).lower() == 'true', 'parts': {}})
+            part = _text(r.get('Type'))
+            if part in song['parts']:
+                continue
+            song['parts'][part] = {'code': str(r['Code']), 'd': r['D'] if _isnum(r.get('D')) else None,
+                                   'pct': int(r['Pct']) if _isnum(r.get('Pct')) else None,
+                                   'tier': int(r['CalcTier']) if _isnum(r.get('CalcTier')) else None,
+                                   'sheet': next((n for n, f in sheets.items() if f is df), '')}
+    return out
 
 
 # One line per part for the preview: its Expert chart, else its highest level.
@@ -360,15 +431,19 @@ def share_line(line):
 # The tags a preview reads: the song as the title, the parts' lines as the
 # description, the page's own address as canonical and og:url. No image: the
 # site's one PNG is another song's graph.
-def song_meta(key, title, description):
+def song_meta(key, title, description, image=None):
     tags = [f'<meta name="description" content="{html.escape(description)}">']
     if config.SITE_URL:
-        url = f'{config.SITE_URL.rstrip("/")}/{SONG_DIR}/{key}.html'
+        base = config.SITE_URL.rstrip('/')
+        url = f'{base}/{SONG_DIR}/{key}.html'
         tags.append(f'<link rel="canonical" href="{html.escape(url)}">')
-        for prop, content in (('og:type', 'website'), ('og:url', url), ('og:site_name', config.SITE_NAME),
-                              ('og:title', title), ('og:description', description)):
+        props = [('og:type', 'website'), ('og:url', url), ('og:site_name', config.SITE_NAME),
+                 ('og:title', title), ('og:description', description)]
+        if image:
+            props.append(('og:image', f'{base}/{assets.GRAPH_DIR}/{image}.png'))
+        for prop, content in props:
             tags.append(f'<meta property="{prop}" content="{html.escape(content)}">')
-        tags.append('<meta name="twitter:card" content="summary">')
+        tags.append('<meta name="twitter:card" content="summary_large_image">' if image else '<meta name="twitter:card" content="summary">')
     return '\n'.join(tags)
 
 
@@ -403,10 +478,13 @@ def song_table(fact):
             '    <tbody>\n' + '\n'.join(rows) + '\n    </tbody>\n  </table></div>')
 
 
-def song_ld(key, fact):
+def song_ld(key, fact, image=None):
+    base = config.SITE_URL.rstrip('/') if config.SITE_URL else ''
     ld = {'@context': 'https://schema.org', '@type': 'MusicRecording', 'name': fact['title'],
-          'url': f'{config.SITE_URL.rstrip("/")}/{SONG_DIR}/{key}.html' if config.SITE_URL else f'{SONG_DIR}/{key}.html',
+          'url': f'{base}/{SONG_DIR}/{key}.html' if base else f'{SONG_DIR}/{key}.html',
           'description': '; '.join(share_lines(fact))}
+    if image:
+        ld['image'] = f'{base}/{assets.GRAPH_DIR}/{image}.png' if base else f'{assets.GRAPH_DIR}/{image}.png'
     if fact['artist']:
         ld['byArtist'] = {'@type': 'MusicGroup', 'name': fact['artist']}
     if fact['album']:
@@ -414,35 +492,83 @@ def song_ld(key, fact):
     return json.dumps(ld, ensure_ascii=False).replace('<', '\\u003c')
 
 
-def render_song_page(key, fact, names):
+# The song in words (section 22): one sentence per part, the numbers the
+# table shows read out, so the page says something a search can match.
+def song_sentences(fact):
+    ui = labels.UI
+    levels = list(reversed(labels.VALUE_ORDER['Level']))
+    out = []
+    for part in fact['parts']:
+        level = next((l for l in levels if l in part['levels']), None)
+        if level is None:
+            continue
+        chart = part['levels'][level]
+        if chart['d'] is None:
+            continue
+        sheet = chart.get('sheet') or ''
+        if part['tier'] is not None and chart['pct'] is not None:
+            out.append(ui['song_sentence'].format(level=level, type=part['type'], d=f'{chart["d"]:.2f}', tier=part['tier'], pct=chart['pct'], sheet=sheet))
+        elif chart['pct'] is not None:
+            out.append(ui['song_sentence_pct'].format(level=level, type=part['type'], d=f'{chart["d"]:.2f}', pct=chart['pct'], sheet=sheet))
+        elif part['tier'] is not None:
+            out.append(ui['song_sentence_tier'].format(level=level, type=part['type'], d=f'{chart["d"]:.2f}', tier=part['tier']))
+        else:
+            out.append(ui['song_sentence_d'].format(level=level, type=part['type'], d=f'{chart["d"]:.2f}'))
+    return out
+
+
+def render_song_page(key, fact, names, game=None):
     ui = labels.UI
     by = f'{fact["title"]} by {fact["artist"]}' if fact['artist'] else fact['title']
     lines = share_lines(fact)
     kind = labels.VALUE_LABELS.get('Official', {}).get('true' if fact['official'] else 'false', '')
     facts = [v for v in (fact['charter'], fact['release'], kind, fact['album'],
                          str(fact['year']) if fact['year'] else '', fact['genre']) if v]
+    image = song_image_code(fact)
+    # the picture: the first part's Expert graph, drawn by publish as a PNG (Built.png_codes)
+    picture = ('' if image is None else
+               f'<p class="pic"><a href="./?code={html.escape(image)}"><img src="graph/{html.escape(image)}.png" width="1920" height="840" loading="lazy" '
+               f'alt="{html.escape(labels.t_graph_alt(by))}"></a></p>')
+    # the game it came in, when the registry names one
+    where = ''
+    if game:
+        # the anchor is built here: rich_text admits bare page names only, and this one is under game/
+        before, _, after = ui['song_game'].partition('{game}')
+        where = ('<p class="game">' + html.escape(before) +
+                 f'<a href="{GAME_DIR}/{html.escape(game["slug"])}.html">{html.escape(game["name"])}</a>' + html.escape(after) + '</p>')
     values = {
         'TITLE': html.escape(ui['song_page_title'].format(song=by, site=config.SITE_NAME)),
         'FAVICON': names['favicon'],
-        'META': song_meta(key, by, '; '.join(lines)),
+        'META': song_meta(key, by, '; '.join(lines), image),
         'THEME': THEME_SCRIPT,
-        'LD': song_ld(key, fact),
+        'LD': song_ld(key, fact, image),
         'BRAND': html.escape(config.SITE_NAME),
         'KEY': key,
         'SONG': html.escape(fact['title']),
         'ARTIST': html.escape(fact['artist']),
         'FACTS': html.escape(' / '.join(facts)),
+        'SENTENCES': ' '.join(html.escape(t) for t in song_sentences(fact)),
+        'PICTURE': picture,
         'TABLE': song_table(fact),
+        'GAME': where,
         'NOTE': rich_text(ui['song_note']),
         'OPEN': html.escape(ui['share_open'].format(site=config.SITE_NAME)),
     }
     return fill(assets.read_text('song.html'), values)
 
 
-def render_song_pages(sheets, names, facts=None):
+def render_song_pages(sheets, names, facts=None, resolved=None):
     if facts is None:
         facts = song_facts(sheets)
-    return {f'{SONG_DIR}/{key}.html': render_song_page(key, fact, names) for key, fact in facts.items()}
+    games = {}
+    if resolved is not None:
+        slugs = pack_slugs(resolved)
+        by_folder = resolved.registry.by_folder
+        for key, fact in facts.items():
+            folder = resolved.folder_by_code.get(fact['code'])
+            if folder in slugs:
+                games[key] = {'name': by_folder[folder].name, 'slug': slugs[folder]}
+    return {f'{SONG_DIR}/{key}.html': render_song_page(key, fact, names, games.get(key)) for key, fact in facts.items()}
 
 
 # Every song, A to Z by title, each a link to its page: the crawl path to the
@@ -480,7 +606,7 @@ def render_songs_index(facts, names):
                         for title, artist, key in groups[g])
         parts.append(f'  <ul class="songs">{items}</ul>')
     body = '<div class="lib">\n' + '\n'.join(parts) + '\n</div>'
-    return render_doc(SONGS_PAGE, ui['songs'], body, names)
+    return render_doc(SONGS_PAGE, ui['songs'], body, names, page_title=ui['songs_title'], description=ui['songs_desc'].format(n=f'{len(entries):,}'))
 
 
 # Every page a crawler may index: the charts page, the document pages, the
@@ -490,7 +616,8 @@ def render_sitemap(files, lastmod=None):
     when = f'<lastmod>{lastmod:%Y-%m-%d}</lastmod>' if lastmod else ''
     urls = ['']
     urls += [name for name, _ in labels.DOC_PAGES if name in files]
-    urls += sorted(name for name in files if name.startswith(SONG_DIR + '/'))
+    for folder in (GAME_DIR, LIST_DIR, SONG_DIR):
+        urls += sorted(name for name in files if name.startswith(folder + '/'))
     body = ''.join(f'<url><loc>{html.escape(base + "/" + name)}</loc>{when}</url>\n' for name in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + body + '</urlset>\n').encode('utf-8')
@@ -501,6 +628,132 @@ def sheet_date(header, xlsx_path):
         return datetime.datetime.strptime(timestamp.ext_ts(xlsx_path, 'metrics', header), timestamp.TS_FORMAT).date()
     except (ValueError, TypeError):
         return None
+
+
+# --- a page per game or pack, and the ranked lists (section 22) --------------------------
+
+GAME_DIR = assets.GAME_DIR
+LIST_DIR = assets.LIST_DIR
+LIST_MOST = 100
+
+
+# A chart in a cell: D linking its graph, the percentile beneath; the dash for none.
+def _chart_html(chart):
+    if chart is None or chart['d'] is None:
+        return labels.MISSING_TEXT
+    pct = '' if chart['pct'] is None else f'<small>{chart["pct"]}%</small>'
+    return f'<a href="./?code={html.escape(chart["code"])}">{chart["d"]:.2f}</a>{pct}'
+
+
+def _kind_of(songs):
+    official = sum(1 for s in songs.values() if s['official'])
+    return _kind_label(official, len(songs) - official)
+
+
+# The pack's songs ranked by their Expert guitar D (the first part in
+# VALUE_ORDER on the Guitar sheet, Lead), the bass and keys beside; songs with
+# no guitar Expert follow, by their best other part. Each song links its page,
+# each number the chart's graph.
+def render_game_page(pack, slug_, songs, names, tally):
+    ui = labels.UI
+    types = list(labels.VALUE_ORDER.get('Type', ()))
+    guitar_parts = [t for t in types if t not in ('Bass', 'Keys', 'Drums')]
+
+    def best(song, parts):
+        charts = [song['parts'][t] for t in parts if t in song['parts'] and song['parts'][t]['d'] is not None]
+        return max(charts, key=lambda c: c['d']) if charts else None
+    ranked = []
+    for key, song in songs.items():
+        g = best(song, guitar_parts)
+        other = best(song, ['Bass', 'Keys'])
+        ranked.append((0 if g else 1, -(g['d'] if g else (other['d'] if other else 0)), song['title'].casefold(), key, song, g))
+    ranked.sort()
+    head = [('#', 'r'), (labels.label('Song Title'), ''), (labels.label('Artist'), ''), (labels.label('D'), 'r'),
+            (labels.label('CalcTier'), 'r'), ('Bass', 'r'), ('Keys', 'r')]
+    rows = []
+    for n, (_, _, _, key, song, g) in enumerate(ranked, 1):
+        tier = labels.MISSING_TEXT if g is None or g['tier'] is None else str(g['tier'])
+        rows.append([str(n), f'<a href="{SONG_DIR}/{key}.html">{html.escape(song["title"])}</a>', html.escape(song['artist']),
+                     _chart_html(g), tier, _chart_html(song['parts'].get('Bass')), _chart_html(song['parts'].get('Keys'))])
+    n_songs, n_charts = tally.get(pack.folder, (len(songs), 0))
+    facts = ui['game_facts'].format(songs=_n(n_songs), charts=_n(n_charts), kind=_kind_of(songs).lower(), date=fmt_date(pack.added))
+    parts = [f'  <p class="intro">{html.escape(ui["game_intro"].format(game=pack.name))}</p>',
+             '  <p class="totals">' + html.escape(facts) + (f' <a href="{html.escape(pack.source)}" rel="noopener">{html.escape(ui["library_source"])}</a>' if pack.source else '') + '</p>',
+             _table(head, rows)]
+    if any(g is None for *_, g in ranked):
+        parts.append(f'  <p class="note">{html.escape(ui["game_no_guitar"])}</p>')
+    body = '<div class="lib">\n' + '\n'.join(parts) + '\n</div>'
+    title = ui['game_title'].format(game=pack.name)
+    return render_doc(f'{GAME_DIR}/{slug_}.html', pack.name, body, names, page_title=title,
+                      description=f'{title}: {facts}.')
+
+
+def render_game_pages(sheets, resolved, names):
+    slugs = pack_slugs(resolved)
+    by_folder = charts_by_folder(sheets, resolved)
+    tally = packs.tally(resolved, frames.codes_in(sheets))
+    out = {}
+    for pack in resolved.registry.packs:
+        songs = by_folder.get(pack.folder)
+        if not songs:
+            continue
+        out[f'{GAME_DIR}/{slugs[pack.folder]}.html'] = render_game_page(pack, slugs[pack.folder], songs, names, tally)
+    return out
+
+
+# The lists: per sheet, the hardest official songs, the hardest customs and
+# the easiest official songs on Expert, one entry per song at its hardest (or
+# easiest) part, LIST_MOST at most. The game column links the pack's page.
+LISTS = (('hardest', True, False), ('hardest-customs', False, False), ('easiest', True, True))
+
+
+def list_slug(kind, sheet):
+    return f'{kind}-{slug(sheet)}'
+
+
+def render_list_pages(sheets, resolved, names):
+    ui = labels.UI
+    slugs = pack_slugs(resolved)
+    by_name = resolved.registry.by_folder
+    by_folder = charts_by_folder(sheets, resolved)
+    out = {}
+    for sheet in sheets:
+        # every Expert chart on this sheet, by song, keeping each song's extreme
+        entries = {}
+        for folder, songs in by_folder.items():
+            for key, song in songs.items():
+                for chart in song['parts'].values():
+                    if chart['sheet'] != sheet or chart['d'] is None:
+                        continue
+                    entries.setdefault(key, []).append((chart, song, folder))
+        for kind, official, easiest in LISTS:
+            pool = []
+            for key, charts in entries.items():
+                charts = [c for c in charts if c[1]['official'] == official]
+                if not charts:
+                    continue
+                pool.append((key, (min if easiest else max)(charts, key=lambda c: c[0]['d'])))
+            pool.sort(key=lambda e: (e[1][0]['d'], e[1][1]['title'].casefold()), reverse=not easiest)
+            pool = pool[:LIST_MOST]
+            if not pool:
+                continue
+            title_key = 'list_easiest' if easiest else ('list_hardest' if official else 'list_hardest_custom')
+            title = ui[title_key].format(n=len(pool), sheet=sheet.lower())
+            intro = ui['list_intro_official' if official else 'list_intro_custom'].format(sheet=sheet.lower())
+            head = [('#', 'r'), (labels.label('Song Title'), ''), (labels.label('Artist'), ''), (ui['list_game'], ''),
+                    (labels.label('Type'), ''), (labels.label('D'), 'r'), (labels.label('CalcTier'), 'r')]
+            rows = []
+            for n, (key, (chart, song, folder)) in enumerate(pool, 1):
+                game = (f'<a href="{GAME_DIR}/{slugs[folder]}.html">{html.escape(by_name[folder].name)}</a>'
+                        if folder in slugs else html.escape(_text(by_name[folder].name) if folder in by_name else ''))
+                part = next((t for t, c in song['parts'].items() if c is chart), '')
+                tier = labels.MISSING_TEXT if chart['tier'] is None else str(chart['tier'])
+                rows.append([str(n), f'<a href="{SONG_DIR}/{key}.html">{html.escape(song["title"])}</a>', html.escape(song['artist']),
+                             game, html.escape(part), _chart_html(chart), tier])
+            body = '<div class="lib">\n' + f'  <p class="intro">{html.escape(intro)}</p>\n' + _table(head, rows) + '\n</div>'
+            out[f'{LIST_DIR}/{list_slug(kind, sheet)}.html'] = render_doc(
+                f'{LIST_DIR}/{list_slug(kind, sheet)}.html', title, body, names, description=f'{title}, by fretwork\u2019s difficulty D.')
+    return out
 
 
 # --- the library page (section 20) --------------------------------------------------
@@ -634,24 +887,32 @@ def render_library(resolved, sheets, names):
             rows.append([_n(rank), title, html.escape(r['artist']), html.escape(r['type']), d, tier])
         parts.append(_table([('#', 'r'), (labels.label('Song Title'), ''), (labels.label('Artist'), ''),
                              (labels.label('Type'), ''), (labels.label('D'), 'r'), (labels.label('CalcTier'), 'r')], rows))
+        # the full lists (section 22)
+        links = [f'<a href="{LIST_DIR}/{list_slug(kind, sheet)}.html">{html.escape(ui[key].format(n=ui["list_full"], sheet=sheet.lower()))}</a>'
+                 for kind, key in (('hardest', 'list_hardest'), ('hardest-customs', 'list_hardest_custom'), ('easiest', 'list_easiest'))]
+        parts.append('  <p class="note">' + ' <span class="sep">/</span> '.join(links) + '</p>')
 
     # the packs, in the registry's order
     parts += [f'  <h2>{html.escape(ui["library_packs"])}</h2>',
               f'  <p class="note">{rich_text(ui["library_packs_note"])}</p>']
     by_folder = pack_kinds(resolved, sheets)
+    slugs = pack_slugs(resolved)
     rows = []
     for pack in registry.packs:
         songs, charts = tally[pack.folder]
+        # the name to the pack's page (section 22), the date to the table on the Expert charts added with it
+        name = f'<a href="{GAME_DIR}/{slugs[pack.folder]}.html">{html.escape(pack.name)}</a>'
         href = f'./?f.Added={pack.added.strftime(packs.DATE)}&amp;f.Level=Expert'
-        name = f'<a href="{href}" title="{html.escape(ui["changelog_date_tip"])}">{html.escape(pack.name)}</a>'
+        date = f'<a href="{href}" title="{html.escape(ui["changelog_date_tip"])}">{html.escape(pack.added.strftime(packs.DATE))}</a>'
         source = (f'<a href="{html.escape(pack.source)}" rel="noopener">{html.escape(ui["library_source"])}</a>'
                   if pack.source else '')
-        rows.append([name, html.escape(pack.added.strftime(packs.DATE)), _n(songs), _n(charts),
+        rows.append([name, date, _n(songs), _n(charts),
                      html.escape(_kind_label(*by_folder.get(pack.folder, (0, 0)))), source])
     parts.append(_table([(ui['library_pack'], ''), (labels.label('Added'), 'nw'), (ui['library_songs'], 'r'),
                          (ui['library_charts'], 'r'), (labels.label('Official'), ''), (ui['library_source'], '')], rows))
     body = '<div class="lib">\n' + '\n'.join(parts) + '\n</div>'
-    return render_doc(LIBRARY_PAGE, ui['library'], body, names)
+    return render_doc(LIBRARY_PAGE, ui['library'], body, names, page_title=ui['library_title'],
+                      description=ui['library_desc'].format(charts=_n(stats['rows']), songs=_n(stats['songs']), packs=_n(len(registry.packs))))
 
 
 # The library page exists exactly when the changelog does: both need the pack join.
@@ -714,9 +975,14 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_p
     files.update(changelog_pages(resolved, sheets, names))
     files.update(library_pages(resolved, sheets, names))
     facts = song_facts(sheets)
-    files.update(render_song_pages(sheets, names, facts))
+    files.update(render_song_pages(sheets, names, facts, resolved))
     if facts:
         files[SONGS_PAGE] = render_songs_index(facts, names)
+    if resolved is not None:
+        files.update(render_game_pages(sheets, resolved, names))
+        files.update(render_list_pages(sheets, resolved, names))
+    # the graphs publish draws as PNGs: the social preview and each song page's picture (section 22)
+    png_codes = list(dict.fromkeys([OG_CODE] + [c for c in (song_image_code(f) for f in facts.values()) if c]))
     if config.SITE_URL:
         files[SITEMAP] = render_sitemap(files, sheet_date(header, xlsx_path))
     files['robots.txt'] = robots_txt().encode('utf-8')
@@ -727,4 +993,4 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_p
                                       boot.boot_json(manifest, sheet_of_code(sheets), links_file, doc_pages,
                                                      site_url=config.SITE_URL if public else None),
                                       public, linked=resolved is not None)
-    return Built(xlsx_path, sheets, total, files)
+    return Built(xlsx_path, sheets, total, files, png_codes)

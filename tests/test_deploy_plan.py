@@ -29,7 +29,7 @@ class PlanTest(unittest.TestCase):
         self.assertEqual(pages[3:5], ['site/X/', 's3://b/'])
         self.assertIn('--delete', pages)
         excludes = [pages[i + 1] for i, a in enumerate(pages) if a == '--exclude']
-        self.assertEqual(excludes, ['graph/*', 'song/*', 'static/*', 'data/*'])
+        self.assertEqual(excludes, ['graph/*', 'song/*', 'game/*', 'list/*', 'static/*', 'data/*'])
         self.assertEqual(pages[pages.index('--cache-control') + 1], assets.CACHE_PAGE)
         self.assertEqual(create[3:], ['--distribution-id', 'E1X', '--paths', '/*', '--output', 'json'])
         self.assertEqual(wait[3:], ['invalidation-completed', '--distribution-id', 'E1X', '--id', '<pending>'])
@@ -56,6 +56,9 @@ class PlanTest(unittest.TestCase):
             for d in ('static', 'data', 'song'):
                 (site / d).mkdir()
             self.assertEqual(len(deploy.plan('b', None, site, dry_run=True)), 7)
+            (site / 'game').mkdir()
+            (site / 'list').mkdir()
+            self.assertEqual(len(deploy.plan('b', None, site, dry_run=True)), 9)   # graph, song, game, list, static, data, pages, two deletes
             self.assertEqual(deploy.skipped_dirs(site), [])
 
     def test_six_without_a_distribution(self):

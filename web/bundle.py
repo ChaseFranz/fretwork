@@ -42,12 +42,12 @@ def write_if_changed(path, data):
 # hashed asset or sheet, bootstrap.css from before it moved under static/ -
 # would otherwise sit in the folder forever and go on being uploaded. Only the
 # page's own territory is swept: the top-level files it writes and everything
-# under static/, data/ and song/ (a page per song, section 16), plus a
+# under static/, data/, song/, game/ and list/ (the pages per song, per pack and the lists, sections 16 and 22), plus a
 # directory that sweep has emptied. graph/ has its own pruning, with its own
 # rules, and is never touched from here.
 PAGE_TOP = ('index.html', '404.html', 'about.html', 'changelog.html', 'library.html', 'songs.html', 'methodology.html',
             'robots.txt', 'sitemap.xml', 'bootstrap.css')
-SWEPT_DIRS = (*assets.IMMUTABLE_DIRS, assets.SONG_DIR)
+SWEPT_DIRS = (*assets.IMMUTABLE_DIRS, assets.SONG_DIR, assets.GAME_DIR, assets.LIST_DIR)
 
 
 def prune_page(out, files):

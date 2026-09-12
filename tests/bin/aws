@@ -23,7 +23,7 @@ TYPES = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
 def cache_class(key):
     if key.startswith(('static/', 'data/')):
         return 'public, max-age=31536000, immutable'
-    if key.startswith(('graph/', 'song/')):
+    if key.startswith(('graph/', 'song/', 'game/', 'list/')):
         return 'public, max-age=604800'
     return 'no-cache'
 

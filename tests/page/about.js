@@ -41,6 +41,16 @@ for (const [page, key] of BOOT.docPages || []) {
   say("the library page has its five blocks", d.querySelectorAll("h2").length === 5, d.querySelectorAll("h2").length);
   say("a bar per tier, the widest full", d.querySelectorAll(".bar").length > 0 && [...d.querySelectorAll(".bar")].some(b => b.style.width === "100%"));
   say("the hardest charts link into the table and to their song pages", [...d.querySelectorAll('a[href^="./?code="]')].length >= 1 && [...d.querySelectorAll('a[href^="song/"]')].length >= 1);
+  // section 22: the packs link their pages, the hardest blocks their lists, and both resolve as pages
+  const game = d.querySelector('a[href^="game/"]'), list = d.querySelector('a[href^="list/"]');
+  say("the library links the packs to their pages and the hardest to the lists", !!game && !!list, (game && game.getAttribute("href")) + " " + (list && list.getAttribute("href")));
+  for (const a of [game, list]) {
+    if (!a) continue;
+    const rr = await fetch(a.getAttribute("href"));
+    const dd = new DOMParser().parseFromString(await rr.text(), "text/html");
+    say(a.getAttribute("href") + " is a page with a base, a title and song links", rr.status === 200 && dd.querySelector("base") &&
+        dd.querySelector("base").getAttribute("href") === "../" && dd.title.includes("Fretladder") && dd.querySelectorAll('a[href^="song/"]').length >= 1, rr.status);
+  }
   say("the totals are the strapline's count", d.querySelector("p.totals") && d.querySelector("p.totals").textContent.includes(
       Object.values(BOOT.data).reduce((n, s) => n + s.rows, 0).toLocaleString("en-US") + " charts"), d.querySelector("p.totals") && d.querySelector("p.totals").textContent);
 }

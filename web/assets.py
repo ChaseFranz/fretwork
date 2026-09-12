@@ -38,7 +38,9 @@ CACHE_GRAPHS = CACHE_WEEK
 IMMUTABLE_DIRS = ('static', 'data')
 GRAPH_DIR = 'graph'
 SONG_DIR = 'song'                                        # a page per song (section 16), the week class like graph/
-WEEK_DIRS = (GRAPH_DIR, SONG_DIR)
+GAME_DIR = 'game'                                        # a page per pack (section 22)
+LIST_DIR = 'list'                                        # the ranked lists (section 22)
+WEEK_DIRS = (GRAPH_DIR, SONG_DIR, GAME_DIR, LIST_DIR)
 
 
 def content_type(name):

@@ -55,7 +55,7 @@ import config
 from functions import envfile
 from publish import publish
 from web import assets
-from web.assets import CACHE_WEEK, CACHE_IMMUTABLE, CACHE_PAGE, IMMUTABLE_DIRS, SONG_DIR
+from web.assets import CACHE_WEEK, CACHE_IMMUTABLE, CACHE_PAGE, IMMUTABLE_DIRS, WEEK_DIRS, SONG_DIR, GAME_DIR, LIST_DIR
 
 ENV_FILE = '.env'
 AWS_ENV = ('AWS_PROFILE', 'AWS_REGION', 'AWS_DEFAULT_REGION')
@@ -64,7 +64,7 @@ BUCKET_RE = re.compile(r'^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$')
 # the entry pages publish writes, plus the three directories; a new page joins
 # this set and bundle.PAGE_TOP in the same change
 BUNDLE_TOP = {'index.html', '404.html', 'about.html', 'changelog.html', 'library.html', 'songs.html', 'methodology.html', 'robots.txt',
-              'sitemap.xml', 'static', 'data', 'graph', SONG_DIR}
+              'sitemap.xml', 'static', 'data', 'graph', SONG_DIR, GAME_DIR, LIST_DIR}
 REQUIRED = ('index.html', 'graph/manifest.json')                   # proof it came from publish
 GRAPHS = assets.GRAPH_DIR
 
@@ -77,13 +77,15 @@ HEADER_PASSES = (
     # prefix, cache, globs
     (f'{GRAPHS}/', CACHE_WEEK, ('*.png', '*.json')),
     (f'{SONG_DIR}/', CACHE_WEEK, ('*.html',)),
+    (f'{GAME_DIR}/', CACHE_WEEK, ('*.html',)),
+    (f'{LIST_DIR}/', CACHE_WEEK, ('*.html',)),
     ('static/', CACHE_IMMUTABLE, ('*.js', '*.css', '*.svg')),
     ('data/', CACHE_IMMUTABLE, ('*.json',)),
     ('', CACHE_PAGE, ('*.html', '*.txt', '*.xml')),
 )
 # one sample of each kind verify() asks S3 about, as a glob under the site folder
 SAMPLES = ('index.html', 'robots.txt', 'sitemap.xml', 'static/*.js', 'static/*.css', 'static/*.svg',
-           'data/*.json', f'{GRAPHS}/*.png', f'{GRAPHS}/*.json', f'{SONG_DIR}/*.html')
+           'data/*.json', f'{GRAPHS}/*.png', f'{GRAPHS}/*.json', f'{SONG_DIR}/*.html', f'{GAME_DIR}/*.html', f'{LIST_DIR}/*.html')
 
 
 def settings(env_path):
@@ -193,19 +195,20 @@ def verify(bucket, site_dir):
 # create call's output at run time; the plan shows it as <pending>.
 def plan(bucket, distribution, site_dir, dry_run=False, present=None):
     site = pathlib.Path(site_dir)
-    have = present if present is not None else {d for d in (*IMMUTABLE_DIRS, SONG_DIR) if (site / d).is_dir()}
+    have = present if present is not None else {d for d in (*IMMUTABLE_DIRS, *WEEK_DIRS) if (site / d).is_dir()}
     dry = ['--dryrun'] if dry_run else []
     immutable = [['aws', 's3', 'sync', f"{site_dir}/{d}/", f"s3://{bucket}/{d}/",
                   '--cache-control', CACHE_IMMUTABLE] + dry
                  for d in IMMUTABLE_DIRS if d in have]
-    # the week class: graph/ always, song/ when the library has song keys; both
-    # derived per chart or per song, so a page that leaves the library leaves the bucket
+    # the week class: graph/ always, song/, game/ and list/ when the library
+    # has them; all derived per chart, per song or per pack, so a page that
+    # leaves the library leaves the bucket
     cmds = [['aws', 's3', 'sync', f"{site_dir}/{d}/", f"s3://{bucket}/{d}/",
              '--delete', '--cache-control', CACHE_WEEK] + dry
-            for d in (GRAPHS, SONG_DIR) if d == GRAPHS or d in have]
+            for d in WEEK_DIRS if d == GRAPHS or d in have]
     cmds += immutable
     cmds.append(['aws', 's3', 'sync', f"{site_dir}/", f"s3://{bucket}/", '--delete']
-                + [arg for d in (GRAPHS, SONG_DIR, *IMMUTABLE_DIRS) for arg in ('--exclude', f'{d}/*')]
+                + [arg for d in (*WEEK_DIRS, *IMMUTABLE_DIRS) for arg in ('--exclude', f'{d}/*')]
                 + ['--cache-control', CACHE_PAGE] + dry)
     if distribution:
         cmds.append(['aws', 'cloudfront', 'create-invalidation',
