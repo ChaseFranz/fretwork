@@ -459,6 +459,11 @@ UI = {
     'compare_remove':   'Remove {code} from the graph',
     'compare_missing':  'No graph for {code}',
     'song_compare':     'Compare all levels',
+    'song_compare_tip': 'Overlay this instrument\u2019s levels on one graph: {levels}',
+    'song_compare_off': 'Back to one chart',
+    'song_on_graph':    'On the graph as {letter}: click to take it off',
+    'song_add':         'Click to add this chart to the graph',
+    'song_open':        'Click to open this chart',
 
     # the details pane under the table: the graph and every chart of the song
     'pane_label':       'Chart details',

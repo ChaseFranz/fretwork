@@ -5,10 +5,21 @@
 // apart by the code prefix, and the one the open chart is in heads the list.
 // Markup only, from the rows already loaded (the pane calls loadAll() first):
 // nothing here imports pane.js, so the bundle has no cycle.
-import { SHEETS, UI, LEVELS, VALUE_ORDER, VALUE_LABELS, MISS_TEXT } from "./boot.js";
+import { SHEETS, UI, LEVELS, VALUE_ORDER, VALUE_LABELS, MISS_TEXT, RENDER } from "./boot.js";
 import { esc } from "./dom.js";
 import { t, lab, decimals, isMissing } from "./format.js";
+import { G_LETTERS, G_SERIES, G_MOST } from "./graph.js";
 import { state } from "./state.js";
+
+// What the graph holds, so the grid can mirror the legend: in compare mode
+// (two or more charts) each code's letter and colour; one chart alone is
+// browsing, not comparing, and gets the ring and nothing else.
+export function onGraph() {
+  const codes = [state.graph, ...state.compare].filter(Boolean);
+  const comparing = codes.length > 1;
+  return { codes, comparing, full: codes.length >= G_MOST,
+    mark: new Map(comparing ? codes.map((c, k) => [c, { letter: G_LETTERS[k], colour: RENDER[G_SERIES[k]] }]) : []) };
+}
 
 // Every row carrying the key, in sheet order, as {sheet, columns, row}.
 export function chartsOf(key) {
@@ -72,8 +83,14 @@ export function primaryCode(key) {
 
 // The grid for the primary folder's charts: a blank for a level the
 // instrument lacks, the tier once per instrument, since it is the same number
-// on every level of one.
+// on every level of one. The cells are the compare controls too: in compare
+// mode a cell on the graph wears its series colour and letter (its click takes
+// it off), one not on it adds itself (disabled at three, with the tip saying
+// so); with one chart up a cell just opens its chart. The instrument's button
+// puts its levels up, three at most, and is pressed while they are, when it
+// takes them down again.
 function grid(charts, here) {
+  const { comparing, full, mark } = onGraph();
   const types = typesOf(charts);
   let out = '<div class="sgrid" role="grid" aria-label="' + esc(UI.song_grid_label) + '"><div class="corner"></div>' +
     LEVELS.map(l => '<div class="lvlh ' + esc(l) + '">' + esc(l) + "</div>").join("");
@@ -81,9 +98,16 @@ function grid(charts, here) {
     const own = charts.filter(c => cell(c, "Type") === ty);
     const tier = own.map(c => cell(c, "CalcTier")).find(v => typeof v === "number");
     out += '<div class="inst">' + esc(ty) + (typeof tier === "number" ? ' <span class="tier">' + esc(t("song_tier", { n: tier })) + "</span>" : "");
-    const codes = LEVELS.map(l => own.find(c => cell(c, "Level") === l)).filter(Boolean).map(c => cell(c, "Code"));
-    if (codes.length > 1)
-      out += ' <button type="button" class="cmp" data-cmp="' + esc(codes.slice(0, 3).join(",")) + '">' + esc(UI.song_compare) + "</button>";
+    const levels = LEVELS.map(l => own.find(c => cell(c, "Level") === l)).filter(Boolean);
+    const codes = levels.slice(0, G_MOST).map(c => cell(c, "Code"));
+    if (codes.length > 1) {
+      const pressed = comparing && codes.every(c => mark.has(c));
+      const names = levels.slice(0, G_MOST).map(c => cell(c, "Level"));
+      const tip = pressed ? UI.song_compare_off
+        : t("song_compare_tip", { levels: names.slice(0, -1).join(", ") + " and " + names[names.length - 1] });
+      out += ' <button type="button" class="cmp" data-cmp="' + esc(codes.join(",")) + '" aria-pressed="' + (pressed ? "true" : "false") +
+        '" title="' + esc(tip) + '">' + esc(UI.song_compare) + "</button>";
+    }
     out += "</div>";
     for (const level of LEVELS) {
       const c = own.find(x => cell(x, "Level") === level);
@@ -92,8 +116,12 @@ function grid(charts, here) {
         continue;
       }
       const code = cell(c, "Code"), d = cell(c, "D"), pct = cell(c, "Pct");
-      out += '<button type="button" class="cell' + (code === here ? " here" : "") + '" data-code="' + esc(code) + '"' +
-        (code === here ? ' aria-current="true"' : "") + "><b>" +
+      const m = mark.get(code);
+      const off = comparing && full && !m;
+      const tip = m ? t("song_on_graph", { letter: m.letter }) : off ? UI.compare_full : comparing ? UI.song_add : UI.song_open;
+      out += '<button type="button" class="cell' + (code === here ? " here" : "") + (m ? " on" : "") + '" data-code="' + esc(code) + '"' +
+        (code === here ? ' aria-current="true"' : "") + (m ? ' style="--sc:' + esc(m.colour) + '"' : "") + (off ? " disabled" : "") +
+        ' title="' + esc(tip) + '"><b>' + (m ? '<i class="sl">' + esc(m.letter) + "</i>" : "") +
         (typeof d === "number" ? esc(d.toFixed(decimals("D", c.sheet))) : esc(MISS_TEXT)) + "</b>" +
         (typeof pct === "number" ? "<small>" + esc(pct.toFixed(decimals("Pct", c.sheet))) + "</small>" : "") + "</button>";
     }

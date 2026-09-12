@@ -190,7 +190,13 @@ function gNames(charts) {
   return charts.map(c => c.row ? t(key, { level: gField(c, "Level"), type: gField(c, "Type") }) : c.code);
 }
 
-const gLetters = ["A", "B", "C"];
+// A compare's three series, in order: the letter the readout and legend use
+// and the profile key of its colour. The pane colours the charts from this and
+// the song grid marks its cells from it, so the three agree.
+export const G_LETTERS = ["A", "B", "C"];
+export const G_SERIES = ["color_d", "color_nps", "color_vps"];
+export const G_MOST = G_LETTERS.length;      // charts on one graph
+const gLetters = G_LETTERS;
 const gFix = v => v === null || v === undefined || Number.isNaN(v) ? MISS_TEXT : v.toFixed(2);
 
 // --- the mounted graph --------------------------------------------------------------

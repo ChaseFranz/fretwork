@@ -72,6 +72,7 @@ say("a compare button per instrument with more than one level", sbody().querySel
     [...sbody().querySelectorAll(".sgrid .cmp")].every(b => b.dataset.cmp.split(",").length >= 2 && b.dataset.cmp.split(",").length <= 3), sbody().querySelectorAll(".sgrid .cmp").length + " vs " + multi.length);
 
 // --- a cell swaps the graph in place -------------------------------------------------
+say("with one chart up the cells offer to open", cells().filter(c => c.dataset.code !== code).every(c => c.title === UI.song_open && !c.disabled && !c.classList.contains("on")));
 const other = cells().find(c => c.dataset.code !== code) || cells()[0];
 click(other);
 await wait(700);
@@ -81,15 +82,62 @@ say("the URL follows", params().get("code") === swapped, location.search);
 say("the mark moves to that cell", !!sbody().querySelector('.cell.here[data-code="' + swapped + '"]') && sbody().querySelectorAll(".cell.here").length === 1);
 const selRow = document.querySelector("#body tr.sel");
 say("the table's highlight follows when its row is on screen", onScreen.has(swapped) ? !!selRow && selRow.dataset.code === swapped : selRow === null, selRow && selRow.dataset.code);
+
+// --- compare mode: the grid mirrors the legend, the cells toggle ---------------------------
 if (multi.length) {
-  const cmp = sbody().querySelector(".sgrid .cmp");
-  const codes = cmp.dataset.cmp.split(",");
-  click(cmp);
+  const cmp = () => sbody().querySelector(".sgrid .cmp");
+  const codes = cmp().dataset.cmp.split(",");
+  say("the instrument's button is not pressed with one chart up", cmp().getAttribute("aria-pressed") === "false" && cmp().title.startsWith(UI.song_compare_tip.split("{")[0]), cmp().title);
+  click(cmp());
   await wait(800);
   say("Compare all levels overlays the instrument's levels", pane.classList.contains("on") &&
       gbody().fw && gbody().fw.charts.map(c => c.code).join() === codes.join(), gbody().fw && gbody().fw.charts.map(c => c.code).join());
   say("the legend names the levels alone", [...pane.querySelectorAll(".legend .lt")].every(e => LEVELS.includes(e.textContent.trim().split(" ").slice(1).join(" "))),
       [...pane.querySelectorAll(".legend .lt")].map(e => e.textContent.trim()).join(" | "));
+  say("the button is pressed while its levels are up", cmp().getAttribute("aria-pressed") === "true" && cmp().title === UI.song_compare_off, cmp().title);
+  const on = () => [...sbody().querySelectorAll(".sgrid .cell.on")];
+  say("each chart on the graph is marked in the grid, in legend order", on().map(c => c.dataset.code).join() === codes.join() &&
+      on().map(c => c.querySelector(".sl").textContent).join() === ["A", "B", "C"].slice(0, codes.length).join(), on().map(c => c.dataset.code + c.querySelector(".sl").textContent).join());
+  const swatches = [...pane.querySelectorAll(".legend .sw")].map(e => e.style.borderColor);
+  say("with the legend's colours", on().every((c, k) => c.style.getPropertyValue("--sc") && getComputedStyle(c).borderTopColor === swatches[k]),
+      on().map(c => getComputedStyle(c).borderTopColor).join(" | ") + " vs " + swatches.join(" | "));
+  say("the primary keeps its ring as well", sbody().querySelector(".cell.here.on") && sbody().querySelector(".cell.here").dataset.code === codes[0]);
+  say("an on-graph cell offers to take its chart off", on().every(c => c.title === UI.song_on_graph.replace("{letter}", c.querySelector(".sl").textContent)), on()[0].title);
+  const others = () => cells().filter(c => !c.classList.contains("on"));
+  if (codes.length >= 3) {
+    say("at three the other cells are disabled and say why", others().length === 0 || others().every(c => c.disabled && c.title === UI.compare_full), others().map(c => c.title).join(" | "));
+  } else {
+    say("under three the other cells offer to add", others().every(c => !c.disabled && c.title === UI.song_add), others().map(c => c.title).join(" | "));
+  }
+  // an on-graph extra clicked: off it comes, the graph and the marks follow
+  const extra = on()[1];
+  click(extra);
+  await wait(700);
+  say("clicking an on-graph cell takes it off the graph", gbody().fw.charts.map(c => c.code).join() === codes.filter(c => c !== extra.dataset.code).join() &&
+      !sbody().querySelector('.cell.on[data-code="' + extra.dataset.code + '"]'), gbody().fw.charts.map(c => c.code).join());
+  say("the button is no longer pressed", cmp().getAttribute("aria-pressed") === "false");
+  // a cell not on the graph clicked in compare mode: on it goes
+  const back = cells().find(c => c.dataset.code === extra.dataset.code);
+  say("its cell now offers to add", back.title === UI.song_add && !back.disabled, back.title);
+  click(back);
+  await wait(700);
+  say("clicking it again adds it back, as the last letter", gbody().fw.charts.map(c => c.code).pop() === extra.dataset.code &&
+      sbody().querySelector('.cell.on[data-code="' + extra.dataset.code + '"] .sl').textContent === ["A", "B", "C"][gbody().fw.charts.length - 1],
+      gbody().fw.charts.map(c => c.code).join());
+  // the primary clicked in compare mode: off it comes and the next is promoted
+  const primary = sbody().querySelector(".cell.here");
+  const next = gbody().fw.charts[1].code;
+  click(primary);
+  await wait(700);
+  say("clicking the primary's cell promotes the next chart", pane.getAttribute("aria-label").endsWith(": " + next) && sbody().querySelector(".cell.here").dataset.code === next, pane.getAttribute("aria-label"));
+  // the pressed button, pressed again: one chart
+  click(cmp());
+  await wait(700);
+  click(cmp());
+  await wait(700);
+  say("the pressed button takes its levels down to one chart", gbody().fw.charts.length === 1 && cmp().getAttribute("aria-pressed") === "false" && !sbody().querySelector(".cell.on"),
+      gbody().fw.charts.length);
+  say("and the cells offer to open again", cells().filter(c => !c.classList.contains("here")).every(c => c.title === UI.song_open && !c.disabled));
 }
 
 // --- Escape closes the pane and hands focus back ----------------------------------------

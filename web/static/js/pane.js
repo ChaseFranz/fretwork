@@ -15,14 +15,13 @@ import { cols, state, findRow, savePane } from "./state.js";
 import { writeUrl } from "./url.js";
 import { loadSheet, loadAll, loadLinks } from "./load.js";
 import { linkAnchors } from "./links.js";
-import { loadCurves, mountGraph, exportPng, outputFilename } from "./graph.js";
+import { loadCurves, mountGraph, exportPng, outputFilename, G_SERIES, G_MOST } from "./graph.js";
 import { songSection } from "./song.js";
 import { holdRow } from "./table.js";
 import { toast } from "./overlay.js";
 
 let controller = null;  // the mounted graph, while one is open
 let paneOpener = null;  // the row that opened the pane, for Escape
-const SERIES = ["color_d", "color_nps", "color_vps"];   // a compare's three colours, in order
 const PANE_MIN = 140;                                   // px; the smallest the grip drags to
 const SIDE_BY_SIDE = "(min-width: 900px)";              // the graph beside the song grid, else stacked
 
@@ -134,7 +133,6 @@ const paneButtons = () =>
   '<button type="button" class="x" data-act="close" aria-label="' + esc(UI.close_tip) + '" title="' + esc(UI.close_tip) + '">&times;</button></div>';
 
 const codesOpen = () => [state.graph, ...state.compare];
-const MOST = 3;                 // charts on one graph; the colours are the profile's three
 
 // Where the chart is published first, in the accent, then the graph's tools.
 // Compare is pick-from-the-table alone: the table's own search and filters
@@ -144,7 +142,7 @@ const MOST = 3;                 // charts on one graph; the colours are the prof
 // every add or remove, so the state is never stale.
 function toolRow(code) {
   const key = getter(code).get("SongKey");
-  const full = codesOpen().length >= MOST;
+  const full = codesOpen().length >= G_MOST;
   return '<div class="gtools">' + linkAnchors(key, "btn btn-sm btn-outline-primary ext") +
     '<button type="button" class="btn btn-sm btn-outline-secondary" data-act="pick"' + (full ? " disabled" : "") +
     ' title="' + esc(full ? UI.compare_full : UI.compare_pick_tip) + '">' + esc(UI.compare_pick) + "</button>" +
@@ -224,11 +222,12 @@ export function openPane(code, vs = state.compare, opts = {}) {
       state.compare = state.compare.filter(x => !lost.includes(x));
       writeUrl();
       refreshTools(code);
+      fillSong(code);
     }
     const charts = results.filter(r => r.curves).map((r, k) => {
       const found = findRow(r.code);
       return { code: r.code, row: found && found.row, columns: found && found.columns,
-               curves: r.curves, colour: RENDER[SERIES[k]] };
+               curves: r.curves, colour: RENDER[G_SERIES[k]] };
     });
     c.querySelector(".mmeta").outerHTML = metaLine(code, primary.curves.head);
     controller = mountGraph(c.querySelector(".gbody"), charts, {
@@ -277,7 +276,7 @@ export function closePane() {
 
 export function addCompare(code) {
   if (codesOpen().includes(code)) { toast(UI.compare_dup); return false; }
-  if (codesOpen().length >= MOST) { toast(UI.compare_full); return false; }
+  if (codesOpen().length >= G_MOST) { toast(UI.compare_full); return false; }
   openPane(state.graph, [...state.compare, code], { follow: true });
   return true;
 }
@@ -300,7 +299,7 @@ export function removeCompare(code) {
 // click joins the graph (or Escape cancels). The pane stays, so the second
 // chart is seen landing on the graph.
 export function startPicking() {
-  if (codesOpen().length >= MOST) { toast(UI.compare_full); return; }
+  if (codesOpen().length >= G_MOST) { toast(UI.compare_full); return; }
   const found = findRow(state.graph);
   const song = found ? found.row[found.columns.indexOf("Song Title")] : state.graph;
   state.picking = true;

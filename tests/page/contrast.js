@@ -126,6 +126,16 @@ if (firstRow) {
   check("song cell percentile", panel.querySelector(".sgrid .cell small") || panel.querySelector(".sgrid .cell b"));
   check("song blank cell", panel.querySelector(".sgrid .cell.none") || panel.querySelector(".sgrid .cell b"));
   for (const h of panel.querySelectorAll(".sgrid .lvlh")) check("level heading " + h.textContent, h);
+  // compare mode: the pressed instrument button and the cells' legend letters
+  // (a disabled cell is an inactive control, which AA exempts, and is not measured)
+  const cmp = panel.querySelector(".sgrid .cmp");
+  if (cmp) {
+    click(cmp);
+    await wait(800);
+    check("song compare button pressed", modal.querySelector('.sgrid .cmp[aria-pressed="true"]') || cmp, true);
+    check("song cell legend letter", modal.querySelector(".sgrid .cell.on .sl") || modal.querySelector(".sgrid .cell b"));
+    check("song on-graph cell D", modal.querySelector(".sgrid .cell.on b") || modal.querySelector(".sgrid .cell b"), true);
+  }
   key("Escape");
   await wait(100);
 }

@@ -9,7 +9,7 @@ import { t } from "./format.js";
 import { openDD, closeDD } from "./dropdown.js";
 import { toggleCD, closeCD } from "./chooser.js";
 import { openAbout, closeAbout, aboutIsOpen, toast } from "./overlay.js";
-import { openPane, closePane, paneIsOpen, addCompare, stopPicking } from "./pane.js";
+import { openPane, closePane, paneIsOpen, addCompare, removeCompare, stopPicking } from "./pane.js";
 import { state, idx } from "./state.js";
 import { draw, holdRow } from "./table.js";
 
@@ -47,10 +47,16 @@ function onClick(e) {
   const cmp = e.target.closest("#pane [data-cmp]");
   if (cmp) {
     const codes = cmp.dataset.cmp.split(",").filter(Boolean);
-    if (codes.length) openPane(codes[0], codes.slice(1));
+    if (!codes.length) return;
+    // pressed: its levels are up, so take them down to one chart, the primary
+    // when it is one of them
+    if (cmp.getAttribute("aria-pressed") === "true") openPane(codes.includes(state.graph) ? state.graph : codes[0], [], { follow: true });
+    else openPane(codes[0], codes.slice(1), { follow: true });
     return;
   }
-  const alt = e.target.closest("#pane .cell[data-code], #pane .copies a[data-code]");
+  const cellBtn = e.target.closest("#pane .cell[data-code]");
+  if (cellBtn) { chooseCell(cellBtn.dataset.code); return; }
+  const alt = e.target.closest("#pane .copies a[data-code]");
   if (alt) { e.preventDefault(); openPane(alt.dataset.code); return; }
   if (e.target.closest("#pane") || e.target.closest("#pick")) return;
 
@@ -76,6 +82,15 @@ function onClick(e) {
 
   const row = e.target.closest("tbody tr[data-code]");
   if (row && !selecting(row)) { holdRow(row); chooseRow(row.dataset.code); return; }
+}
+
+// A grid cell: with one chart up it opens its chart; in compare mode it
+// toggles its chart on or off the graph (the primary off promotes the next).
+function chooseCell(code) {
+  const comparing = state.compare.length > 0;
+  if (!comparing) { if (code !== state.graph) openPane(code, [], { follow: true }); return; }
+  if (code === state.graph || state.compare.includes(code)) removeCompare(code);
+  else addCompare(code);
 }
 
 // A row opens the pane on its chart, or closes it when it is the chart

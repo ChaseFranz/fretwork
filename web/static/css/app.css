@@ -178,6 +178,15 @@
   .sgrid .cell small { color:var(--fw-dim); font-size:11px; }
   .sgrid .cell.here { border-color:var(--fw-accent-text); box-shadow:inset 0 0 0 1px var(--fw-accent-text); }
   .sgrid .cell.none { color:var(--fw-dim); border-style:dashed; }
+  /* in compare mode a cell on the graph wears its series colour as a top bar,
+     never as text (the series colours are swatches, not words), with its
+     legend letter in the corner; the primary keeps the ring as well */
+  .sgrid .cell { position:relative; }
+  .sgrid .cell.on { border-top:3px solid var(--sc); padding-top:2px; }
+  .sgrid .cell.on.here { box-shadow:inset 0 0 0 1px var(--fw-accent-text); }
+  .sgrid .cell .sl { font-size:10px; font-weight:700; font-style:normal; color:var(--fw-dim); margin-right:3px; }
+  .sgrid button.cell:disabled { cursor:not-allowed; opacity:.55; }
+  .sgrid .cmp[aria-pressed="true"] { background:var(--fw-accent); border-color:var(--fw-accent); color:#fff; }
   .mhead .lnk { display:flex; flex-wrap:wrap; align-items:baseline; gap:0; font-size:11px; }
   .mhead .lnk a { white-space:nowrap; }
   .mhead .lnk a { color:var(--fw-accent-text); }
