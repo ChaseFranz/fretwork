@@ -50,7 +50,10 @@ The full pack-to-published sequence is section 7 of `README.md`: three commands,
 `packs.toml`, run build and analyze, print the diff against the previous cache),
 `publish.py`, `deploy.py`. Keep it in step with these scripts when their flags
 change. `tools/` holds operator scripts, not entry points: `sanitize_songs.py`
-(also callable as `sanitize()`), `check_site.py` and `ingest_pack.py`, which is run
+(also callable as `sanitize()`), `check_site.py`, `www_redirect.sh` (the one-off
+that makes `www.fretladder.com` answer a 301 to the apex: the CloudFront Function
+in `tools/cloudfront/www-to-apex.js`, the distribution's second alias, the Route 53
+alias records; a production change, so the maintainer runs it) and `ingest_pack.py`, which is run
 from the directory where `caches/` and `metrics/` should land, refuses everything it
 can before touching a byte, and makes the rename into the library its one commit
 point so a crash never leaves audio or a half-extracted pack there.
