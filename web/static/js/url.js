@@ -24,7 +24,6 @@ function params() {
     if (f.type === "set") out.set(SET + col, [...f.sel].join(","));
     else out.set(RANGE + col, (f.lo ?? "") + ":" + (f.hi ?? ""));
   }
-  if (state.song) out.set("song", state.song);
   if (state.graph) {
     out.set("code", state.graph);
     if (state.compare.length) out.set("vs", state.compare.join(","));
@@ -46,6 +45,8 @@ export function writeUrl() {
 // A link's own state replaces the site's opening filters rather than adding to
 // them, so "everything, unfiltered" is a shareable view too. Returns what the
 // link asked to open: {code, song}, either null; a malformed song key is null.
+// ?song= is read and never written: the page resolves it to the song's primary
+// chart and the URL then carries that code.
 export function readUrl() {
   const got = new URLSearchParams(location.search);
   if (!got.toString()) return { code: null, song: null };

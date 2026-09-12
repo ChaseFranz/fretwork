@@ -65,29 +65,51 @@ say("heading sizes step down h2 > h3 > h4 > h5", px(".md h2") > px(".md h3") && 
 say("it holds the four tables and seven formulas", md.querySelectorAll(".md table").length === 4 && md.querySelectorAll('math[display="block"]').length === 7);
 m.remove();
 
-// The graph on a phone (section 06): the card takes the full width, the canvas
-// is 358px, the close button and the tools are on screen, the readout wraps to
-// at most two lines, and picking from the table widens nothing.
+// The details pane on a phone (sections 06, 07, 14): a bottom sheet under the
+// table, the table keeping some rows above it, the canvas the full width less
+// the padding, the buttons and tools on screen, the readout at most two lines,
+// the song grid stacked under the graph with four cells across, and picking
+// from the table widening nothing.
 const d = f.contentDocument, w = f.contentWindow;
 const row = d.querySelector("#body tr[data-code]");
 const wrap = d.querySelector(".fw-wrap");
 const wrapWidth = wrap.scrollWidth;
 row.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
-await wait(700);
-const modal = d.getElementById("modal");
+await wait(900);
+const modal = d.getElementById("pane");
 const canvas = modal.querySelector("canvas");
-say("graph opens at 390px", modal.classList.contains("on") && !!canvas);
+say("the pane opens at 390px", modal.classList.contains("on") && !!canvas);
 if (canvas) {
+  const pb = modal.getBoundingClientRect(), wb = wrap.getBoundingClientRect();
+  say("it is a sheet at the bottom, under the table", pb.top >= wb.bottom - 1 && pb.bottom <= w.innerHeight + 1, Math.round(wb.bottom) + " -> pane " + Math.round(pb.top) + ".." + Math.round(pb.bottom));
+  say("the table keeps at least two rows on screen", wb.height >= 2 * row.getBoundingClientRect().height, Math.round(wb.height) + "px for " + Math.round(row.getBoundingClientRect().height) + "px rows");
+  say("the pane takes under 60% of the screen", pb.height < 0.6 * w.innerHeight, Math.round(pb.height) + " of " + w.innerHeight);
   const cb = canvas.getBoundingClientRect();
-  say("the canvas is 358px wide", Math.round(cb.width) === 358 && cb.left >= 0 && cb.right <= 390, Math.round(cb.left) + " -> " + Math.round(cb.right));
+  const pcard = modal.querySelector(".pcard");
+  say("the canvas is the card's width less the padding", Math.round(cb.width) === pcard.clientWidth - 16 && cb.left >= 0 && cb.right <= 390 && pcard.clientWidth >= 359,
+      Math.round(cb.left) + " -> " + Math.round(cb.right) + " = " + Math.round(cb.width) + " in " + pcard.clientWidth);
+  say("the link columns are off a phone's table", [...d.querySelectorAll("#head th")].filter(th => ["Enchor", "Leaderboard"].includes(th.dataset.c)).every(th => th.offsetParent === null));
   const on = el => { const b = el.getBoundingClientRect(); return b.left >= 0 && b.right <= 390 && b.width > 0; };
-  say("the close button is on screen", on(modal.querySelector(".x")));
+  say("the close button is on screen", on(modal.querySelector(".pbtns .x")));
+  say("the collapse button is on screen", on(modal.querySelector(".pbtns .pmin")));
   say("Save as PNG is on screen", on(modal.querySelector('[data-act="save"]')));
   const ro = modal.querySelector(".readout").getBoundingClientRect();
   note("readout " + Math.round(ro.width) + "x" + Math.round(ro.height) + "px: " + modal.querySelector(".readout").textContent);
   say("the readout is at most two lines", ro.height < 40, Math.round(ro.height));
-  const card = modal.querySelector(".mcard").getBoundingClientRect();
-  say("the card does not exceed the viewport", card.left >= 0 && card.right <= 390, Math.round(card.left) + " -> " + Math.round(card.right));
+  const card = modal.querySelector(".pcard");
+  say("the card does not scroll sideways", card.scrollWidth <= card.clientWidth + 1, card.scrollWidth + " vs " + card.clientWidth);
+  say("the graph and the song grid are stacked", modal.querySelector(".sbody").getBoundingClientRect().top >= modal.querySelector(".gbody").getBoundingClientRect().bottom - 1);
+  // the song grid: four cells across the card, the instrument heading on its own line
+  const grid = modal.querySelector(".sgrid");
+  say("the song grid is there", !!grid);
+  if (grid) {
+    say("the grid does not scroll sideways", grid.scrollWidth <= grid.clientWidth, grid.scrollWidth + " vs " + grid.clientWidth);
+    say("the instrument heading spans the grid", [...modal.querySelectorAll(".sgrid .inst")].every(e => Math.abs(e.getBoundingClientRect().width - grid.clientWidth) <= 2),
+        [...modal.querySelectorAll(".sgrid .inst")].map(e => Math.round(e.getBoundingClientRect().width)).join() + " vs " + grid.clientWidth);
+    say("every cell is at least 44px tall", [...modal.querySelectorAll(".sgrid .cell")].every(c => c.getBoundingClientRect().height >= 44));
+    say("no value is clipped", [...modal.querySelectorAll(".sgrid .cell b")].every(b => b.scrollWidth <= b.clientWidth + 1));
+    note("cells " + [...modal.querySelectorAll(".sgrid .cell")].slice(0, 4).map(c => Math.round(c.getBoundingClientRect().width) + "x" + Math.round(c.getBoundingClientRect().height)).join(" "));
+  }
   // pick from the table: the bar must not widen the table
   modal.querySelector('[data-act="pick"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
   await wait(100);
@@ -96,37 +118,16 @@ if (canvas) {
   say("and does not widen the table", wrap.scrollWidth === wrapWidth, wrap.scrollWidth + " vs " + wrapWidth);
   say("and stays within the viewport", bar.scrollWidth <= 390, bar.scrollWidth);
   d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-  await wait(600);
-  say("Escape brings the graph back", modal.classList.contains("on"));
+  await wait(300);
+  say("Escape ends the picking and keeps the pane", modal.classList.contains("on") && bar.classList.contains("d-none"));
+  // collapsed, the pane is its heading alone and the table gets the room back
+  modal.querySelector(".pbtns .pmin").dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+  await wait(200);
+  say("collapsed, the pane is its wrapped heading alone", modal.classList.contains("min") && modal.getBoundingClientRect().height < 130 && !modal.querySelector(".gbody").offsetParent,
+      Math.round(modal.getBoundingClientRect().height));
+  say("and the table grows", wrap.getBoundingClientRect().height > wb.height, Math.round(wrap.getBoundingClientRect().height) + " from " + Math.round(wb.height));
   d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   await wait(300);
-}
-
-// The song panel on a phone (section 07): a 374px card, four cells across it,
-// the instrument heading on its own line, nothing clipped; and the title
-// pip is out of flow, so the rows are no taller for it.
-const rowsBefore = [...d.querySelectorAll("#body tr[data-code]")].slice(0, 40).reduce((a, tr) => a + tr.getBoundingClientRect().height, 0);
-d.querySelectorAll("td.song .sp").forEach(e => e.remove());
-const rowsAfter = [...d.querySelectorAll("#body tr[data-code]")].slice(0, 40).reduce((a, tr) => a + tr.getBoundingClientRect().height, 0);
-say("the title pip adds no height to the rows", Math.abs(rowsBefore - rowsAfter) < 1, rowsBefore + " vs " + rowsAfter);
-const link = (() => { const tr = d.querySelector("#body tr[data-code]"); return tr; })();
-link.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
-await wait(600);
-const sng = d.querySelector("#modal .mhead a.sng");
-if (!sng) {
-  say("song link in the heading", false, "no a.sng");
-} else {
-  sng.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
-  await wait(700);
-  const panel = d.getElementById("song");
-  const card = panel.querySelector(".mcard").getBoundingClientRect();
-  say("the song panel opens at 390px within the viewport", panel.classList.contains("on") && card.left >= 0 && card.right <= 390, Math.round(card.left) + " -> " + Math.round(card.right));
-  const grid = panel.querySelector(".sgrid");
-  say("the grid does not scroll sideways", grid.scrollWidth <= grid.clientWidth, grid.scrollWidth + " vs " + grid.clientWidth);
-  say("the instrument heading spans the grid", [...panel.querySelectorAll(".sgrid .inst")].every(e => Math.abs(e.getBoundingClientRect().width - grid.clientWidth) <= 2),
-      [...panel.querySelectorAll(".sgrid .inst")].map(e => Math.round(e.getBoundingClientRect().width)).join() + " vs " + grid.clientWidth);
-  say("every cell is at least 44px tall", [...panel.querySelectorAll(".sgrid .cell")].every(c => c.getBoundingClientRect().height >= 44));
-  say("no value is clipped", [...panel.querySelectorAll(".sgrid .cell b")].every(b => b.scrollWidth <= b.clientWidth + 1));
-  note("cells " + [...panel.querySelectorAll(".sgrid .cell")].slice(0, 4).map(c => Math.round(c.getBoundingClientRect().width) + "x" + Math.round(c.getBoundingClientRect().height)).join(" "));
+  say("Escape closes it", !modal.classList.contains("on"));
 }
 done();

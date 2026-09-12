@@ -2,6 +2,7 @@
 import { SHEETS, TIMECOLS, HELP, UI, MISS_TEXT, MISS_HELP } from "./boot.js";
 import { esc } from "./dom.js";
 import { lab, t, mmss, isMissing, decimals } from "./format.js";
+import { LINK_COLS, linkCell } from "./links.js";
 import { RANK_COL, state } from "./state.js";
 
 // Rank is a position in the current view, so there is nothing to sort or
@@ -54,13 +55,10 @@ function numberCell(col, v) {
   return '<td class="num' + (col === "D" ? " headline" : "") + '">' + text + "</td>";
 }
 
-// The title cell's pip opens the song panel; out of flow, so a title that
-// fills its last line is not pushed onto another. Only when the sheet has a
-// SongKey column, since the panel is keyed on it.
+// A link column's arrow is the one anchor inside a row: the router lets the
+// browser follow it rather than opening the row.
 function bodyCell(col, v, songKey) {
-  if (col === "Song Title" && typeof songKey === "string")
-    return '<td class="' + TEXT_CLASS[col] + '" title="' + esc(v ?? "") + '">' + esc(v ?? "") +
-      '<span class="sp" data-song="' + esc(songKey) + '" title="' + esc(UI.song_view) + '">&#8862;</span></td>';
+  if (col in LINK_COLS) return linkCell(col, v, songKey);
   if (col === "Code")
     return '<td class="code" title="' + esc(UI.copy_code_tip) + '">' + esc(v) +
       '<span class="cp" data-copy="' + esc(v) + '">&#128203;</span></td>';
@@ -82,14 +80,18 @@ function bodyCell(col, v, songKey) {
   return "<td>" + esc(v === null ? "" : v) + "</td>";
 }
 
+// The row open in the details pane is marked as it is drawn, so the mark
+// survives a sort or a filter; data-key carries the SongKey for the link
+// cells filled in later.
 export function bodyRow(row, visibleCols, code, rank, tip, songKey) {
   const cells = visibleCols
     .map(([col, i]) => col === RANK_COL
       ? '<td class="num rank">' + rank + "</td>"
       : bodyCell(col, row[i], songKey))
     .join("");
-  return '<tr tabindex="-1" title="' + esc(tip) + '" data-code="' +
-    esc(code) + '">' + cells + "</tr>";
+  const sel = code === state.graph ? ' class="sel" aria-current="true"' : "";
+  return '<tr tabindex="-1"' + sel + ' title="' + esc(tip) + '" data-code="' + esc(code) + '"' +
+    (typeof songKey === "string" ? ' data-key="' + esc(songKey) + '"' : "") + ">" + cells + "</tr>";
 }
 
 export function emptyRow(span) {

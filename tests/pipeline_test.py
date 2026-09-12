@@ -344,7 +344,16 @@ def run_all(work, header, args):
     st.check(len(c4) >= 1, 'C4 row missing from the sheet file')
     st.check(b'Less < More' in (site / manifest_sheets['Guitar']['file']).read_bytes(), 'the sheet file is not escaped (it need not be)')
     st.check('Added' in gcols and c4[0][gcols.index('Added')] == '2026-09-09', f"C4 Added {c4[0][gcols.index('Added')] if 'Added' in gcols else None}")
-    st.check(gcols[-3:] == ['Added', 'Copies', 'Pct'], f'page-build column order {gcols[-3:]}')
+    st.check(gcols[-5:] == ['Added', 'Copies', 'Pct', 'Enchor', 'Leaderboard'], f'page-build column order {gcols[-5:]}')
+    # section 14: the link columns say which songs the registry knows, one bit per row
+    by_key = {}
+    for r in guitar['rows']:
+        by_key.setdefault(r[gcols.index('SongKey')], set()).add((r[gcols.index('Enchor')], r[gcols.index('Leaderboard')]))
+    st.check(all(len(v) == 1 for v in by_key.values()), 'a song has two answers in the link columns')
+    want = {keyed[0]: {(True, True)}, keyed[1]: {(True, False)}, keyed[2]: {(False, True)}, keyed[3]: {(False, False)}}
+    st.check({k: v for k, v in by_key.items() if k in want} == {k: v for k, v in want.items() if k in by_key},
+             f'link columns for the four keyed songs: {[(k[:4], by_key.get(k)) for k in keyed]}')
+    st.check(all(v == {(False, False)} for k, v in by_key.items() if k not in keyed), 'an unkeyed song has a link')
     # section 10: the planted pair counts as one chart; the within-song repeats are not copies
     def rows_titled(title):
         return [r for r in guitar['rows'] if r[gcols.index('Song Title')] == title]
@@ -478,7 +487,7 @@ def run_all(work, header, args):
     st.check(renderer.lookup(guitar_code) is not None, f'lookup({guitar_code}) should resolve')
     from functions import packs as packs_mod
     resolved = packs_mod.resolve(cache, packs_mod.load(registry))
-    built = page.build(header, xlsxs[0], None, public=True, resolved=resolved)
+    built = page.build(header, xlsxs[0], None, public=True, resolved=resolved, links_path=work / 'caches' / f'{header}_links.json')
     httpd = MetricsServer(0, {'/' + n: d for n, d in built.files.items()}, renderer)
     port = httpd.server_address[1]
     import threading

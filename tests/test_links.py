@@ -43,6 +43,24 @@ class PublishedTest(unittest.TestCase):
         self.assertIsNone(links.published(None))
         self.assertIsNone(links.published({'v': 1, 'enchor': {'k': {'md5': None}}, 'leaderboard': {}}))
 
+    def test_link_columns(self):
+        # section 14: one boolean column per link kind any song has, joined by SongKey after Pct
+        import pandas as pd
+        from web import frames
+        songs = links.songs_with_links(registry())
+        cols = links.link_columns(songs)
+        self.assertEqual(cols, {'Enchor': {'k1', 'k5'}, 'Leaderboard': {'k1', 'k5'}})
+        self.assertEqual(links.link_columns({'k': {'enchor': MD5_A}}), {'Enchor': {'k'}})
+        self.assertEqual(links.link_columns({}), {})
+        df = pd.DataFrame({'Code': ['a', 'b', 'c'], 'SongKey': ['k1', 'k2', 'k5'], 'Pct': [1, 2, 3]})
+        out = frames.with_links({'x': df, 'nokey': pd.DataFrame({'Code': ['z']})}, cols)
+        self.assertEqual(list(out['x'].columns), ['Code', 'SongKey', 'Pct', 'Enchor', 'Leaderboard'])
+        self.assertEqual(out['x']['Enchor'].tolist(), [True, False, True])
+        self.assertEqual(out['x']['Leaderboard'].tolist(), [True, False, True])
+        self.assertEqual(list(out['nokey'].columns), ['Code'])
+        self.assertIs(frames.with_links({'x': df}, {})['x'], df)
+        self.assertNotIn('Enchor', df.columns)          # the input is not written to
+
     def test_a_sheet_named_links_is_refused(self):
         from web import frames
         self.assertEqual(frames.slug('Links'), links.SLUG)   # the collision page.build() raises on

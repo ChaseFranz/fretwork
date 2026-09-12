@@ -10,7 +10,7 @@ const sheet = p.get("sheet") || Object.keys(BOOT.data)[0];
 const rows = await sheetRows(sheet);
 const cols = BOOT.data[sheet].columns;
 const col = n => cols.indexOf(n);
-const modal = document.getElementById("modal");
+const modal = document.getElementById("pane");
 const gbody = () => modal.querySelector(".gbody");
 const legend = () => [...modal.querySelectorAll(".legend li")];
 const readout = () => modal.querySelector(".readout").textContent;
@@ -18,7 +18,7 @@ const code = p.get("code"), vs = p.get("vs");
 await wait(700);
 
 say("the link named two charts", !!code && !!vs && !vs.includes(","), code + " vs " + vs);
-say("the graph opened on the primary", modal.classList.contains("on") && modal.getAttribute("aria-label").endsWith(": " + code), modal.getAttribute("aria-label"));
+say("the pane opened on the primary", modal.classList.contains("on") && modal.getAttribute("aria-label").endsWith(": " + code), modal.getAttribute("aria-label"));
 say("two charts are mounted", gbody().fw && gbody().fw.charts.length === 2 && gbody().fw.charts.map(c => c.code).join() === code + "," + vs,
     gbody().fw && gbody().fw.charts.map(c => c.code).join());
 say("the legend has one entry per chart, lettered", legend().length === 2 && legend()[0].textContent.trim().startsWith("A ") &&
@@ -88,25 +88,30 @@ await wait(400);
 say("and the URL follows", params().get("code") === vs && params().get("vs") === null, location.search);
 
 // --- pick from the table ----------------------------------------------------------------
+// the pane stays (section 14): the bar says a chart is being chosen, and the
+// next row click joins the graph rather than opening the pane on it
 click(modal.querySelector('[data-act="pick"]'));
 await wait(100);
 const bar = document.getElementById("pick");
-say("picking hides the graph and shows the bar", !modal.classList.contains("on") && !bar.classList.contains("d-none") &&
+say("picking keeps the pane and shows the bar", modal.classList.contains("on") && !bar.classList.contains("d-none") &&
     bar.textContent.includes(UI.compare_cancel), bar.textContent);
+say("focus is on a table row, ready to choose", document.activeElement && document.activeElement.matches("#body tr[data-code]"), document.activeElement && document.activeElement.tagName);
 const target = [...document.querySelectorAll("#body tr[data-code]")].find(tr => tr.dataset.code !== vs);
 if (!target) {
   skip("pick from the table", "only one row on screen");
 } else {
   click(target);
   await wait(700);
-  say("a row click adds it and brings the graph back", modal.classList.contains("on") && bar.classList.contains("d-none") &&
+  say("a row click adds it to the graph and ends the picking", modal.classList.contains("on") && bar.classList.contains("d-none") &&
       gbody().fw && gbody().fw.charts.map(c => c.code).join() === vs + "," + target.dataset.code, gbody().fw && gbody().fw.charts.map(c => c.code).join());
+  say("the primary's row stays the selected one", document.querySelector("#body tr.sel") === null ||
+      document.querySelector("#body tr.sel").dataset.code === vs, document.querySelector("#body tr.sel") && document.querySelector("#body tr.sel").dataset.code);
   click(modal.querySelector('[data-act="pick"]'));
   await wait(100);
   key("Escape");
   await wait(600);
-  say("Escape while picking brings the graph back unchanged", modal.classList.contains("on") && gbody().fw.charts.length === 2 &&
-      params().get("vs") === target.dataset.code, location.search);
+  say("Escape while picking cancels it and leaves the graph unchanged", modal.classList.contains("on") && bar.classList.contains("d-none") &&
+      gbody().fw.charts.length === 2 && params().get("vs") === target.dataset.code, location.search);
 }
 key("Escape");
 await wait(400);

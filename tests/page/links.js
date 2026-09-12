@@ -4,10 +4,10 @@ import { BOOT, rows as sheetRows, say, skip, done, wait, click, key, ready } fro
 import { rich } from "./src/dom.js";
 await ready();
 
-// --- where to get this chart (section 13): two anchors from data/links.<hash>.json ---
-// The runner delays that file 800 ms, so a graph opened as soon as the rows are
-// here has no anchors until the file lands, and they must appear without the
-// graph being reopened; this block therefore runs before anything else waits.
+// --- where to get this chart (sections 13, 14): the pane's link buttons and the link columns ---
+// The runner delays the links file 800 ms, so a pane opened as soon as the rows
+// are here has no anchors until the file lands, and they must appear without
+// the pane being reopened; this block therefore runs before anything else waits.
 if (!BOOT.links) {
   skip("links file", "this bundle has no links file");
 } else {
@@ -18,44 +18,64 @@ if (!BOOT.links) {
   // the file itself, fetched under a spelling the runner's delay does not match
   const linksDoc = await fetch("%64" + BOOT.links.slice(1)).then(r => r.json());
   say("the links file has the documented shape", linksDoc.v === 1 && typeof linksDoc.songs === "object", JSON.stringify(linksDoc).slice(0, 80));
+  // the link columns (section 14): one bit per row, agreeing with the file; a
+  // column exists only for a link kind some song has (the Local library has no
+  // leaderboard answers yet, so it has Enchor alone)
+  const KINDS = { Enchor: "enchor", Leaderboard: "lb" };
+  const present = Object.keys(KINDS).filter(c => Object.values(linksDoc.songs).some(v => KINDS[c] in v));
+  say("a link column exists for each link kind the file has, after Pct", present.length > 0 && present.every((c, i) => cols.indexOf(c) === cols.indexOf("Pct") + 1 + i) &&
+      Object.keys(KINDS).every(c => cols.includes(c) === present.includes(c)), cols.slice(-3).join() + " for " + present.join());
+  say("each row's bits agree with the file", rows.every(r => present.every(c => r[at(c)] === !!(linksDoc.songs[r[at("SongKey")]] || {})[KINDS[c]])));
+  const headCols = [...document.querySelectorAll("#head th")].map(th => th.dataset.c);
+  say("the link columns are on by default, right after Artist", present.every((c, i) => headCols.indexOf(c) === headCols.indexOf("Artist") + 1 + i), headCols.join());
   const onScreen = new Set([...document.querySelectorAll("#body tr[data-code]")].map(tr => tr.dataset.code));
-  const withBoth = rows.find(r => onScreen.has(r[at("Code")]) && linksDoc.songs[r[at("SongKey")]] && linksDoc.songs[r[at("SongKey")]].enchor && linksDoc.songs[r[at("SongKey")]].lb);
+  const withBoth = rows.find(r => onScreen.has(r[at("Code")]) && linksDoc.songs[r[at("SongKey")]] && present.every(c => linksDoc.songs[r[at("SongKey")]][KINDS[c]]));
   const withNone = rows.find(r => onScreen.has(r[at("Code")]) && !linksDoc.songs[r[at("SongKey")]]);
   if (!withBoth) {
-    skip("linked chart", "no chart on the opening view has both links");
+    skip("linked chart", "no chart on the opening view has every link");
   } else {
-    const modal = document.getElementById("modal");
+    const pane = document.getElementById("pane");
     const row = document.querySelector('#body tr[data-code="' + withBoth[at("Code")] + '"]');
+    const cellOf = (tr, c) => tr.children[headCols.indexOf(c)];
+    const earlyCell = cellOf(row, "Enchor").innerHTML;
     click(row);
     await wait(300);
-    const early = modal.querySelectorAll(".mhead a.ext").length;
+    const early = pane.querySelectorAll(".gtools a.ext").length;
     await wait(1200);
-    const ext = [...modal.querySelectorAll(".mhead a.ext")];
+    const ext = [...pane.querySelectorAll(".gtools a.ext")];
     const song = linksDoc.songs[withBoth[at("SongKey")]];
     // whether the delayed file lands before or after the click depends on the
-    // virtual clock; either way the open graph must end up with both anchors
-    say("the anchors are on the open graph once the file has landed", ext.length === 2, early + " at open, then " + ext.length);
-    say("On Chorus Encore links the chart's page", ext[0] && ext[0].textContent === BOOT.ui.enchor && ext[0].href === "https://enchor.us/chart/" + song.enchor, ext[0] && ext[0].href);
-    say("Leaderboard links the scores page", ext[1] && ext[1].textContent === BOOT.ui.leaderboard && ext[1].href === "https://leaderboards.clonehero.net/scores/" + song.lb, ext[1] && ext[1].href);
-    say("both open a new tab safely", ext.every(a => a.target === "_blank" && a.rel.includes("noopener")));
-    const lnk = modal.querySelector(".mhead .lnk");
-    say("they sit in the link group, the report link last", lnk && lnk.contains(ext[0]) && lnk.lastElementChild.classList.contains("rpt"), lnk && lnk.innerHTML.slice(0, 80));
-    // the phone: the heading wraps and the card does not scroll sideways
-    // (the canvas keeps its width without a frame to resize in, so the heading is what is measured)
-    const card = modal.querySelector(".mcard");
-    card.style.width = "390px";
-    await wait(50);
-    const rpt = modal.querySelector(".mhead .rpt"), mhead = modal.querySelector(".mhead");
-    say("at 390px the heading wraps and does not scroll sideways",
-        mhead.offsetHeight >= 2 * rpt.offsetHeight && mhead.scrollWidth <= mhead.clientWidth,
-        mhead.offsetHeight + " vs " + rpt.offsetHeight + ", " + mhead.scrollWidth + "/" + mhead.clientWidth);
-    card.style.width = "";
+    // virtual clock; either way the open pane must end up with both anchors
+    say("the link buttons are on the open pane once the file has landed", ext.length === present.length, early + " at open, then " + ext.length);
+    say("Chorus Encore links the chart's page", ext[0] && ext[0].textContent.startsWith(BOOT.ui.enchor) && ext[0].href === "https://enchor.us/chart/" + song.enchor, ext[0] && ext[0].href);
+    if (present.includes("Leaderboard"))
+      say("Leaderboard links the scores page", ext[1] && ext[1].textContent.startsWith(BOOT.ui.leaderboard) && ext[1].href === "https://leaderboards.clonehero.net/scores/" + song.lb, ext[1] && ext[1].href);
+    say("all open a new tab safely", ext.every(a => a.target === "_blank" && a.rel.includes("noopener")));
+    say("they lead the tool row, before Compare", pane.querySelector(".gtools").firstElementChild === ext[0] && ext[ext.length - 1].nextElementSibling.dataset.act === "compare");
+    say("the heading keeps the report link last in its group", pane.querySelector(".mhead .lnk") && pane.querySelector(".mhead .lnk").lastElementChild.classList.contains("rpt"));
+    // the row's own cells: the arrow became an anchor in place, without a redraw
+    const enchorCell = cellOf(row, "Enchor"), lbCell = cellOf(row, "Leaderboard");
+    say("the Enchor cell is an arrow to the same page", enchorCell.querySelector("a.ext") && enchorCell.querySelector("a.ext").href === ext[0].href && enchorCell.textContent.trim() === "\u2197",
+        enchorCell.innerHTML + " (was " + earlyCell + ")");
+    if (lbCell) say("the Scores cell is an arrow to the scores page", lbCell.querySelector("a.ext") && lbCell.querySelector("a.ext").href === ext[1].href);
+    say("no waiting arrow is left in the table", !document.querySelector("#body td.lnkc .wait, #body td.lnkc[data-k]"));
+    say("the arrow opens a new tab and does not choose the row", enchorCell.querySelector("a.ext").target === "_blank" && row.isConnected && document.querySelector("#body tr.sel") === row);
+    // clicking the arrow itself routes to the browser, not the row
+    const before = pane.getAttribute("aria-label");
+    const a = enchorCell.querySelector("a.ext");
+    const ev = new MouseEvent("click", { bubbles: true, cancelable: true });
+    a.addEventListener("click", e => e.preventDefault(), { once: true });   // no real navigation in the harness
+    a.dispatchEvent(ev);
+    await wait(200);
+    say("a click on the arrow leaves the pane where it was", pane.classList.contains("on") && pane.getAttribute("aria-label") === before, pane.getAttribute("aria-label"));
     key("Escape");
     await wait(200);
     if (withNone) {
-      click(document.querySelector('#body tr[data-code="' + withNone[at("Code")] + '"]'));
+      const bare = document.querySelector('#body tr[data-code="' + withNone[at("Code")] + '"]');
+      say("a song not in the file has empty link cells", present.every(c => cellOf(bare, c).textContent.trim() === ""));
+      click(bare);
       await wait(400);
-      say("a song not in the file shows no anchor", modal.querySelectorAll(".mhead a.ext").length === 0 && modal.querySelector(".mhead a.rpt"));
+      say("and no link button, the tools starting with Compare", pane.querySelectorAll(".gtools a.ext").length === 0 && pane.querySelector(".gtools").firstElementChild.dataset.act === "compare");
       key("Escape");
       await wait(200);
     }

@@ -26,10 +26,12 @@ if (code) {
   const want = BOOT.sheetOfCode[code.slice(-1)];
   say("the shared code's sheet is active" + (sheetParam ? " (named)" : " (from the instrument letter)"), active === want, active + " vs " + want);
   await wait(500);
-  const modal = document.getElementById("modal");
-  say("the shared graph opened", modal.classList.contains("on"));
+  const modal = document.getElementById("pane");
+  say("the shared chart's pane opened", modal.classList.contains("on"));
   const strong = modal.querySelector(".mhead strong");
   say("its heading is filled from the right sheet", strong && strong.textContent.length > 0, strong && strong.textContent);
   say("the code is still in the URL", params().get("code") === code, location.search);
+  const sel = document.querySelector("#body tr.sel");
+  say("its row is highlighted and holds the tab stop when on screen", !sel || (sel.dataset.code === code && sel.tabIndex === 0), sel && sel.dataset.code);
 }
 done();

@@ -28,42 +28,53 @@ key("PageDown");
 say("PageDown moves several rows", rowOf(here()) && rowOf(here()) !== first, rowOf(here()) && rowOf(here()).dataset.code);
 key("Home");
 
-// --- Enter opens the graph, Escape gives focus back ------------------------------
+// --- Enter opens the pane, focus stays on the row, Escape closes -----------------
+// (section 14: the pane is a region under the table, not a dialog, so there is
+// no trap; Tab walks into it in document order and the arrows keep moving rows)
 key("Enter");
-await wait(200);
-const modal = document.getElementById("modal");
-say("Enter opens the graph", modal.classList.contains("on"));
-say("focus moves into the dialog", here().id === "modal", here().id || here().tagName);
-say("dialog is labelled with the code", (modal.getAttribute("aria-label") || "").endsWith(": " + first.dataset.code),
-    modal.getAttribute("aria-label"));
-say("Tab cannot wander out of the dialog", !key("Tab"));
-// the trap (section 06): Tab walks the card's controls and wraps, never reaching the table
+await wait(300);
+const pane = document.getElementById("pane");
+say("Enter opens the pane", pane.classList.contains("on"));
+say("focus stays on the row", here() === first, here().id || here().tagName);
+say("the pane is labelled with the code", (pane.getAttribute("aria-label") || "").endsWith(": " + first.dataset.code),
+    pane.getAttribute("aria-label"));
+say("the row is highlighted", first.classList.contains("sel") && first.getAttribute("aria-current") === "true");
+say("Tab is not trapped", key("Tab"));
+await wait(500);
+// with the pane open the arrows move the selection and the graph follows
+key("ArrowDown", first);
+const second = rowOf(here());
+say("ArrowDown still moves the focus", second === first.nextElementSibling, second && second.dataset.code);
+await wait(500);
+say("and the graph follows the row", (pane.getAttribute("aria-label") || "").endsWith(": " + second.dataset.code) && second.classList.contains("sel") && !first.classList.contains("sel"),
+    pane.getAttribute("aria-label"));
+say("the URL follows too", params().get("code") === second.dataset.code, location.search);
+key("ArrowUp", second);
+await wait(500);
+say("ArrowUp brings the graph back", (pane.getAttribute("aria-label") || "").endsWith(": " + first.dataset.code));
+// Enter on the open chart's row closes the pane
+key("Enter", first);
+await wait(300);
+say("Enter on the open row closes the pane", !pane.classList.contains("on") && here() === first);
+key("Enter", first);
 await wait(400);
-const inModal = () => here() && modal.contains(here());
-modal.focus();                                   // as it is when the graph opens
-key("Tab");
-say("the first Tab lands on a heading link", inModal() && here().matches(".mhead a"), here().tagName + "." + here().className);
-let walked = 0;
-while (inModal() && here().matches(".mhead a") && walked < 4) { key("Tab"); walked++; }
-say("after the heading's links comes the close button", inModal() && here().matches(".x"), here().className + " after " + walked);
-key("Tab");
-say("then the canvas", inModal() && here().tagName === "CANVAS", here().tagName);
-say("the canvas is an application", here().getAttribute("role") === "application");
-const before = modal.querySelector(".readout").textContent;
-key("ArrowRight", here());
-say("Right on the canvas changes the readout", modal.querySelector(".readout").textContent !== before, modal.querySelector(".readout").textContent);
-const inside = [...modal.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter(e => e.offsetParent !== null);
-const at = inside.indexOf(here());
-for (let i = 0; i < inside.length; i++) key("Tab");
-say("Tab wraps inside the dialog after every stop", inModal() && here() === inside[at], here().tagName + " after " + inside.length);
-key("Tab", here(), true);
-say("Shift+Tab goes back the other way", inModal() && here() === inside[at - 1], here().className);
+say("and Enter again reopens it", pane.classList.contains("on"));
+// the pane's controls are reachable from the row by Tab, in document order
+const canvas = pane.querySelector(".gbody canvas");
+if (canvas) {
+  canvas.focus();
+  say("the canvas is an application", here() === canvas && here().getAttribute("role") === "application");
+  const before = pane.querySelector(".readout").textContent;
+  key("ArrowRight", here());
+  say("Right on the canvas changes the readout, not the row", pane.querySelector(".readout").textContent !== before && here() === canvas,
+      pane.querySelector(".readout").textContent);
+}
 key("Escape");
-await wait(200);
-say("Escape closes it", !modal.classList.contains("on"));
+await wait(300);
+say("Escape closes it", !pane.classList.contains("on"));
 say("focus returns to the row you opened", here() === first, here().tagName);
 
-// --- a copy's link swaps the graph in place (section 10) ---------------------------
+// --- a copy's link swaps the chart in place (section 10) ---------------------------
 const sheet = Object.keys(BOOT.data)[0];
 const rows = await sheetRows(sheet);
 const columns = BOOT.data[sheet].columns;
@@ -75,18 +86,21 @@ if (!dup) {
   const row = document.querySelector('#body tr[data-code="' + dup[columns.indexOf("Code")] + '"]');
   row.focus();
   key("Enter");
-  await wait(200);
-  const link = modal.querySelector(".mhead .copies a[data-code]");
+  await wait(300);
+  const link = pane.querySelector(".mhead .copies a[data-code]");
   say("the heading lists the other copy", !!link && link.getAttribute("href") === "?code=" + link.dataset.code, link && link.outerHTML);
   click(link);
-  await wait(300);
-  say("clicking it keeps the dialog open on the other code", modal.classList.contains("on") &&
-      (modal.getAttribute("aria-label") || "").endsWith(": " + link.dataset.code), modal.getAttribute("aria-label"));
+  await wait(400);
+  say("clicking it keeps the pane open on the other code", pane.classList.contains("on") &&
+      (pane.getAttribute("aria-label") || "").endsWith(": " + link.dataset.code), pane.getAttribute("aria-label"));
   say("the URL's code follows", params().get("code") === link.dataset.code, location.search);
-  say("the new heading points back", !!modal.querySelector('.mhead .copies a[data-code="' + row.dataset.code + '"]'));
+  say("the new heading points back", !!pane.querySelector('.mhead .copies a[data-code="' + row.dataset.code + '"]'));
+  const sel = document.querySelector("#body tr.sel");
+  say("the highlight follows to the copy's row when it is on screen", onScreen.has(link.dataset.code) ? sel && sel.dataset.code === link.dataset.code : sel === null,
+      sel && sel.dataset.code);
   key("Escape");
-  await wait(200);
-  say("Escape still returns focus to the row you started from", !modal.classList.contains("on") && here() === row, here().tagName);
+  await wait(300);
+  say("Escape still returns focus to the row you started from", !pane.classList.contains("on") && here() === row, here().tagName);
 }
 
 // --- sorting from the keyboard keeps your place --------------------------------------

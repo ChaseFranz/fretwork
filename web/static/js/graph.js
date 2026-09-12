@@ -196,7 +196,10 @@ const gFix = v => v === null || v === undefined || Number.isNaN(v) ? MISS_TEXT :
 // --- the mounted graph --------------------------------------------------------------
 
 // host: the .gbody element. charts: [{code, row, columns, curves, colour}].
-// opts.onRemove(code) wires the legend's remove buttons in compare mode.
+// opts.onRemove(code) wires the legend's remove buttons in compare mode;
+// opts.fill() true means the host's height is fixed by its layout and the
+// canvas takes what is left of it under the readout and legend, rather than
+// the 16:7 aspect it draws at when the host grows to fit it.
 // Returns a controller; host.fw is the same thing for the page suites, which
 // cannot import from the bundle.
 export function mountGraph(host, charts, opts = {}) {
@@ -214,7 +217,8 @@ export function mountGraph(host, charts, opts = {}) {
   host.append(canvas, readout, legend);
 
   const buffer = document.createElement("canvas");   // the plot, painted once per size
-  let W = 0, H = 0, dpr = 1, geom = null, cursor = 0, raf = 0;
+  let W = 0, H = 0, hostH = 0, dpr = 1, geom = null, cursor = 0, raf = 0;
+  const filling = () => !!(opts.fill && opts.fill());
   const ctx = canvas.getContext("2d");
 
   // The width is the host's, read with the canvas out of the way: at its
@@ -227,8 +231,11 @@ export function mountGraph(host, charts, opts = {}) {
   };
   const size = () => {
     W = measure();
+    hostH = Math.round(host.clientHeight);
     for (let pass = 0; pass < 2; pass++) {
-      H = Math.round(Math.min(Math.max(W * 7 / 16, 220), window.innerHeight * 0.55));
+      H = filling()
+        ? Math.max(120, hostH - readout.offsetHeight - legend.offsetHeight - 4)
+        : Math.round(Math.min(Math.max(W * 7 / 16, 220), window.innerHeight * 0.55));
       dpr = window.devicePixelRatio || 1;
       canvas.style.width = W + "px"; canvas.style.height = H + "px";
       const again = Math.max(1, Math.round(host.clientWidth || W));
@@ -288,7 +295,7 @@ export function mountGraph(host, charts, opts = {}) {
   // button, for a comparison. The buttons are --fw-dim, never a series colour.
   const writeLegend = () => {
     const swatch = (colour, dotted) => '<span class="sw' + (dotted ? " dot" : "") + '" style="border-color:' + esc(colour) + '"></span>';
-    if (!geom.compare) {
+    if (charts.length < 2) {
       legend.innerHTML = [[UI.graph_d, RENDER.color_d, false], [UI.graph_nps, RENDER.color_nps, true],
         [UI.graph_vps, RENDER.color_vps, true]]
         .map(([text, colour, dotted]) => "<li>" + swatch(colour, dotted) + esc(text) + "</li>").join("");
@@ -302,10 +309,11 @@ export function mountGraph(host, charts, opts = {}) {
       '">&times;</button></li>').join("");
   };
 
+  // the legend first: in fill mode the canvas takes what the legend leaves
   const redraw = () => {
+    writeLegend();
     size();
     setCursor(cursor);
-    writeLegend();
     const song = charts[0].row ? gName(charts[0]) : charts[0].code;
     canvas.setAttribute("aria-label", t("graph_alt", { song }));
   };
@@ -338,7 +346,9 @@ export function mountGraph(host, charts, opts = {}) {
   window.addEventListener("resize", onResize);
   // the host's own width moves too: a scrollbar the card grows, a legend that wraps
   const watcher = typeof ResizeObserver === "function"
-    ? new ResizeObserver(() => { if (Math.round(host.clientWidth) !== W) onResize(); }) : null;
+    ? new ResizeObserver(() => {
+      if (Math.round(host.clientWidth) !== W || (filling() && Math.round(host.clientHeight) !== hostH)) onResize();
+    }) : null;
   if (watcher) watcher.observe(host);
 
   redraw();

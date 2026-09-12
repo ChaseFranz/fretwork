@@ -1,21 +1,14 @@
-// The per-song panel: every chart of a song at once, instruments down and
+// Every chart of a song at once, for the details pane: instruments down and
 // levels across, D and Percentile in each cell, the Expert-anchored tier by
 // each instrument, and the other folders that carry the same charts. Keyed by
-// SongKey (?song=<key>), which names the charts and survives a re-download;
-// folders are told apart by the code prefix, and the one the reader came from
-// heads the panel. A third fixed dialog under the graph (z 1055 against
-// 1060), so a graph opened from a cell draws over it and the panel is still
-// there when the graph closes. Nothing here imports overlay.js: the heading's
-// link is markup that router.js routes to openSong, so the bundle has no cycle.
+// SongKey, which names the charts and survives a re-download; folders are told
+// apart by the code prefix, and the one the open chart is in heads the list.
+// Markup only, from the rows already loaded (the pane calls loadAll() first):
+// nothing here imports pane.js, so the bundle has no cycle.
 import { SHEETS, UI, LEVELS, VALUE_ORDER, VALUE_LABELS, MISS_TEXT } from "./boot.js";
-import { el, esc } from "./dom.js";
+import { esc } from "./dom.js";
 import { t, lab, decimals, isMissing } from "./format.js";
-import { loadAll, loadLinks } from "./load.js";
-import { linkAnchors } from "./links.js";
 import { state } from "./state.js";
-import { writeUrl } from "./url.js";
-
-let songOpener = null;    // its own, not overlay.js's opener: a graph opened from a cell must not reuse it
 
 // Every row carrying the key, in sheet order, as {sheet, columns, row}.
 export function chartsOf(key) {
@@ -34,10 +27,10 @@ const cell = (chart, name) => { const i = chart.columns.indexOf(name); return i 
 const prefix = chart => String(cell(chart, "Code")).slice(0, 8);
 const byText = (a, b) => a === b ? 0 : a === null || a === undefined ? 1 : b === null || b === undefined ? -1 : String(a).localeCompare(String(b));
 
-// The folders sharing the key, primary first: the one the reader came from,
+// The folders sharing the key, primary first: the one the open chart is in,
 // else Official, then Release, then title, then the code prefix, so a bare
 // link always heads with the same folder.
-function folders(charts, from) {
+export function folders(charts, from) {
   const seen = new Map();
   for (const c of charts) if (!seen.has(prefix(c))) seen.set(prefix(c), c);
   const list = [...seen.entries()].map(([p, c]) => ({ prefix: p, chart: c }));
@@ -51,21 +44,37 @@ function folders(charts, from) {
   return list;
 }
 
-const songCloseButton = () => '<button type="button" class="x" data-act="close" aria-label="' +
-  esc(UI.close_tip) + '" title="' + esc(UI.close_tip) + '">&times;</button>';
-
-function shell(title, artist, body) {
-  return '<div class="mhead"><strong>' + esc(title) + "</strong>" +
-    (artist ? '<span class="text-secondary">' + esc(artist) + "</span>" : "") + songCloseButton() + "</div>" + body;
+// The charts of the primary folder, in the grid's order: instruments in
+// VALUE_ORDER order, levels Expert first.
+function ownCharts(key, from) {
+  const charts = chartsOf(key);
+  if (!charts.length) return [];
+  const list = folders(charts, from);
+  return charts.filter(c => prefix(c) === list[0].prefix);
 }
 
-// The grid for the primary folder's charts: instruments in VALUE_ORDER order,
-// levels in the chips' order (Expert first), a blank for a level the
+function typesOf(charts) {
+  const types = (VALUE_ORDER.Type || []).filter(ty => charts.some(c => cell(c, "Level") && cell(c, "Type") === ty));
+  for (const c of charts) if (!types.includes(cell(c, "Type"))) types.push(cell(c, "Type"));
+  return types;
+}
+
+// The chart a ?song= link opens: the primary folder's first instrument, at
+// Expert when it has one, else its first level. null when no loaded row has
+// the key.
+export function primaryCode(key) {
+  const own = ownCharts(key, null);
+  if (!own.length) return null;
+  const mine = own.filter(c => cell(c, "Type") === typesOf(own)[0]);
+  const pick = LEVELS.map(l => mine.find(c => cell(c, "Level") === l)).find(Boolean) || mine[0];
+  return cell(pick, "Code");
+}
+
+// The grid for the primary folder's charts: a blank for a level the
 // instrument lacks, the tier once per instrument, since it is the same number
 // on every level of one.
 function grid(charts, here) {
-  const types = (VALUE_ORDER.Type || []).filter(ty => charts.some(c => cell(c, "Level") && cell(c, "Type") === ty));
-  for (const c of charts) if (!types.includes(cell(c, "Type"))) types.push(cell(c, "Type"));
+  const types = typesOf(charts);
   let out = '<div class="sgrid" role="grid" aria-label="' + esc(UI.song_grid_label) + '"><div class="corner"></div>' +
     LEVELS.map(l => '<div class="lvlh ' + esc(l) + '">' + esc(l) + "</div>").join("");
   for (const ty of types) {
@@ -83,7 +92,8 @@ function grid(charts, here) {
         continue;
       }
       const code = cell(c, "Code"), d = cell(c, "D"), pct = cell(c, "Pct");
-      out += '<button type="button" class="cell' + (code === here ? " here" : "") + '" data-code="' + esc(code) + '"><b>' +
+      out += '<button type="button" class="cell' + (code === here ? " here" : "") + '" data-code="' + esc(code) + '"' +
+        (code === here ? ' aria-current="true"' : "") + "><b>" +
         (typeof d === "number" ? esc(d.toFixed(decimals("D", c.sheet))) : esc(MISS_TEXT)) + "</b>" +
         (typeof pct === "number" ? "<small>" + esc(pct.toFixed(decimals("Pct", c.sheet))) + "</small>" : "") + "</button>";
     }
@@ -91,14 +101,13 @@ function grid(charts, here) {
   return out + "</div>";
 }
 
-function fill(key, from) {
-  const card = el("song").querySelector(".mcard");
+// The song half of the pane for the chart `here`: the folder's charter,
+// source, date, album and year, the other folders carrying the key, the grid.
+// "" when no loaded row has the key.
+export function songSection(key, here) {
   const charts = chartsOf(key);
-  if (!charts.length) {
-    card.innerHTML = shell(UI.song_not_found, "", "");
-    return false;
-  }
-  const list = folders(charts, from);
+  if (!charts.length) return "";
+  const list = folders(charts, here);
   const main = list[0].chart;
   const own = charts.filter(c => prefix(c) === list[0].prefix);
   const kind = (VALUE_LABELS.Official || {})[String(cell(main, "Official"))];
@@ -118,62 +127,7 @@ function fill(key, from) {
     return esc(release ?? MISS_TEXT) + (charter ? " (" + esc(charter) + ")" : "") +
       (title !== cell(main, "Song Title") ? ", " + esc(title ?? "") : "");
   });
-  const out = linkAnchors(key);
-  card.innerHTML = shell(cell(main, "Song Title") ?? "", cell(main, "Artist") ?? "",
-    '<p class="meta">' + meta.join('<span class="sep">/</span>') +
-    (out ? '<span class="lnk">' + out.replace(/<\/a><a /g, '</a><span class="sep">/</span><a ') + "</span>" : "") + "</p>" +
+  return '<p class="meta">' + meta.join('<span class="sep">/</span>') + "</p>" +
     (also.length ? '<p class="also"><span class="text-secondary">' + esc(UI.song_also_in) + ":</span> " + also.join("; ") + "</p>" : "") +
-    grid(own, from || null));
-  el("song").setAttribute("aria-label", UI.song_label + ": " + (cell(main, "Song Title") ?? key));
-  return true;
-}
-
-export const songIsOpen = () => el("song").classList.contains("on");
-
-// Opens at once with a loading heading, fills when every sheet is here.
-// Resolves after the fill, never rejects. Called again for the key already
-// open, it only re-marks the cell the reader came from.
-export function openSong(key, { from } = {}) {
-  const panel = el("song");
-  if (songIsOpen() && state.song === key) {
-    const cells = panel.querySelectorAll(".cell.here");
-    cells.forEach(c => c.classList.remove("here"));
-    const mine = from && panel.querySelector('.cell[data-code="' + from + '"]');
-    if (mine) { mine.classList.add("here"); mine.focus(); }
-    return Promise.resolve();
-  }
-  songOpener = document.activeElement;
-  state.song = key;
-  writeUrl();
-  panel.querySelector(".mcard").innerHTML = shell(UI.song_loading, "", "");
-  panel.setAttribute("aria-label", UI.song_label);
-  panel.classList.add("on");
-  panel.focus();
-  return Promise.all([loadAll(), loadLinks().catch(() => null)]).then(() => {
-    if (!songIsOpen() || state.song !== key) return;
-    const failed = Object.keys(SHEETS).some(s => !state.data[s]);
-    if (failed && !chartsOf(key).length) {
-      panel.querySelector(".mcard").innerHTML = shell(UI.load_failed, "", "") +
-        '<p class="meta"><a href="">' + esc(UI.reload) + "</a></p>";
-      return;
-    }
-    if (!fill(key, from)) {
-      state.song = null;          // the parameter leaves the URL: nothing answers to it
-      writeUrl();
-      return;
-    }
-    const here = panel.querySelector(".cell.here");
-    if (!el("modal").classList.contains("on")) (here || panel).focus();
-  });
-}
-
-export function closeSong() {
-  if (!songIsOpen()) return;
-  el("song").classList.remove("on");
-  state.song = null;
-  writeUrl();
-  const back = songOpener && songOpener.isConnected && !el("song").contains(songOpener)
-    ? songOpener : el("body").querySelector('tr[tabindex="0"]');
-  if (back) back.focus();
-  songOpener = null;
+    grid(own, here || null);
 }

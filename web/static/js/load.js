@@ -34,7 +34,11 @@ export function loadLinks() {
   if (!linksInflight) {
     linksInflight = fetch(LINKS_FILE)
       .then(r => { if (!r.ok) throw new Error(r.status + " " + LINKS_FILE); return r.json(); })
-      .then(file => { state.links = file.songs || {}; return { songs: state.links }; })
+      .then(file => {
+        state.links = file.songs || {};
+        document.dispatchEvent(new CustomEvent("fw:links"));
+        return { songs: state.links };
+      })
       .catch(err => { linksInflight = null; throw err; });
   }
   return linksInflight;

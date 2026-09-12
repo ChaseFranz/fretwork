@@ -69,21 +69,38 @@ check("chooser label", cd.querySelector(".form-check-label"));
 check("chooser grip", cd.querySelector(".grip"), true);
 check("chooser reset button", cd.querySelector("[data-act]"), true);
 
-// the graph card (section 06): text on the figure background, and the picker
+// the details pane (sections 06, 07, 14): text on the figure background, the
+// picker, the song grid beside the graph, the link buttons and the link cells
 document.body.click();
 await wait(50);
 const firstRow = document.querySelector("#body tr[data-code]");
 if (firstRow) {
   click(firstRow);
-  await wait(600);
-  const modal = document.getElementById("modal");
+  await wait(800);
+  const modal = document.getElementById("pane");
   check("graph readout", modal.querySelector(".readout"));
   check("graph legend", modal.querySelector(".legend li"));
   check("graph meta line", modal.querySelector(".mmeta"));
   check("graph meta value", modal.querySelector(".mmeta b"));
   check("graph heading dim text", modal.querySelector(".mhead .text-secondary"));
-  check("graph close button", modal.querySelector(".x"), true);
+  check("pane close button", modal.querySelector(".pbtns .x"), true);
+  check("pane collapse button", modal.querySelector(".pbtns .pmin"), true);
   check("graph tool button", modal.querySelector(".gtools button"), true);
+  {   // the grip is a pill, not text: its fill against the strip it sits on, 3:1 as for anything clickable
+    const pill = modal.querySelector(".pgrip span"), strip = modal.querySelector(".pgrip");
+    const fg = over([...parse(getComputedStyle(pill).backgroundColor).slice(0, 3), parseFloat(getComputedStyle(pill).opacity)], bgOf(strip));
+    const r = ratio(fg, bgOf(strip));
+    measured++; if (r < 3) failures++;
+    const line = "pane grip".padEnd(24) + (r.toFixed(2) + ":1").padStart(8) + "  " + hex(fg) + " on " + hex(bgOf(strip));
+    if (r >= 3) note(line); else say("contrast pane grip", false, line + " needs 3");
+  }
+  check("selected row title", firstRow.querySelector("td.title"));
+  check("selected row D", firstRow.querySelector("td.headline"));
+  check("selected row rank", firstRow.querySelector("td.rank"));
+  const linkBtn = modal.querySelector(".gtools a.ext");
+  if (linkBtn) check("link button", linkBtn, true);
+  const linkCell = document.querySelector("#body td.lnkc a.ext");
+  if (linkCell) check("link column arrow", linkCell, true);
   click(modal.querySelector('[data-act="compare"]'));
   await wait(400);
   check("picker box text", document.getElementById("cmpq"));
@@ -105,21 +122,15 @@ if (firstRow) {
   check("pick bar button", document.querySelector("#pick button"), true);
   key("Escape");
   await wait(300);
-  // the song panel (section 07)
-  const sng = modal.querySelector(".mhead a.sng");
-  check("graph heading song link", sng, true);
-  if (sng) {
-    click(sng);
-    await wait(700);
-    const panel = document.getElementById("song");
-    check("song meta line", panel.querySelector("p.meta"));
-    check("song tier", panel.querySelector(".sgrid .tier") || panel.querySelector(".sgrid .inst"));
-    check("song compare button", panel.querySelector(".sgrid .cmp") || panel.querySelector(".sgrid .inst"), true);
-    check("song cell D", panel.querySelector(".sgrid .cell b"), true);
-    check("song cell percentile", panel.querySelector(".sgrid .cell small") || panel.querySelector(".sgrid .cell b"));
-    check("song blank cell", panel.querySelector(".sgrid .cell.none") || panel.querySelector(".sgrid .cell b"));
-    for (const h of panel.querySelectorAll(".sgrid .lvlh")) check("level heading " + h.textContent, h);
-  }
+  // the song half
+  const panel = modal.querySelector(".sbody");
+  check("song meta line", panel.querySelector("p.meta"));
+  check("song tier", panel.querySelector(".sgrid .tier") || panel.querySelector(".sgrid .inst"));
+  check("song compare button", panel.querySelector(".sgrid .cmp") || panel.querySelector(".sgrid .inst"), true);
+  check("song cell D", panel.querySelector(".sgrid .cell b"), true);
+  check("song cell percentile", panel.querySelector(".sgrid .cell small") || panel.querySelector(".sgrid .cell b"));
+  check("song blank cell", panel.querySelector(".sgrid .cell.none") || panel.querySelector(".sgrid .cell b"));
+  for (const h of panel.querySelectorAll(".sgrid .lvlh")) check("level heading " + h.textContent, h);
   key("Escape");
   await wait(100);
 }

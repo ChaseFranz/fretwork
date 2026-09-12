@@ -30,6 +30,7 @@ There is no Linux Chrome on the dev box; the runner finds Windows Chrome at `/mn
 - `--dump-dom` HTML-escapes the results block; the runner unescapes before matching. Never put `</pre>` in a detail string.
 - Inject only into a pristine copy. The runner asserts the module tag appears once, the page holds exactly two `<script` tags, and no suite name is already in the source.
 - A synthetic `click()` does not move focus. Suites that assert focus return call `el.focus()` first; the page records `document.activeElement` as the opener.
+- The details pane (section 14) opens with focus still on the row and the arrow keys move the chart, debounced 160 ms: a suite that presses an arrow with the pane open waits 400 ms before reading the pane's `aria-label`. The pane's height is remembered in `fw.pane`; `pane.js` removes it after the drag checks so the next suite starts on the stylesheet's height.
 - Turning off the only lit Level chip lights all four. Toggle a chip that can go dark.
 - Official is on at launch and tri-state; a URL without `f.Official` lights neither chip.
 - The raw `[text](url)` markup legitimately lives in the `#fw-boot` island; `links.js` scans rendered regions only.

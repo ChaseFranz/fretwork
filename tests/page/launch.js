@@ -142,15 +142,18 @@ if (col("Added") >= 0) {
   click(chip("levels", "Expert")); click(chip("levels", "Hard")); click(chip("official", UI.official_chip)); await wait(100);
 }
 
-// --- graph deep link ------------------------------------------------------------
+// --- the details pane (section 14) ------------------------------------------------
 const row = document.querySelector("#body tr[data-code]");
 if (row) {
   row.focus();                                     // rows carry tabindex; the opener must hold focus
   click(row);
   await wait(400);
-  const modal = document.getElementById("modal");
-  say("row click opens the graph", modal.classList.contains("on"));
-  say("graph is labelled by code", modal.getAttribute("aria-label").endsWith(": " + row.dataset.code),
+  const modal = document.getElementById("pane");
+  say("row click opens the details pane under the table", modal.classList.contains("on") && modal.getAttribute("role") === "region" &&
+      modal.compareDocumentPosition(document.getElementById("grid")) & Node.DOCUMENT_POSITION_PRECEDING);
+  say("the table is still on screen, shorter", document.querySelector(".fw-wrap").getBoundingClientRect().height > 0 &&
+      document.querySelector(".fw-wrap").getBoundingClientRect().bottom <= modal.getBoundingClientRect().top + 1);
+  say("pane is labelled by code", modal.getAttribute("aria-label").endsWith(": " + row.dataset.code),
       modal.getAttribute("aria-label"));
   say("code is in the URL", params().get("code") === row.dataset.code, params().get("code"));
   const rpt = modal.querySelector(".mhead a.rpt");
@@ -160,6 +163,7 @@ if (row) {
       modal.querySelectorAll(".mhead > *").length >= 5, modal.querySelectorAll(".mhead > *").length);
   say("the graph is a canvas drawn from the curve file, not an image",
       !!modal.querySelector(".gbody canvas") && !modal.querySelector("img"), modal.querySelector(".gbody") && modal.querySelector(".gbody").innerHTML.slice(0, 60));
+  say("the row tip says what a click does", row.title.endsWith(UI.row_tip), JSON.stringify(row.title));
   if (col("Pct") >= 0) {
     const sentence = new RegExp(UI.pct_of.replace(/\{\w+\}/g, ".+?"));
     const links = rpt.closest(".lnk") || rpt;
@@ -173,6 +177,7 @@ if (row) {
   await wait(400);
   say("Escape closes and clears the code", !modal.classList.contains("on") && params().get("code") === null);
   say("focus returns to the row", document.activeElement === row, document.activeElement.tagName);
+  say("no graph or song dialog is in the page", !document.getElementById("modal") && !document.getElementById("song"));
 } else {
   say("a row exists to click", false, "no #body tr[data-code]");
 }

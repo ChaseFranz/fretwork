@@ -3,11 +3,13 @@ import { DOC_PAGES, FOOTER, UI, SHEETS, SHEET_OF_CODE } from "./boot.js";
 import { el, esc, rich } from "./dom.js";
 import { initDropdown } from "./dropdown.js";
 import { initChooser } from "./chooser.js";
-import { openGraph, initGraphModal } from "./overlay.js";
-import { openSong } from "./song.js";
+import { toast } from "./overlay.js";
+import { openPane, initPane } from "./pane.js";
+import { primaryCode } from "./song.js";
+import { fillLinkCells } from "./links.js";
 import { initRouter, render } from "./router.js";
 import { edgeFade } from "./scroll.js";
-import { loadSheet, prefetchIdle } from "./load.js";
+import { loadSheet, loadAll, prefetchIdle } from "./load.js";
 import { readUrl } from "./url.js";
 import { initWidths } from "./widths.js";
 import { state } from "./state.js";
@@ -53,9 +55,11 @@ initDropdown();
 initChooser();
 initWidths();
 initRouter();
-initGraphModal();
+initPane();
 edgeFade(el("tools"));
 edgeFade(document.querySelector(".fw-wrap"));
+// the links file lands after the rows: the waiting arrows become anchors in place
+document.addEventListener("fw:links", () => fillLinkCells(el("body")));
 
 // Open on Expert charts from official releases: the widest-recognised slice of
 // the library, and the one a first-time visitor can calibrate against. Both
@@ -65,20 +69,22 @@ state.filters["Official"] = { type: "set", sel: new Set(["true"]) };
 
 // A shared link describes a view, so whatever it names wins over those defaults.
 // The header, chips and controls paint at once; the rows follow their fetch,
-// and a shared graph opens only once its row is here to name it (its own
-// sheet is loaded too, in case the link names another) and, when a song
-// panel is named as well, once that panel has filled, so the graph's opener is
-// the cell it belongs to. state.graph and state.song are set first so the
-// first draw's writeUrl keeps them in the address bar.
+// and a shared chart opens only once its row is here to name it (its own
+// sheet is loaded too, in case the link names another). state.graph is set
+// first so the first draw's writeUrl keeps it in the address bar and marks
+// its row. A ?song= link without a code resolves to the song's primary chart
+// once every sheet is here, and the URL then carries that code instead.
 const shared = readUrl();
 if (shared.code) state.graph = shared.code;
-if (shared.song) state.song = shared.song;
 render();           // the loading row; draw() refreshes both fades once there is content to measure
-const panel = shared.song ? openSong(shared.song, { from: shared.code }) : Promise.resolve();
 const codeSheet = shared.code ? SHEET_OF_CODE[shared.code.slice(-1).toUpperCase()] : null;
-Promise.all([loadSheet(state.sheet), codeSheet && codeSheet in SHEETS ? loadSheet(codeSheet) : null, panel])
+Promise.all([loadSheet(state.sheet), codeSheet && codeSheet in SHEETS ? loadSheet(codeSheet) : null])
   .then(() => {
     render();
-    if (shared.code) openGraph(shared.code);
+    if (shared.code) openPane(shared.code, state.compare, { reveal: true });
+    else if (shared.song) loadAll().then(() => {
+      const code = primaryCode(shared.song);
+      if (code) openPane(code, [], { reveal: true }); else toast(UI.song_not_found);
+    });
     prefetchIdle();
   }, () => { state.loadError = true; render(); });

@@ -109,6 +109,14 @@ def song_query(plain):
     return "?" + urllib.parse.urlencode({"song": row[cols.index("SongKey")], "code": row[cols.index("Code")]})
 
 
+def song_only_query(plain):
+    """?song=<the first SongKey in the first sheet> alone: the page resolves it to a code (section 14)."""
+    data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
+    sheet = list(data)[0]
+    file = json.loads((plain.parent / data[sheet]["file"]).read_text(encoding="utf-8"))
+    return "?" + urllib.parse.urlencode({"song": file["rows"][0][file["columns"].index("SongKey")]})
+
+
 def genre_query(plain):
     """A search for a genre that no searched column on the first sheet contains."""
     data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
@@ -147,7 +155,8 @@ SUITES = [
     ("graph.js",     {"queries": ["", "?code=00000000XD"]}),
     ("compare.js",   {"queries": [compare_query]}),
     ("song.js",      {}),
-    ("song_url.js",  {"queries": [song_query, "?song=000000000000"]}),
+    ("song_url.js",  {"queries": [song_query, song_only_query, "?song=000000000000"]}),
+    ("pane.js",      {}),
     ("fade.js",      {"windows": ["700,900", "1000,900", "1440,900"]}),
     ("video.js",     {}),
     ("links.js",     {"delay": {"data/links.": 800}}),

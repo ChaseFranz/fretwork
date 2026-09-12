@@ -8,11 +8,10 @@ import { el } from "./dom.js";
 import { t } from "./format.js";
 import { openDD, closeDD } from "./dropdown.js";
 import { toggleCD, closeCD } from "./chooser.js";
-import { openGraph, closeGraph, graphIsOpen, openAbout, closeAbout, aboutIsOpen,
-         toast, addCompare, stopPicking } from "./overlay.js";
-import { openSong, closeSong, songIsOpen } from "./song.js";
+import { openAbout, closeAbout, aboutIsOpen, toast } from "./overlay.js";
+import { openPane, closePane, paneIsOpen, addCompare, stopPicking, closePicker } from "./pane.js";
 import { state, idx } from "./state.js";
-import { draw } from "./table.js";
+import { draw, holdRow } from "./table.js";
 
 function sortBy(col) {
   if (col === state.sortCol) state.sortAsc = !state.sortAsc;
@@ -26,46 +25,34 @@ function copyCode(event, cell) {
   toast(t("copied", { code: cell.dataset.copy }));
 }
 
+// A click that ends a drag-select of a row's text is not a choice.
+const selecting = row => {
+  const s = getSelection();
+  return s && !s.isCollapsed && row.contains(s.anchorNode);
+};
+
 function onClick(e) {
   if (e.target.closest("#dd") || e.target.closest("#cd")) return;
 
   if (e.target.closest("#how")) { closeDD(); closeCD(); openAbout(); return; }
-
-  // the song panel's compare button: an instrument's levels on one graph
-  const cmp = e.target.closest("[data-cmp]");
-  if (cmp) {
-    const codes = cmp.dataset.cmp.split(",").filter(Boolean);
-    if (codes.length) openGraph(codes[0], codes.slice(1));
-    return;
-  }
-  // the song panel, from a graph heading or a title pip; the href is real, so no navigation
-  const song = e.target.closest("[data-song]");
-  if (song) {
-    e.preventDefault();
-    const from = graphIsOpen() ? state.graph : (song.closest("tr[data-code]") || {}).dataset?.code;
-    if (graphIsOpen()) closeGraph();
-    openSong(song.dataset.song, { from });
-    return;
-  }
-  // the dialogs, topmost first: the graph covers everything when it is open
-  if (graphIsOpen()) {
-    // a copy's link swaps the graph in place; the href is real for a new tab
-    const alt = e.target.closest("#modal .mhead a[data-code]");
-    if (alt) { e.preventDefault(); openGraph(alt.dataset.code); return; }
-    // the card has controls, so only the backdrop itself and the close button close
-    if (e.target.closest('#modal [data-act="close"]') || e.target === el("modal")) closeGraph();
-    return;
-  }
-  if (songIsOpen()) {
-    const cell = e.target.closest("#song .cell[data-code]");
-    if (cell) { openGraph(cell.dataset.code); return; }
-    if (e.target.closest('#song [data-act="close"]') || !e.target.closest("#song .mcard")) closeSong();
-    return;
-  }
+  // the explainer is the one dialog left: it covers everything while it is open
   if (aboutIsOpen()) {
     if (!e.target.closest(".mcard") || e.target.dataset.act === "close") closeAbout();
     return;
   }
+
+  // the pane's links to other charts: a grid cell, a copy's link (a real href,
+  // for a new tab), an instrument's compare button; the pane's own controls
+  // are wired in pane.js
+  const cmp = e.target.closest("#pane [data-cmp]");
+  if (cmp) {
+    const codes = cmp.dataset.cmp.split(",").filter(Boolean);
+    if (codes.length) openPane(codes[0], codes.slice(1));
+    return;
+  }
+  const alt = e.target.closest("#pane .cell[data-code], #pane .copies a[data-code]");
+  if (alt) { e.preventDefault(); openPane(alt.dataset.code); return; }
+  if (e.target.closest("#pane") || e.target.closest("#pick")) return;
 
   if (e.target.closest("#cols")) { closeDD(); toggleCD(el("cols")); return; }
   closeCD();
@@ -84,21 +71,24 @@ function onClick(e) {
   const pip = e.target.closest("[data-copy]");
   if (pip) { copyCode(e, pip); return; }
 
+  // a link column's arrow: the browser follows it, the row is not chosen
+  if (e.target.closest("tbody a.ext")) return;
+
   const row = e.target.closest("tbody tr[data-code]");
-  if (row) { holdRow(row); chooseRow(row.dataset.code); return; }
-
+  if (row && !selecting(row)) { holdRow(row); chooseRow(row.dataset.code); return; }
 }
 
-// A row opens its graph, or, while a comparison is being picked, joins the
-// graph that is waiting and brings it back.
+// A row opens the pane on its chart, or closes it when it is the chart
+// already open; while a comparison is being picked it joins the graph.
 function chooseRow(code) {
-  if (state.picking) { if (addCompare(code)) stopPicking(false); else stopPicking(true); return; }
-  openGraph(code);
+  if (state.picking) { addCompare(code); stopPicking(); return; }
+  if (paneIsOpen() && state.graph === code) { closePane(); return; }
+  openPane(code);
 }
 
-// Tab stays inside the open dialog: wrap from its last focusable to its first
-// and back. With nothing focusable (a graph still rendering) it is swallowed,
-// as before, so focus cannot land on the table behind the backdrop.
+// Tab stays inside the explainer: wrap from its last focusable to its first
+// and back. With nothing focusable it is swallowed, so focus cannot land on
+// the table behind the backdrop.
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function trapTab(dialog, e) {
@@ -111,16 +101,10 @@ function trapTab(dialog, e) {
   to.focus();
 }
 
-// The table is one tab stop with the arrows moving inside it, rather than 875
-// of them: a roving tabindex, so Tab still reaches the footer in one press.
 const STEP = { ArrowDown: 1, ArrowUp: -1, PageDown: 12, PageUp: -12 };
 const ENDS = { Home: -Infinity, End: Infinity };
-
-function holdRow(row) {
-  const had = el("body").querySelector('tr[tabindex="0"]');
-  if (had) had.tabIndex = -1;
-  row.tabIndex = 0;
-}
+const FOLLOW_MS = 160;   // the graph follows the arrow keys once they pause, not per press
+let follow = null;
 
 function moveTo(row, delta) {
   const rows = [...el("body").querySelectorAll("tr[data-code]")];
@@ -128,6 +112,11 @@ function moveTo(row, delta) {
   if (!to || to === row) return;
   holdRow(to);
   to.focus();
+  // with the pane open, the selection is the focused row: the graph follows
+  if (paneIsOpen() && !state.picking) {
+    clearTimeout(follow);
+    follow = setTimeout(() => { if (paneIsOpen() && !state.picking) openPane(to.dataset.code, state.compare, { follow: true }); }, FOLLOW_MS);
+  }
 }
 
 // True when the key belonged to the table, so the caller stops there.
@@ -144,21 +133,19 @@ function onGridKey(e) {
   return false;
 }
 
-// Tab stays in the topmost dialog; Escape closes one layer at a time, so a
-// graph over the song panel takes two presses back to the table.
+// Escape closes one thing at a time: the explainer, a dropdown, the picker
+// mode, the compare picker, then the pane, which hands focus back to its row.
 function onKeydown(e) {
-  if (e.key === "Tab") {
-    if (graphIsOpen()) { trapTab(el("modal"), e); return; }
-    if (songIsOpen()) { trapTab(el("song"), e); return; }
-    if (aboutIsOpen()) { trapTab(el("about"), e); return; }
-  }
+  if (e.key === "Tab" && aboutIsOpen()) { trapTab(el("about"), e); return; }
   if (e.key === "Escape") {
+    if (aboutIsOpen()) { closeAbout(); return; }
+    const had = state.ddCol !== null || el("cd").classList.contains("show");
     closeDD();
     closeCD();
-    if (state.picking) { stopPicking(true); return; }
-    if (graphIsOpen()) closeGraph();
-    else if (songIsOpen()) closeSong();
-    else closeAbout();
+    if (had) return;
+    if (state.picking) { stopPicking(); return; }
+    if (closePicker()) return;
+    if (paneIsOpen()) closePane();
     return;
   }
   onGridKey(e);

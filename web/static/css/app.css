@@ -15,7 +15,6 @@
   :focus-visible { outline:2px solid var(--fw-accent-text); outline-offset:2px; }
   .fw-wrap tbody tr:focus-visible, .fw-wrap thead th .lbl:focus-visible {
     outline:2px solid var(--fw-accent-text); outline-offset:-2px; }
-  #modal:focus-visible { outline:none; }
   .text-secondary { color:var(--fw-dim)!important; }
   .btn-check:checked + .btn, .btn-fw.active { background:var(--fw-accent); border-color:var(--fw-accent); color:#fff; }
   /* Bootstrap bakes its button colours into the compiled CSS rather than reading
@@ -78,6 +77,15 @@
   td.code:hover { text-decoration:underline; }
   td.title { max-width:300px; white-space:normal; overflow-wrap:break-word; }
   td.song { min-width:150px; }
+  /* the link columns: one arrow, the anchor for a row the file knows, dim
+     while the file is on its way, nothing for a row without the link */
+  td.lnkc { text-align:center; padding-left:4px; padding-right:4px; font-size:14px; line-height:1; }
+  td.lnkc a.ext { color:var(--fw-accent-text); text-decoration:none; display:inline-block; padding:2px 6px; }
+  td.lnkc a.ext:hover { text-decoration:underline; }
+  td.lnkc .wait { color:var(--fw-dim); opacity:.5; }
+  /* the row open in the details pane: the accent as a tint and a left edge, over the hover */
+  .fw-wrap .table-hover > tbody > tr.sel > * { --bs-table-bg-state: rgba(183,31,183,.22); }
+  .fw-wrap tbody tr.sel > td:first-child { box-shadow:inset 3px 0 0 var(--fw-accent-text), inset 0 0 0 9999px var(--bs-table-bg-state); }
   td.artist { max-width:220px; }
   td.album { max-width:220px; }
   /* The four level colours still come from xlsx_format.py, so the site and the
@@ -111,23 +119,46 @@
   #cd .cc .grip { cursor:grab; opacity:.6; padding:0 2px; user-select:none; }
   #cd .cc .grip:active { cursor:grabbing; }
   #cd .form-check { flex:1; margin-bottom:0; padding:2px 4px 2px 1.5rem; }
-  #modal, #about, #song { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
+  #about { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
            align-items:center; justify-content:center; z-index:1060; padding:24px; }
-  #modal.on, #about.on, #song.on { display:flex; }
-  #modal .mcard, #about .mcard, #song .mcard { max-width:100%; max-height:92vh; overflow:auto; }
-  /* the song panel sits under the graph, so a graph opened from a cell draws over it */
-  #song { z-index:1055; }
-  #song:focus-visible { outline:none; }
-  #song .mcard { position:relative; width:min(680px, 100%); background:var(--bs-body-bg);
-    border:1px solid var(--bs-border-color); border-radius:8px; padding:20px 22px; }
-  #song .x { position:absolute; top:8px; right:8px; background:none; border:0; color:var(--fw-dim);
-    font-size:22px; line-height:1; padding:0 2px; cursor:pointer; }
-  #song .x:hover { color:var(--bs-body-color); }
-  #song .mhead { padding-right:28px; }
-  #song p.meta, #song p.also { margin:0 0 6px; font-size:12px; color:var(--fw-dim); }
-  #song p.meta a { color:var(--fw-accent-text); }
-  #song p.also { color:var(--bs-body-color); }
-  .sgrid { display:grid; grid-template-columns:auto repeat(4, 1fr); gap:4px; margin-top:10px; font-size:12px; }
+  #about.on { display:flex; }
+  #about .mcard { max-width:100%; max-height:92vh; overflow:auto; }
+  /* The details pane (section 14): a flex sibling under the table, so the table
+     shrinks and nothing is positioned over it. Its background is set from
+     RENDER.figure_bg by openPane, never here: the three series colours were
+     measured against that colour and it reaches the page only through boot.
+     The grip is the top edge; .min is the heading alone. */
+  .fw-pane { flex:0 0 auto; display:none; flex-direction:column; height:46vh; min-height:0;
+    border-top:1px solid var(--bs-border-color); position:relative; }
+  .fw-pane.on { display:flex; }
+  .fw-pane.min { height:auto!important; }
+  .fw-pane .pgrip { flex:0 0 auto; height:9px; cursor:row-resize; touch-action:none;
+    display:flex; align-items:center; justify-content:center; background:var(--bs-tertiary-bg); }
+  .fw-pane .pgrip span { width:44px; height:3px; border-radius:2px; background:var(--fw-dim); opacity:.75; }
+  .fw-pane .pgrip:hover span { background:var(--fw-accent-text); opacity:1; }
+  .fw-pane.min .pgrip { cursor:default; }
+  body.resizing-v { cursor:row-resize; user-select:none; }
+  .fw-pane .pcard { flex:1 1 auto; min-height:0; overflow:auto; scrollbar-gutter:stable; position:relative;
+    display:flex; flex-direction:column; padding:8px 16px 10px; }
+  .fw-pane.min .pcard > :not(.mhead):not(.pbtns) { display:none; }
+  .fw-pane .mhead { padding-right:56px; margin-bottom:4px; flex:0 0 auto; }
+  .fw-pane .mmeta, .fw-pane .gtools, .fw-pane .picker { flex:0 0 auto; }
+  .fw-pane .pbtns { position:absolute; top:4px; right:8px; display:flex; gap:2px; }
+  .fw-pane .pbtns button { background:none; border:0; color:var(--fw-dim); line-height:1; padding:0 4px; cursor:pointer; }
+  .fw-pane .pbtns .x { font-size:22px; }
+  .fw-pane .pbtns .pmin { font-size:11px; }
+  .fw-pane .pbtns button:hover { color:var(--bs-body-color); }
+  .fw-pane .gtools { margin:2px 0 6px; }
+  .fw-pane .gtools a.ext { text-decoration:none; }
+  /* the graph beside the song grid when there is room; the graph fills the
+     height it is given (graph.js's fill), the grid scrolls on its own */
+  .fw-pane .pbody { display:flex; gap:18px; flex:1 1 auto; min-height:0; }
+  .fw-pane .gbody { flex:1 1 60%; min-width:0; min-height:0; display:flex; flex-direction:column; }
+  .fw-pane .gbody canvas { display:block; width:100%; touch-action:pan-y; border-radius:4px; flex:0 0 auto; }
+  .fw-pane .sbody { flex:0 1 400px; min-width:280px; min-height:0; overflow:auto; font-size:12px; }
+  .fw-pane .sbody p.meta, .fw-pane .sbody p.also { margin:0 0 6px; font-size:12px; color:var(--fw-dim); }
+  .fw-pane .sbody p.also { color:var(--bs-body-color); }
+  .sgrid { display:grid; grid-template-columns:auto repeat(4, 1fr); gap:4px; margin-top:6px; font-size:12px; }
   .sgrid .lvlh { text-align:center; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.4px;
     padding:2px 0; }
   .sgrid .inst { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding:0 8px 0 0; font-weight:600; }
@@ -146,14 +177,7 @@
   .sgrid .cell.none { color:var(--fw-dim); border-style:dashed; }
   .mhead .lnk { display:flex; flex-wrap:wrap; align-items:baseline; gap:0; font-size:11px; }
   .mhead .lnk a { white-space:nowrap; }
-  .mhead .lnk a, .mhead .ext { color:var(--fw-accent-text); }
-  #song p.meta .lnk { margin-left:8px; }
-  /* the title cell's pip to the song panel: out of flow, revealed on hover like the code pip */
-  td.song { position:relative; padding-right:18px; }
-  td.song .sp { position:absolute; right:2px; top:5px; visibility:hidden; opacity:.7; cursor:pointer;
-    color:var(--fw-accent-text); font-size:13px; line-height:1; }
-  tr:hover td.song .sp { visibility:visible; }
-  td.song .sp:hover { opacity:1; }
+  .mhead .lnk a { color:var(--fw-accent-text); }
   #about .mcard { max-width:min(680px, 100%); background:var(--bs-body-bg);
     border:1px solid var(--bs-border-color); border-radius:8px; padding:20px 22px; }
   /* the card is wide enough for the video; the prose is not, so it keeps a measure */
@@ -173,16 +197,6 @@
   .mhead .rpt { font-size:11px; white-space:nowrap; }
   .mhead .copies { flex-basis:100%; font-size:11px; }
   .mhead .copies a { color:var(--fw-accent-text); }
-  /* The graph card. Its background is set from RENDER.figure_bg by openGraph,
-     never here: the three series colours were measured against that colour
-     and it reaches the page only through boot. */
-  #modal .mcard { position:relative; width:min(100%, 1200px); border:1px solid var(--bs-border-color);
-    border-radius:8px; padding:20px 22px; }
-  #modal .x { position:absolute; top:8px; right:8px; background:none; border:0; color:var(--fw-dim);
-    font-size:22px; line-height:1; padding:0 2px; cursor:pointer; }
-  #modal .x:hover { color:var(--bs-body-color); }
-  #modal .mhead { padding-right:28px; }
-  #modal canvas { display:block; width:100%; touch-action:pan-y; border-radius:4px; }
   .mmeta { display:flex; flex-wrap:wrap; gap:2px 0; font-size:11px; color:var(--fw-dim); margin-bottom:6px; }
   .mmeta b { font-weight:600; color:var(--bs-body-color); }
   .readout { margin:6px 0 2px; font-size:12px; font-variant-numeric:tabular-nums; white-space:pre-wrap;
@@ -205,8 +219,14 @@
   /* the bar above the table while a chart to compare with is being chosen */
   .fw-pick { flex:0 0 auto; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 16px;
     font-size:12px; background:var(--bs-tertiary-bg); border-bottom:1px solid var(--bs-border-color); }
-  /* both overlays use this header, so it is not scoped to either one */
+  /* the pane and the explainer share this header, so it is not scoped to either */
   .mhead { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  /* under 900px the song grid goes under the graph, which draws at its aspect again */
+  @media (max-width:899px) {
+    .fw-pane .pbody { flex-direction:column; flex:0 0 auto; }
+    .fw-pane .gbody { flex:0 0 auto; }
+    .fw-pane .sbody { flex:0 0 auto; min-width:0; overflow:visible; }
+  }
   /* narrow screens: tighten everything so the difficulty column is on screen
      without a sideways swipe, and give the strapline its own line */
   @media (max-width:640px) {
@@ -246,11 +266,15 @@
     td.num { font-size:12px; }
     /* a 7px drag target is not a touch target, and it would fight the scroll */
     .fw-wrap thead th .rz { display:none; }
-    /* the graph takes the whole width of a phone: 8px of padding and no card border */
-    #modal { padding:8px; }
-    #modal .mcard { padding:8px; border:0; border-radius:0; }
+    /* the link columns would push D off a phone screen; the pane's tool row
+       carries the same links there */
+    .fw-wrap th[data-c="Enchor"], .fw-wrap th[data-c="Leaderboard"], .fw-wrap td.lnkc { display:none; }
+    /* the pane is a bottom sheet under the table, which keeps a few rows; the
+       grip drags it taller and the card scrolls */
+    .fw-pane { height:44vh; }
+    .fw-pane .pcard { padding:6px 8px 8px; }
+    .fw-pane .mhead { padding-right:48px; }
     /* the song grid: the instrument heading on its own line, four cells across the card */
-    #song { padding:8px; }
     .sgrid { grid-template-columns:repeat(4, 1fr); }
     .sgrid .corner { display:none; }
     .sgrid .inst { grid-column:1 / -1; margin-top:6px; }

@@ -50,6 +50,15 @@ function paintOfficialChips() {
   });
 }
 
+// The table is one tab stop with the arrows moving inside it, rather than
+// thousands of them: a roving tabindex, so Tab still reaches the pane and the
+// footer in one press each.
+export function holdRow(row) {
+  const had = el("body").querySelector('tr[tabindex="0"]');
+  if (had && had !== row) had.tabIndex = -1;
+  row.tabIndex = 0;
+}
+
 export function draw() {
   const vis = visible();
   const sortIdx = idx(state.sortCol);
@@ -87,8 +96,10 @@ export function draw() {
       ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], n + 1, tipFor(r), keyIdx < 0 ? undefined : r[keyIdx])).join("")
       : emptyRow(vis.length);
 
-  // One tab stop for the whole table; the arrow keys move within it.
-  const first = el("body").querySelector("tr[data-code]");
+  // One tab stop for the whole table; the arrow keys move within it. The row
+  // open in the pane takes it when it is on screen, so Tab from the pane
+  // lands back on it.
+  const first = el("body").querySelector("tr.sel[data-code]") || el("body").querySelector("tr[data-code]");
   if (first) first.tabIndex = 0;
 
   applyWidths();

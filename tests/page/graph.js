@@ -1,6 +1,7 @@
 // The graph on a canvas (section 06): drawn from graph/<code>.json, smoothed
 // in the browser to the pinned vector, read out under the pointer and the
 // arrow keys, and exported as a PNG named the way render.py names its files.
+// Since section 14 it lives in the details pane under the table (#pane).
 import { BOOT, rows as sheetRows, say, done, wait, click, key, ready, params } from "./lib.js";
 await ready();
 
@@ -9,7 +10,7 @@ const sheet = Object.keys(BOOT.data)[0];
 const rows = await sheetRows(sheet);
 const cols = BOOT.data[sheet].columns;
 const col = n => cols.indexOf(n);
-const modal = document.getElementById("modal");
+const modal = document.getElementById("pane");
 const gbody = () => modal.querySelector(".gbody");
 const readout = () => modal.querySelector(".readout");
 const near = (a, b) => Math.abs(a - b) < 1e-9;
@@ -35,7 +36,7 @@ say("it is an application for the arrow keys", canvas().getAttribute("role") ===
     canvas().getAttribute("aria-roledescription") === "difficulty graph" && canvas().tabIndex === 0);
 say("it is described by the readout", canvas().getAttribute("aria-describedby") === readout().id && readout().getAttribute("aria-live") === "polite");
 say("it is labelled with the song", (canvas().getAttribute("aria-label") || "").startsWith("Difficulty graph of "), canvas().getAttribute("aria-label"));
-const card = modal.querySelector(".mcard");
+const card = modal.querySelector(".pcard");
 say("the card takes the figure background", getComputedStyle(card).backgroundColor === (() => {
   const s = document.createElement("span"); s.style.color = RENDER.figure_bg; document.body.appendChild(s);
   const c = getComputedStyle(s).color; s.remove(); return c; })(), getComputedStyle(card).backgroundColor);
@@ -99,10 +100,11 @@ say("the export file name is render.py's", fw.outputFilename([row.dataset.code],
 const blob = await fw.exportPng(fw.charts, { title: "t", meta: "m" });
 say("exportPng gives a PNG blob", blob && blob.type === "image/png" && blob.size > 1000, blob && blob.size);
 
-// the tools and the close button are there, in that order after the heading
-const order = [...modal.querySelectorAll(".mcard > *")].map(e => e.className.split(" ")[0]);
-say("the card's order is heading, close, meta, graph, tools, picker", order.join() === "mhead,x,mmeta,gbody,gtools,picker", order.join());
+// the heading, the pane's buttons, the meta line, the tools, the picker, then the body: graph beside the song grid
+const order = [...modal.querySelectorAll(".pcard > *")].map(e => e.className.split(" ")[0]);
+say("the card's order is heading, buttons, meta, tools, picker, body", order.join() === "mhead,pbtns,mmeta,gtools,picker,pbody", order.join());
 say("the tools are Compare, Pick and Save", [...modal.querySelectorAll(".gtools button")].map(b => b.textContent).join() === [UI.compare, UI.compare_pick, UI.save_png].join());
+say("the body is the graph and the song section", modal.querySelector(".pbody > .gbody") && modal.querySelector(".pbody > .sbody"));
 
 key("Escape");
 await wait(200);

@@ -5,6 +5,7 @@ import { SHEETS, SHEET_OF_CODE, ORDER, HIDDEN_DEFAULT, PREFS_VERSION } from "./b
 const STORAGE_KEY = "fw.hidden";
 const ORDER_KEY = "fw.order";
 const WIDTH_KEY = "fw.widths";
+const PANE_KEY = "fw.pane";
 const VERSION_KEY = "fw.v";
 
 // A changed default column set reaches a returning visitor once: when the
@@ -40,6 +41,12 @@ function loadWidths() {
   catch (e) { return {}; }
 }
 
+// The details pane's height in px, once dragged; null is the stylesheet's.
+function loadPane() {
+  try { const v = parseInt(localStorage.getItem(PANE_KEY) || "", 10); return v > 0 ? v : null; }
+  catch (e) { return null; }
+}
+
 export const state = {
   sheet: Object.keys(SHEETS)[0],
   data: {},           // sheet -> {columns, rows}, filled by load.js as sheets arrive
@@ -51,10 +58,11 @@ export const state = {
   hidden: loadHidden(),
   order: loadOrder(),   // viewer's own column order; [] means the site default
   widths: loadWidths(), // column -> pixels, only for columns dragged wider or narrower
-  graph: null,          // code of the chart whose graph is open, for the URL
+  graph: null,          // code of the chart open in the details pane (?code=); its row is highlighted
   compare: [],          // up to two more codes drawn on the same graph (?vs=)
-  picking: false,       // the graph is hidden while a row is chosen to compare with
-  song: null,           // SongKey of the open song panel, for the URL (?song=)
+  picking: false,       // the next row click joins the graph instead of opening the pane on it
+  paneH: loadPane(),    // the pane's dragged height in px, or null for the stylesheet's
+  paneMin: false,       // the pane collapsed to its heading
   links: null,          // {songKey: {enchor, lb}} once data/links.<hash>.json has arrived
 };
 
@@ -71,6 +79,11 @@ export function saveOrder() {
 
 export function saveWidths() {
   try { localStorage.setItem(WIDTH_KEY, JSON.stringify(state.widths)); }
+  catch (e) {}
+}
+
+export function savePane() {
+  try { if (state.paneH) localStorage.setItem(PANE_KEY, String(state.paneH)); else localStorage.removeItem(PANE_KEY); }
   catch (e) {}
 }
 

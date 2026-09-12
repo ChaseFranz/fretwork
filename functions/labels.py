@@ -46,6 +46,9 @@ COLUMN_LABELS = {
     'NotesHash':  'Notes hash',
     'Copies':     'Copies',
     'Official':   'Official',
+    # the link columns, page-built from the offline registry (web/links.py)
+    'Enchor':     'Enchor',
+    'Leaderboard': 'Scores',
 
     # shape of the chart
     'NoteCount':  'Notes',
@@ -93,6 +96,9 @@ COLUMN_HELP = {
     'NotesHash':  'Fingerprint of the notes. Two charts with the same hash play identically, whatever they are called.',
     'Copies':     'How many charts on this sheet have exactly these notes at this level and part, this one included. 1 is unique; 2 means the same chart is in another folder, usually another pack.',
     'Official':   'True when the source pack is an official Guitar Hero or Rock Band release.',
+    'Enchor':     'Published on Chorus Encore (enchor.us): the arrow opens the chart\u2019s page there. '
+                  'Filter on No for the charts the lookup did not find.',
+    'Leaderboard': 'Has a Clone Hero leaderboard: the arrow opens the scores page.',
 
     'NoteCount':  'Total notes in this chart. Frets played together count as one note, same as the games score it.',
     'DurationS':  'Time from t=0 to the last note.',
@@ -170,6 +176,8 @@ VALUE_ORDER = {
 # the filter still matches on the stored key underneath.
 VALUE_LABELS = {
     'Official': {'true': 'Official', 'false': 'Custom'},
+    'Enchor': {'true': 'Yes', 'false': 'No'},
+    'Leaderboard': {'true': 'Yes', 'false': 'No'},
 }
 
 
@@ -217,7 +225,7 @@ METHODOLOGY_SOURCE = (
 # the site is for, so it sits beside the song instead of past the right edge.
 # Anything missing from this list keeps its spreadsheet position, at the end.
 DISPLAY_ORDER = (
-    'Song Title', 'Artist', 'D', 'Pct', 'CalcTier', 'Level', 'Type',
+    'Song Title', 'Artist', 'Enchor', 'Leaderboard', 'D', 'Pct', 'CalcTier', 'Level', 'Type',
     'DurationS', 'NoteCount', 'Charter', 'Release', 'Album', 'Year', 'Genre', 'Added', 'Copies',
     'Difficulty', 'RemapDiff', 'Official', 'Code', 'SongKey', 'NotesHash',
 )
@@ -357,7 +365,6 @@ UI = {
     'count':            '{shown} of {total} charts',
     'filter_tip':       'Filter this column',
     'sort_tip':         'Sort by this column',
-    'code_tip':         'Click to see the difficulty graph, shift-click to copy the code',
     'select_all':       'Select all',
     'select_none':      'Clear',
     'value_search':     'Search values',
@@ -433,17 +440,19 @@ UI = {
     'compare_loading':  'Loading charts...',
     'compare_none':     'No matching chart',
     'compare_pick':     'Pick from the table',
-    'compare_picking':  'Choosing a chart to compare with {song}. Click a row, or press Esc to go back.',
-    'compare_cancel':   'Back to the graph',
+    'compare_picking':  'Choosing a chart to compare with {song}. Click a row, or press Esc to cancel.',
+    'compare_cancel':   'Cancel',
     'compare_full':     'Three charts is the most the graph will hold',
     'compare_dup':      'That chart is already on the graph',
     'compare_remove':   'Remove {code} from the graph',
     'compare_missing':  'No graph for {code}',
     'song_compare':     'Compare all levels',
 
-    # the per-song panel (?song=<key>)
-    'song_view':        'All charts of this song',
-    'song_label':       'Song',
+    # the details pane under the table: the graph and every chart of the song
+    'pane_label':       'Chart details',
+    'pane_resize_tip':  'Drag to resize',
+    'pane_collapse':    'Collapse the details',
+    'pane_expand':      'Expand the details',
     'song_grid_label':  'Charts by instrument and level',
     'song_loading':     'Loading every sheet...',
     'song_not_found':   'No song has that key.',
@@ -453,8 +462,9 @@ UI = {
     'save_png':         'Save as PNG',
 
     # where a chart is published and where its scores are, resolved offline
-    'enchor':           'On Chorus Encore',
+    'enchor':           'Chorus Encore',
     'enchor_tip':       'This chart\u2019s page on Chorus Encore, where it is published',
+    'links_pending':    'Loading links...',
     'enchor_url':       f'{ENCHOR}/chart/{{md5}}',
     'leaderboard':      'Leaderboard',
     'leaderboard_tip':  'Scores for this song on the Clone Hero leaderboards',
@@ -470,12 +480,11 @@ UI = {
     'request_url':      f'{FORK_REPO}/issues/new?template=song-pack.yml',
 
     # row / graph interaction
-    'row_tip':          'Click for the difficulty graph',
+    'row_tip':          'Click for the graph and every chart of this song',
     'pct_of':           'At or above {pct}% of {level} {sheet} charts',
     'loading':          'Loading {n} charts...',
     'load_failed':      'The chart data did not load.',
     'reload':           'Reload',
-    'graph_label':      'Difficulty graph',
     'grid_label':       'Charts, sortable and filterable by column',
     'copy_code_tip':    'Copy this code',
     'close_tip':        'Close (Esc)',
