@@ -123,8 +123,11 @@ if (canvas) {
   // collapsed, the pane is its heading alone and the table gets the room back
   modal.querySelector(".pbtns .pmin").dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
   await wait(200);
-  say("collapsed, the pane is its wrapped heading alone", modal.classList.contains("min") && modal.getBoundingClientRect().height < 130 && !modal.querySelector(".gbody").offsetParent,
-      Math.round(modal.getBoundingClientRect().height));
+  // relative to the open height, not a pixel count: the heading wraps to a
+  // different number of lines under Linux and Windows font metrics
+  say("collapsed, the pane is its wrapped heading alone", modal.classList.contains("min") && modal.getBoundingClientRect().height < pb.height / 2 &&
+      !modal.querySelector(".gbody").offsetParent && modal.querySelector(".mhead").offsetParent !== null,
+      Math.round(modal.getBoundingClientRect().height) + " from " + Math.round(pb.height));
   say("and the table grows", wrap.getBoundingClientRect().height > wb.height, Math.round(wrap.getBoundingClientRect().height) + " from " + Math.round(wb.height));
   d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   await wait(300);
