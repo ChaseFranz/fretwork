@@ -47,7 +47,7 @@ COLUMN_LABELS = {
     'Copies':     'Copies',
     'Official':   'Official',
     # the link columns, page-built from the offline registry (web/links.py)
-    'Enchor':     'Enchor',
+    'Enchor':     'Chorus Encore',
     'Leaderboard': 'Scores',
 
     # shape of the chart

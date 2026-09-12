@@ -85,7 +85,7 @@ social preview cannot use a relative image. `page.OG_IMAGE` picks the chart that
 as that preview.
 
 A chart links out to where it is published, when that is known, in two places: an
-`Enchor` column right after Artist (and a `Leaderboard` one, labelled Scores, once
+`Enchor` column, labelled Chorus Encore, right after Artist (and a `Leaderboard` one, labelled Scores, once
 that half lands), page-built booleans joined by `SongKey` (`links.link_columns`,
 `frames.with_links`, after `Pct`; a column exists only for a link kind some song has;
 off a phone's table under 640 px, where D would otherwise leave the screen) whose
