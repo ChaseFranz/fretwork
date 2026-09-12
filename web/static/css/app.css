@@ -83,9 +83,18 @@
   td.lnkc a.ext { color:var(--fw-accent-text); text-decoration:none; display:inline-block; padding:2px 6px; }
   td.lnkc a.ext:hover { text-decoration:underline; }
   td.lnkc .wait { color:var(--fw-dim); opacity:.5; }
-  /* the row open in the details pane: the accent as a tint and a left edge, over the hover */
+  /* the row open in the details pane: the accent as a tint and a left edge,
+     over the hover; in compare mode every row on the graph wears its series
+     colour on that edge (a swatch, never text) with its legend letter after
+     the rank, as the song grid's cells do */
   .fw-wrap .table-hover > tbody > tr.sel > * { --bs-table-bg-state: rgba(183,31,183,.22); }
   .fw-wrap tbody tr.sel > td:first-child { box-shadow:inset 3px 0 0 var(--fw-accent-text), inset 0 0 0 9999px var(--bs-table-bg-state); }
+  /* the second shadow is Bootstrap's own cell fill, with its fallback chain: an
+     undefined --bs-table-bg-state (a row that is neither hovered nor .sel) would
+     void the whole declaration and the edge with it */
+  .fw-wrap tbody tr.on > td:first-child { box-shadow:inset 4px 0 0 var(--sc),
+    inset 0 0 0 9999px var(--bs-table-bg-state, var(--bs-table-bg-type, var(--bs-table-accent-bg))); }
+  .fw-wrap tbody tr .sl { margin-left:5px; font-size:10px; font-weight:700; font-style:normal; color:var(--bs-body-color); }
   td.artist { max-width:220px; }
   td.album { max-width:220px; }
   /* The four level colours still come from xlsx_format.py, so the site and the

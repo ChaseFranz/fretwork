@@ -17,7 +17,7 @@ import { loadSheet, loadAll, loadLinks } from "./load.js";
 import { linkAnchors } from "./links.js";
 import { loadCurves, mountGraph, exportPng, outputFilename, G_SERIES, G_MOST } from "./graph.js";
 import { songSection } from "./song.js";
-import { holdRow } from "./table.js";
+import { markRows } from "./table.js";
 import { toast } from "./overlay.js";
 
 let controller = null;  // the mounted graph, while one is open
@@ -150,17 +150,6 @@ function toolRow(code) {
     "</div>";
 }
 
-// The open chart's row, marked wherever it is on screen. The mark is also
-// drawn by table.js on every repaint, from state.graph; this is the between-
-// repaints case, a swap from a cell or a copy's link.
-function markRow() {
-  const body = el("body");
-  for (const tr of body.querySelectorAll("tr.sel")) { tr.classList.remove("sel"); tr.removeAttribute("aria-current"); }
-  const tr = state.graph && body.querySelector('tr[data-code="' + CSS.escape(state.graph) + '"]');
-  if (tr) { tr.classList.add("sel"); tr.setAttribute("aria-current", "true"); holdRow(tr); }
-  return tr;
-}
-
 function applyHeight() {
   const p = pane();
   p.classList.toggle("min", state.paneMin);
@@ -181,11 +170,12 @@ function fillSong(code) {
   });
 }
 
-// Opens the pane on a chart, or swaps the chart in place. opts.follow: the
-// arrow keys moved the selection, so focus stays where it is and a collapsed
-// pane stays collapsed. opts.reveal: a shared link, so the row is scrolled
-// into view and focused.
-export function openPane(code, vs = state.compare, opts = {}) {
+// Opens the pane on a chart, or swaps the chart in place; vs is the whole
+// comparison, so a caller that does not name one shows the chart alone.
+// opts.follow: the arrow keys moved the selection, so focus stays where it is
+// and a collapsed pane stays collapsed. opts.reveal: a shared link, so the
+// row is scrolled into view and focused.
+export function openPane(code, vs = [], opts = {}) {
   const p = pane(), c = card();
   const wasOpen = paneIsOpen();
   if (controller) { controller.destroy(); controller = null; }
@@ -200,7 +190,7 @@ export function openPane(code, vs = state.compare, opts = {}) {
   c.innerHTML = heading(code) + paneButtons() + metaLine(code, null) + toolRow(code) +
     '<div class="pbody"><div class="gbody"><div class="text-secondary py-4">' + esc(UI.rendering) + "</div></div>" +
     '<div class="sbody"></div></div>';
-  const row = markRow();
+  const row = markRows();          // between repaints: a swap from a cell, a row, a copy's link
   if (!wasOpen) paneOpener = row || document.activeElement;
   if (opts.reveal && row) { row.scrollIntoView({ block: "center" }); row.focus(); }
   fillSong(code);
@@ -223,6 +213,7 @@ export function openPane(code, vs = state.compare, opts = {}) {
       writeUrl();
       refreshTools(code);
       fillSong(code);
+      markRows();
     }
     const charts = results.filter(r => r.curves).map((r, k) => {
       const found = findRow(r.code);
@@ -266,7 +257,7 @@ export function closePane() {
   state.graph = null;
   if (!state.picking) state.compare = [];
   writeUrl();
-  for (const tr of el("body").querySelectorAll("tr.sel")) { tr.classList.remove("sel"); tr.removeAttribute("aria-current"); }
+  markRows();                      // nothing is on the graph: every mark goes
   const back = paneOpener && paneOpener.isConnected && !pane().contains(paneOpener) ? paneOpener : el("body").querySelector('tr[tabindex="0"]');
   if (back) back.focus();
   paneOpener = null;

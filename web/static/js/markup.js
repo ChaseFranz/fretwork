@@ -3,7 +3,7 @@ import { SHEETS, TIMECOLS, HELP, UI, MISS_TEXT, MISS_HELP } from "./boot.js";
 import { esc } from "./dom.js";
 import { lab, t, mmss, isMissing, decimals } from "./format.js";
 import { CHART_COL, LB_COL, linkCell } from "./links.js";
-import { RANK_COL, state } from "./state.js";
+import { RANK_COL } from "./state.js";
 
 // Rank is a position in the current view, so there is nothing to sort or
 // filter it by; it gets a bare header instead of the usual controls.
@@ -80,17 +80,15 @@ function bodyCell(col, v, songKey) {
   return "<td>" + esc(v === null ? "" : v) + "</td>";
 }
 
-// The row open in the details pane is marked as it is drawn, so the mark
-// survives a sort or a filter; data-key carries the SongKey for the link
-// cells filled in later.
+// data-key carries the SongKey for the link cells filled in later; the marks
+// of the rows on the graph are drawn after the repaint by table.markRows.
 export function bodyRow(row, visibleCols, code, rank, tip, songKey) {
   const cells = visibleCols
     .map(([col, i]) => col === RANK_COL
       ? '<td class="num rank">' + rank + "</td>"
       : bodyCell(col, row[i], songKey))
     .join("");
-  const sel = code === state.graph ? ' class="sel" aria-current="true"' : "";
-  return '<tr tabindex="-1"' + sel + ' title="' + esc(tip) + '" data-code="' + esc(code) + '"' +
+  return '<tr tabindex="-1" title="' + esc(tip) + '" data-code="' + esc(code) + '"' +
     (typeof songKey === "string" ? ' data-key="' + esc(songKey) + '"' : "") + ">" + cells + "</tr>";
 }
 

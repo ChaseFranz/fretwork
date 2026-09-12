@@ -1,10 +1,11 @@
 // One repaint: filter, sort, render, then refresh the footer and level chips.
 import { LEVELS, SHEETS, UI } from "./boot.js";
 import { chips } from "./chips.js";
-import { el } from "./dom.js";
+import { el, esc } from "./dom.js";
 import { t } from "./format.js";
 import { headerCell, bodyRow, emptyRow, loadingRow } from "./markup.js";
 import { passing, compare } from "./query.js";
+import { onGraph } from "./song.js";
 import { state, cols, idx, rowsAll, visible, loaded } from "./state.js";
 import { refreshFades } from "./scroll.js";
 import { writeUrl } from "./url.js";
@@ -59,6 +60,38 @@ export function holdRow(row) {
   row.tabIndex = 0;
 }
 
+// The rows the graph holds, marked wherever they are on screen: the open
+// chart's row (.sel: the tint, aria-current, and the table's tab stop) and,
+// in compare mode, every chart's row with its series colour on the left edge
+// and its legend letter after the first cell's text, so the table mirrors the
+// legend as the song grid does. Drawn after every repaint and by the pane
+// after every swap, so the marks follow a row through a sort or a filter.
+// Returns the open chart's row, or null when it is not on screen.
+export function markRows() {
+  const body = el("body");
+  for (const tr of body.querySelectorAll("tr.sel, tr.on")) {
+    tr.classList.remove("sel", "on");
+    tr.removeAttribute("aria-current");
+    tr.style.removeProperty("--sc");
+    tr.querySelectorAll(".sl").forEach(i => i.remove());
+  }
+  const { codes, mark } = onGraph();
+  let primary = null;
+  codes.forEach((code, k) => {
+    const tr = body.querySelector('tr[data-code="' + CSS.escape(code) + '"]');
+    if (!tr) return;
+    if (k === 0) { tr.classList.add("sel"); tr.setAttribute("aria-current", "true"); primary = tr; }
+    const m = mark.get(code);
+    if (m) {
+      tr.classList.add("on");
+      tr.style.setProperty("--sc", m.colour);
+      if (tr.firstElementChild) tr.firstElementChild.insertAdjacentHTML("beforeend", '<i class="sl">' + esc(m.letter) + "</i>");
+    }
+  });
+  if (primary) holdRow(primary);
+  return primary;
+}
+
 export function draw() {
   const vis = visible();
   const sortIdx = idx(state.sortCol);
@@ -99,7 +132,7 @@ export function draw() {
   // One tab stop for the whole table; the arrow keys move within it. The row
   // open in the pane takes it when it is on screen, so Tab from the pane
   // lands back on it.
-  const first = el("body").querySelector("tr.sel[data-code]") || el("body").querySelector("tr[data-code]");
+  const first = markRows() || el("body").querySelector("tr[data-code]");
   if (first) first.tabIndex = 0;
 
   applyWidths();

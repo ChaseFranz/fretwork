@@ -72,6 +72,14 @@ say("clicking a row adds it as the third chart and ends the picking", bar.classL
     gbody().fw && gbody().fw.charts.map(c => c.code).join());
 say("the primary's row stays the selected one", !document.querySelector("#body tr.sel") || document.querySelector("#body tr.sel").dataset.code === code,
     document.querySelector("#body tr.sel") && document.querySelector("#body tr.sel").dataset.code);
+// the table mirrors the legend: the picked row wears its series colour and letter
+const picked = document.querySelector('#body tr[data-code="' + third + '"]');
+const swatchC = legend()[2].querySelector(".sw").style.borderColor;
+say("the picked row is marked with its legend letter", picked && picked.classList.contains("on") && picked.querySelector(".sl") && picked.querySelector(".sl").textContent === "C",
+    picked && picked.outerHTML.slice(0, 120));
+say("and its series colour on the left edge", picked && getComputedStyle(picked.firstElementChild).boxShadow.includes(swatchC), picked && getComputedStyle(picked.firstElementChild).boxShadow);
+const primaryRow = document.querySelector("#body tr.sel");
+say("the primary's row carries A and the tint", !primaryRow || (primaryRow.classList.contains("on") && primaryRow.querySelector(".sl").textContent === "A"));
 q.value = ""; q.dispatchEvent(new Event("input", { bubbles: true }));
 await wait(100);
 // a different song on the graph: every entry names its song again
@@ -110,4 +118,52 @@ key("Escape");
 await wait(300);
 say("Escape while picking cancels it and leaves the graph unchanged", modal.classList.contains("on") && bar.classList.contains("d-none") &&
     gbody().fw.charts.length === 1 && params().get("vs") === null, location.search);
+
+// --- a row is one chart: a comparison up goes with a row click or an arrow key ----------------
+click(modal.querySelector('[data-act="pick"]'));
+await wait(100);
+const mate = [...document.querySelectorAll("#body tr[data-code]")].find(tr => tr.dataset.code !== vs);
+if (!mate) {
+  skip("row click while comparing", "only one row on screen");
+} else {
+  click(mate);
+  await wait(700);
+  say("a comparison is up again", gbody().fw.charts.length === 2 && document.querySelectorAll("#body tr.on").length >= 1, gbody().fw.charts.map(c => c.code).join());
+  const another = [...document.querySelectorAll("#body tr[data-code]")].find(tr => tr.dataset.code !== vs && tr.dataset.code !== mate.dataset.code);
+  if (another) {
+    click(another);
+    await wait(700);
+    say("a row click shows that chart alone, the comparison gone", modal.getAttribute("aria-label").endsWith(": " + another.dataset.code) && gbody().fw.charts.length === 1 &&
+        params().get("vs") === null && !document.querySelector("#body tr.on"), gbody().fw.charts.map(c => c.code).join() + " " + location.search);
+    say("only the new row is marked", document.querySelectorAll("#body tr.sel").length === 1 && document.querySelector("#body tr.sel") === another);
+    // build one more and drop it by clicking the highlighted row
+    click(modal.querySelector('[data-act="pick"]'));
+    await wait(100);
+    click(mate);
+    await wait(700);
+    say("picked again, two charts", gbody().fw.charts.length === 2);
+    click(another);
+    await wait(700);
+    say("clicking the highlighted row drops to that chart alone, the pane still open", modal.classList.contains("on") && gbody().fw.charts.length === 1 &&
+        modal.getAttribute("aria-label").endsWith(": " + another.dataset.code), gbody().fw.charts.length);
+    click(another);
+    await wait(300);
+    say("and clicking it again closes the pane", !modal.classList.contains("on"));
+    click(another);
+    await wait(500);
+  }
+  // the arrow keys: the graph follows to one chart
+  click(modal.querySelector('[data-act="pick"]'));
+  await wait(100);
+  click(mate);
+  await wait(700);
+  const cur = document.querySelector("#body tr.sel");
+  if (cur && cur.nextElementSibling && cur.nextElementSibling.dataset.code) {
+    cur.focus();
+    key("ArrowDown", cur);
+    await wait(500);
+    say("an arrow key moves to the next row's chart alone", modal.getAttribute("aria-label").endsWith(": " + cur.nextElementSibling.dataset.code) && gbody().fw.charts.length === 1 &&
+        !document.querySelector("#body tr.on"), modal.getAttribute("aria-label") + " " + gbody().fw.charts.length);
+  }
+}
 done();

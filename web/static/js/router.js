@@ -57,7 +57,7 @@ function onClick(e) {
   const cellBtn = e.target.closest("#pane .cell[data-code]");
   if (cellBtn) { chooseCell(cellBtn.dataset.code); return; }
   const alt = e.target.closest("#pane .copies a[data-code]");
-  if (alt) { e.preventDefault(); openPane(alt.dataset.code); return; }
+  if (alt) { e.preventDefault(); openPane(alt.dataset.code, []); return; }
   if (e.target.closest("#pane") || e.target.closest("#pick")) return;
 
   if (e.target.closest("#cols")) { closeDD(); toggleCD(el("cols")); return; }
@@ -93,12 +93,18 @@ function chooseCell(code) {
   else addCompare(code);
 }
 
-// A row opens the pane on its chart, or closes it when it is the chart
-// already open; while a comparison is being picked it joins the graph.
+// A row shows its one chart: a comparison up goes, since comparisons are
+// built in the pane (a grid cell, Compare all levels, Compare with a row) and
+// the row is always the chart on the graph and in the song grid. The open
+// row clicked again drops a comparison to that chart alone, then closes the
+// pane. While a comparison is being picked the row joins the graph instead.
 function chooseRow(code) {
   if (state.picking) { addCompare(code); stopPicking(); return; }
-  if (paneIsOpen() && state.graph === code) { closePane(); return; }
-  openPane(code);
+  if (paneIsOpen() && state.graph === code) {
+    if (state.compare.length) openPane(code, [], { follow: true }); else closePane();
+    return;
+  }
+  openPane(code, []);
 }
 
 // Tab stays inside the explainer: wrap from its last focusable to its first
@@ -127,10 +133,11 @@ function moveTo(row, delta) {
   if (!to || to === row) return;
   holdRow(to);
   to.focus();
-  // with the pane open, the selection is the focused row: the graph follows
+  // with the pane open, the selection is the focused row: the graph follows,
+  // one chart, as a row click would show
   if (paneIsOpen() && !state.picking) {
     clearTimeout(follow);
-    follow = setTimeout(() => { if (paneIsOpen() && !state.picking) openPane(to.dataset.code, state.compare, { follow: true }); }, FOLLOW_MS);
+    follow = setTimeout(() => { if (paneIsOpen() && !state.picking) openPane(to.dataset.code, [], { follow: true }); }, FOLLOW_MS);
   }
 }
 
