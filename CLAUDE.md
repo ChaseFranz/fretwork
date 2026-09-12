@@ -169,6 +169,30 @@ class, one CSS mask). It is a mask on the scroller rather than an element laid
 over the rows, which was checked against the sticky header: masking the scroll
 container does not detach it.
 
+The table's DOM is a window of the view, not the view (section 17):
+`table.compute()` sorts and filters into `state.view` and `table.paint()` writes
+the rows around the scroll position, `OVERSCAN` (40) rows beyond each edge of
+the screen, between two spacer rows (`markup.padRow`, class `empty pad` so the
+widths stylesheet skips them) standing for the rest at an estimated row
+height. Rows wrap, so the estimate is measured from each paint
+(`state.window.next`) and used by the next one, while `state.window.avg` is
+what the current spacers were built with and what maps a scroll position back
+to a row index (`wanted`); a scroll-driven paint keeps the row under the
+screen's top where it was (the anchor), so a changed estimate never moves the
+page under the visitor. `draw()` is both, and every caller that changes what
+the table shows still calls `draw()`. The scroll listener paints synchronously
+when the screen comes within half the overscan of a painted edge
+(`windowStale`). Anything that needs a row that may not be painted goes
+through the view: the arrow keys, PageUp/Down, Home and End walk `state.view`
+by index (`router.moveTo`, `table.viewIndexOf`) and `table.revealIndex(i)`
+paints the window around the row first and scrolls to it second, since a scroll
+position set before the paint is clamped to the old height; a shared `?code=`
+reveals the same way. Rank is the index in the view, so it is continuous
+across paints. Focus and the tab stop survive a paint while their row is
+painted; a suite that reads every row must read the data, not the DOM
+(`tests/page/window.js` is the contract, and only the `--site site/Local` run
+exercises the real case, since the fixture's sheets are painted whole).
+
 Three details of the table are easy to undo by accident. Column widths are
 applied as a single generated stylesheet in `static/js/widths.js`, keyed by
 `:nth-child`, not as styles on the cells: the table is thousands of rows, and
@@ -272,7 +296,7 @@ python tests/pipeline_test.py --keep /tmp/fw-ci --bootstrap-css caches/bootstrap
 python tests/page/run.py --site /tmp/fw-ci/site/Fixture
 ```
 
-`tests/fixture.py` generates a synthetic 15-song library (nothing real, never committed; its `SONGS` table is the interface every count derives from). `tests/pipeline_test.py` runs build, analyze, publish and deploy against it as subprocesses from a temporary directory with a stub `aws` on `PATH`. `tests/page/run.py` stages a published bundle, injects one suite module per page, and drives it in headless Chrome (Windows Chrome from WSL), reading results out of a `<pre id="results">` block; every suite reads its expectations from the boot payload, so `--site site/Local` runs the same twenty-two suites against the real library. The 390 px layout is measured inside an iframe (`tests/page/narrow.js`) because headless Chrome floors its viewport at 500 px; the spec calls that measurement `frame.html`. `tests/README.md` lists the harness gotchas.
+`tests/fixture.py` generates a synthetic 15-song library (nothing real, never committed; its `SONGS` table is the interface every count derives from). `tests/pipeline_test.py` runs build, analyze, publish and deploy against it as subprocesses from a temporary directory with a stub `aws` on `PATH`. `tests/page/run.py` stages a published bundle, injects one suite module per page, and drives it in headless Chrome (Windows Chrome from WSL), reading results out of a `<pre id="results">` block; every suite reads its expectations from the boot payload, so `--site site/Local` runs the same twenty-four suites against the real library. The 390 px layout is measured inside an iframe (`tests/page/narrow.js`) because headless Chrome floors its viewport at 500 px; the spec calls that measurement `frame.html`. `tests/README.md` lists the harness gotchas.
 
 The fixture does not exercise real-library shapes, so a change to parsing or metrics is still checked by building, analyzing and inspecting the terminal summary / xlsx / error CSV against a small local library. The convention is a gitignored `songs/` folder at the repo root holding song folders copied from a real library, then stripped to chart-only with `tools/sanitize_songs.py` (it deletes audio, art, video and editor scratch from song folders and leaves `song.ini`, `notes.chart`, `notes.mid` and anything it does not recognise; dry run by default, `--apply` to delete). So do not expect audio in `songs/`, and the pipeline does not need it, since build, analyze and render only ever open those three files; `tools/ingest_pack.py` runs the sanitizer on every pack before it lands there. It still must never be committed:
 

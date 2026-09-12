@@ -1,6 +1,6 @@
 // Lists and sorts read in a sensible order, not alphabetically, and the filter
 // panel picks the right control for the column.
-import { BOOT, rows as sheetRows, say, done, wait, click, chip, levels, ready } from "./lib.js";
+import { BOOT, rows as sheetRows, say, done, wait, click, chip, levels, ready, shown } from "./lib.js";
 await ready();
 
 const { ui: UI, valueOrder: VALUE_ORDER, valueLabels: VALUE_LABELS } = BOOT;
@@ -74,8 +74,9 @@ if (headCols().includes("Pct")) {
     click(document.querySelector('#dd [data-act="apply"]')); await wait(100);
     const lvIdx = BOOT.data[sheets[0]].columns.indexOf("Level");
     const wantN = rows.filter(r => r[lvIdx] === "Expert" && r[pIdx] >= 90).length;
+    // the painted rows (the DOM is a window of the view, section 17) all pass, and the count is the whole view's
     const cells = [...document.querySelectorAll("#body tr[data-code]")].map(tr => parseInt(tr.children[headCols().indexOf("Pct")].textContent, 10));
-    say("min 90 leaves only rows at or above 90, and the count agrees", cells.every(v => v >= 90) && cells.length === wantN,
+    say("min 90 leaves only rows at or above 90, and the count agrees", cells.every(v => v >= 90) && shown() === wantN,
         cells.length + " vs " + wantN);
     click(document.querySelector('#head th[data-c="Pct"] [data-flt]')); await wait(50);
     click(document.querySelector('#dd [data-act="clear"]')); await wait(50);

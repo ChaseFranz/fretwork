@@ -17,7 +17,7 @@ import { loadSheet, loadAll, loadLinks } from "./load.js";
 import { linkAnchors } from "./links.js";
 import { loadCurves, mountGraph, exportPng, outputFilename, G_MOST } from "./graph.js";
 import { songSection } from "./song.js";
-import { markRows } from "./table.js";
+import { markRows, revealIndex, viewIndexOf } from "./table.js";
 import { toast } from "./overlay.js";
 
 let controller = null;  // the mounted graph, while one is open
@@ -228,9 +228,12 @@ export function openPane(code, vs = [], opts = {}) {
   c.innerHTML = heading(code) + paneButtons() + metaLine(code, null) + toolRow(code) +
     '<div class="pbody"><div class="gbody"><div class="text-secondary py-4">' + esc(UI.rendering) + "</div></div>" +
     '<div class="sbody"></div></div>';
+  // a shared link: the row is painted and scrolled to first, since the DOM
+  // holds a window of the view (section 17), then marked
+  const shown = opts.reveal ? revealIndex(viewIndexOf(code)) : null;
   const row = markRows();          // between repaints: a swap from a cell, a row, a copy's link
   if (!wasOpen) paneOpener = row || document.activeElement;
-  if (opts.reveal && row) { row.scrollIntoView({ block: "center" }); row.focus(); }
+  if (shown) shown.focus({ preventScroll: true });
   fillSong(code);
   // the tools are a function of state: when the links file lands after the
   // open, the row is redrawn, and only while this chart is still up

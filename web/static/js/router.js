@@ -12,7 +12,7 @@ import { openAbout, closeAbout, aboutIsOpen, toast } from "./overlay.js";
 import { openPane, closePane, paneIsOpen, addCompare, removeCompare, stopPicking } from "./pane.js";
 import { carryFilters } from "./query.js";
 import { state, idx } from "./state.js";
-import { draw, holdRow } from "./table.js";
+import { draw, holdRow, revealIndex, viewIndexOf } from "./table.js";
 
 function sortBy(col) {
   if (col === state.sortCol) state.sortAsc = !state.sortAsc;
@@ -128,12 +128,17 @@ const ENDS = { Home: -Infinity, End: Infinity };
 const FOLLOW_MS = 160;   // the graph follows the arrow keys once they pause, not per press
 let follow = null;
 
+// The arrows walk the view, not the DOM (section 17): the target row is
+// painted on demand, since the DOM holds a window of the view.
 function moveTo(row, delta) {
-  const rows = [...el("body").querySelectorAll("tr[data-code]")];
-  const to = rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(row) + delta))];
+  const i = viewIndexOf(row.dataset.code);
+  if (i < 0) return;
+  const j = Math.max(0, Math.min(state.view.length - 1, i + delta));
+  if (j === i) return;
+  const to = revealIndex(j);
   if (!to || to === row) return;
   holdRow(to);
-  to.focus();
+  to.focus({ preventScroll: true });
   // with the pane open, the selection is the focused row: the graph follows,
   // one chart, as a row click would show
   if (paneIsOpen() && !state.picking) {

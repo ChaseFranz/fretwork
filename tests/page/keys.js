@@ -1,6 +1,6 @@
 // Keyboard access: one tab stop for the table, arrows inside it, Enter opens,
 // Escape returns focus, and the chrome reports its state to a screen reader.
-import { BOOT, rows as sheetRows, say, skip, done, wait, key, click, chip, ready, params } from "./lib.js";
+import { BOOT, rows as sheetRows, say, skip, done, wait, key, click, chip, ready, params, shown } from "./lib.js";
 await ready();
 
 const here = () => document.activeElement;
@@ -10,7 +10,9 @@ const stops = [...document.querySelectorAll('a[href],button,input,[tabindex="0"]
 say("the table is one tab stop", stops.filter(e => e.matches("tr")).length === 1,
     stops.filter(e => e.matches("tr")).length + " row(s) in the tab order");
 
-const first = document.querySelector("#body tr[data-code]");
+// the DOM holds a window of the view (section 17): End and Home repaint it,
+// so rows are compared by code across them and `first` is looked up again
+let first = document.querySelector("#body tr[data-code]");
 first.focus();
 say("a row takes focus", here() === first, here().tagName);
 key("ArrowDown");
@@ -19,14 +21,18 @@ say("focus does not multiply tab stops", document.querySelectorAll('#body tr[tab
 key("ArrowUp");
 say("ArrowUp comes back", here() === first);
 key("End");
-say("End jumps to the last row", here() === document.querySelector("#body tr[data-code]:last-child"));
+const lastPainted = () => [...document.querySelectorAll("#body tr[data-code]")].pop();
+say("End jumps to the last row", rowOf(here()) === lastPainted() && parseInt(lastPainted().querySelector("td.rank").textContent, 10) === shown(),
+    lastPainted() && lastPainted().querySelector("td.rank").textContent + " of " + shown());
 key("Home");
-say("Home jumps back to the first", here() === first);
+say("Home jumps back to the first", rowOf(here()) && rowOf(here()).dataset.code === first.dataset.code, rowOf(here()) && rowOf(here()).dataset.code);
+first = rowOf(here());
 key("ArrowUp");
 say("ArrowUp at the top stays put", here() === first);
 key("PageDown");
 say("PageDown moves several rows", rowOf(here()) && rowOf(here()) !== first, rowOf(here()) && rowOf(here()).dataset.code);
 key("Home");
+first = rowOf(here());
 
 // --- Enter opens the pane, focus stays on the row, Escape closes -----------------
 // (section 14: the pane is a region under the table, not a dialog, so there is

@@ -92,6 +92,12 @@ export function bodyRow(row, visibleCols, code, rank, tip, songKey) {
     (typeof songKey === "string" ? ' data-key="' + esc(songKey) + '"' : "") + ">" + cells + "</tr>";
 }
 
+// A spacer standing for n rows that are not in the DOM (section 17), at the
+// measured average height; the widths stylesheet skips .pad as it skips .empty.
+export function padRow(span, n, height) {
+  return '<tr class="pad" aria-hidden="true" data-n="' + n + '"><td colspan="' + span + '" style="height:' + Math.round(height) + 'px"></td></tr>';
+}
+
 export function emptyRow(span) {
   return '<tr class="empty"><td colspan="' + span + '" class="text-secondary p-3">' +
     esc(UI.no_data) + "</td></tr>";

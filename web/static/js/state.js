@@ -64,6 +64,8 @@ export const state = {
   paneH: loadPane(),    // the pane's dragged height in px, or null for the stylesheet's
   paneMin: false,       // the pane collapsed to its heading
   links: null,          // {songKey: {enchor, lb}} once data/links.<hash>.json has arrived
+  view: [],             // the rows passing the search and filters, in sort order (table.compute)
+  window: { from: 0, to: 0, avg: 0, next: 0 },   // the slice of the view in the DOM, the row height its spacers stand at, the one measured for the next paint (table.paint)
 };
 
 // Remember hidden columns per browser; storage may be unavailable.

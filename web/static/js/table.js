@@ -1,15 +1,25 @@
-// One repaint: filter, sort, render, then refresh the footer and level chips.
+// One repaint: filter, sort, then paint the rows on screen, and refresh the
+// footer and level chips. The DOM holds a window of the view, not the view
+// (section 17): the rows around the scroll position, OVERSCAN rows either side,
+// between two spacer rows standing for the rest at the measured average row
+// height, so the table costs the same to paint at 6,000 rows as at 60,000.
+// compute() is the view, paint() the window; draw() is both, and every caller
+// that changed what the table shows calls draw() as before.
 import { LEVELS, SHEETS, UI } from "./boot.js";
 import { chips } from "./chips.js";
 import { el, esc } from "./dom.js";
 import { t } from "./format.js";
-import { headerCell, bodyRow, emptyRow, loadingRow } from "./markup.js";
+import { headerCell, bodyRow, emptyRow, loadingRow, padRow } from "./markup.js";
 import { passing, compare } from "./query.js";
 import { onGraph } from "./song.js";
 import { state, cols, idx, rowsAll, visible, loaded } from "./state.js";
 import { refreshFades } from "./scroll.js";
 import { writeUrl } from "./url.js";
 import { applyWidths } from "./widths.js";
+
+const OVERSCAN = 40;      // rows painted beyond each edge of the screen
+const ROW_SEED = 44;      // px, the average row height until one is measured
+const wrap = () => document.querySelector(".fw-wrap");
 
 function paintFooter(shown, total) {
   el("count").textContent = t("count", { shown: shown, total: total });
@@ -92,11 +102,15 @@ export function markRows() {
   return primary;
 }
 
-export function draw() {
+// The view: the rows passing the search and filters, in sort order, into
+// state.view; the header; then the window.
+export function compute() {
   const vis = visible();
   const sortIdx = idx(state.sortCol);
+  const was = state.graph ? viewIndexOf(state.graph) : -1;
   const rows = passing(null);
   if (sortIdx >= 0) rows.sort((a, b) => compare(a[sortIdx], b[sortIdx]));
+  state.view = rows;
 
   // Sorting from the keyboard rewrites this row, which would drop focus back to
   // the top of the page, so note where it was and put it back afterwards.
@@ -115,6 +129,68 @@ export function draw() {
       '[data-' + heldFor[1] + '="' + CSS.escape(heldFor[0]) + '"]');
     if (back) back.focus();
   }
+  paint();
+  // the open chart's row stays in sight through a sort or a filter that moved
+  // it (a sort takes it deep into a long view; a cleared search brings it
+  // back): revealed when its place in the view changed, never for a repaint
+  // that left the view alone, such as a column shown or hidden
+  const now = state.graph ? viewIndexOf(state.graph) : -1;
+  if (now >= 0 && now !== was) revealIndex(now);
+  applyWidths();
+  writeUrl();
+}
+
+// Where the window should be: the rows whose estimated top is within
+// OVERSCAN rows of the screen, for the scroller's position, or around a row
+// index that must be painted (revealIndex); avg is the estimate a row not in
+// the DOM stands at. The header is sticky inside the scroller, so the first
+// row's top is the header's height.
+function wanted(avg, around) {
+  const w = wrap(), n = state.view.length;
+  const screen = Math.ceil(w.clientHeight / avg);
+  let first;
+  if (around === undefined) first = Math.floor(Math.max(0, w.scrollTop - el("head").offsetHeight) / avg);
+  else first = around - Math.floor(screen / 2);
+  first = Math.max(0, Math.min(first, n - screen));
+  return { from: Math.max(0, first - OVERSCAN), to: Math.max(0, Math.min(n, first + screen + OVERSCAN)) };
+}
+
+// The window: the rows from `from` to `to` between two spacers, the rank
+// numbers their place in the view. The spacers stand at the average row
+// height the previous paint measured (state.window.next), and the paint
+// records the average it built them with (state.window.avg), which is what
+// maps a scroll position back to a row index until the next paint. A paint
+// driven by the scroller keeps the row under the screen's top where it was,
+// so a changed estimate never moves the page under the visitor. Focus and the
+// tab stop survive when their row is still painted; the marks are redrawn,
+// since a marked row may have just entered.
+export function paint(around) {
+  const vis = visible();
+  const body = el("body"), w = wrap();
+  const pending = !loaded(state.sheet);
+  const view = state.view;
+  if (pending || !view.length) {
+    body.innerHTML = pending ? loadingRow(vis.length, state.loadError) : emptyRow(vis.length);
+    state.window = { from: 0, to: 0, avg: state.window.avg, next: state.window.next };
+    return;
+  }
+  const avg = state.window.next || state.window.avg || ROW_SEED;
+  const { from, to } = wanted(avg, around);
+  const rowOf = code => code ? body.querySelector('tr[data-code="' + CSS.escape(code) + '"]') : null;
+  const active = document.activeElement;
+  const focused = active && active.closest && body.contains(active) ? active.closest("tr[data-code]") : null;
+  const focusedCode = focused ? focused.dataset.code : null;
+  const stop = body.querySelector('tr[tabindex="0"]');
+  const stopCode = stop ? stop.dataset.code : null;
+  // the row under the screen's top, and where it sits, to put it back
+  const screenTop = w.getBoundingClientRect().top + el("head").offsetHeight;
+  let anchor = null;
+  if (around === undefined) {
+    for (const tr of body.querySelectorAll("tr[data-code]")) {
+      const box = tr.getBoundingClientRect();
+      if (box.bottom > screenTop) { anchor = { code: tr.dataset.code, delta: box.top - screenTop }; break; }
+    }
+  }
 
   // The hover text says where the chart sits before the click that opens it.
   const codeIdx = cols().indexOf("Code"), keyIdx = cols().indexOf("SongKey");
@@ -122,21 +198,87 @@ export function draw() {
   const tipFor = r => pctIdx >= 0 && levelIdx >= 0 && typeof r[pctIdx] === "number"
     ? t("pct_of", { pct: r[pctIdx], level: r[levelIdx], sheet: state.sheet }) + "\n" + UI.row_tip
     : UI.row_tip;
-  const pending = !loaded(state.sheet);
-  el("body").innerHTML = pending
-    ? loadingRow(vis.length, state.loadError)
-    : rows.length
-      ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], n + 1, tipFor(r), keyIdx < 0 ? undefined : r[keyIdx])).join("")
-      : emptyRow(vis.length);
+  let html = from > 0 ? padRow(vis.length, from, from * avg) : "";
+  for (let i = from; i < to; i++) {
+    const r = view[i];
+    html += bodyRow(r, vis, r[codeIdx], i + 1, tipFor(r), keyIdx < 0 ? undefined : r[keyIdx]);
+  }
+  if (to < view.length) html += padRow(vis.length, view.length - to, (view.length - to) * avg);
+  body.innerHTML = html;
+  state.window = { from, to, avg, next: state.window.next };
+
+  // measured: the painted rows' height over their number, for the next paint
+  const painted = body.querySelectorAll("tr[data-code]");
+  if (painted.length) {
+    const first = painted[0].getBoundingClientRect().top, last = painted[painted.length - 1].getBoundingClientRect().bottom;
+    if (last > first) state.window.next = (last - first) / painted.length;
+  }
+  if (anchor) {
+    const tr = rowOf(anchor.code);
+    if (tr) w.scrollTop += (tr.getBoundingClientRect().top - screenTop) - anchor.delta;
+  }
 
   // One tab stop for the whole table; the arrow keys move within it. The row
   // open in the pane takes it when it is on screen, so Tab from the pane
-  // lands back on it.
-  const first = markRows() || el("body").querySelector("tr[data-code]");
+  // lands back on it; else the row that had it, else the first painted.
+  const first = markRows() || rowOf(stopCode) || body.querySelector("tr[data-code]");
   if (first) first.tabIndex = 0;
+  const again = rowOf(focusedCode);
+  if (again) { holdRow(again); again.focus({ preventScroll: true }); }
+}
 
-  applyWidths();
-  writeUrl();
+// True when the scroller has moved far enough that the window should follow:
+// the screen is within half the overscan of a painted edge that is not the
+// view's own edge, measured at the estimate the spacers stand at.
+function windowStale() {
+  const { from, to } = wanted(state.window.avg || ROW_SEED);
+  const half = OVERSCAN / 2;
+  return (from + half < state.window.from && state.window.from > 0) ||
+         (to - half > state.window.to && state.window.to < state.view.length);
+}
+
+// Synchronous: the browser already delivers scroll once a frame, a stale
+// check is arithmetic, and a paint is about a hundred rows.
+function onScroll() {
+  if (state.view.length && windowStale()) paint();
+}
+
+// The row at index i of the view, painted and on screen: when it is not in
+// the window, the window is painted around it first and the scroller then
+// brought to it, in that order, since a scroll position set before the paint
+// would be clamped to the old height. null when the index is out of the view.
+export function revealIndex(i) {
+  if (i < 0 || i >= state.view.length) return null;
+  const body = el("body");
+  const codeIdx = cols().indexOf("Code");
+  const code = state.view[i][codeIdx];
+  const rowOf = () => body.querySelector('tr[data-code="' + CSS.escape(code) + '"]');
+  let row = rowOf();
+  if (!row) {
+    paint(i);
+    row = rowOf();
+  }
+  if (row) {
+    const box = row.getBoundingClientRect(), edge = wrap().getBoundingClientRect(), headH = el("head").offsetHeight;
+    if (box.top < edge.top + headH || box.bottom > edge.bottom) row.scrollIntoView({ block: "center" });
+  }
+  return row;
+}
+
+export const viewIndexOf = code => {
+  const codeIdx = cols().indexOf("Code");
+  return codeIdx < 0 ? -1 : state.view.findIndex(r => r[codeIdx] === code);
+};
+
+export function initTable() {
+  wrap().addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll);
+}
+
+export function draw() {
+  compute();
+  const rows = state.view;
+  const pending = !loaded(state.sheet);
   if (pending) el("count").textContent = state.loadError ? UI.load_failed : t("loading", { n: SHEETS[state.sheet].rows });
   else paintFooter(rows.length, rowsAll().length);
   paintLevelChips();

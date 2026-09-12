@@ -180,6 +180,11 @@
   #dd .form-check-label .v { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #dd .form-check-label .n { margin-left:auto; color:var(--bs-secondary-color); }
   tbody tr { cursor:pointer; }
+  /* the two spacer rows standing for the rows not in the DOM (section 17):
+     no padding, no border, no hover, their height the estimate of what they stand for */
+  .fw-wrap tbody tr.pad { cursor:default; }
+  .fw-wrap tbody tr.pad > td { padding:0; border:0; }
+  .fw-wrap .table-hover > tbody > tr.pad:hover > * { --bs-table-bg-state:transparent; }
   td.code { font-family:var(--bs-font-monospace); color:var(--bs-secondary-color); }
   td.code .cp { visibility:hidden; margin-left:6px; opacity:.7; }
   tr:hover td.code { color:var(--fw-link); }

@@ -2,7 +2,7 @@
 // a sentinel year that no range admits, and a search that reads Album but
 // never Genre. The runner launches this five times: once plain, and once per
 // query string below.
-import { BOOT, rows as sheetRows, say, done, wait, click, shown, params, ready } from "./lib.js";
+import { BOOT, rows as sheetRows, say, done, wait, click, key, shown, painted, params, ready } from "./lib.js";
 await ready();
 
 const { labels: LABELS, missText: DASH } = BOOT;
@@ -39,11 +39,12 @@ if (!p.toString()) {
   say("and unticked", THREE.every(c => !document.querySelector('#cd input[data-col="' + c + '"]').checked));
   say("their labels are the plain words", LABELS.Album === "Album" && LABELS.Year === "Year" && LABELS.Genre === "Genre");
   await show("Album");
+  // every painted row has the cell (the DOM is a window of the view, section 17)
   const album = document.querySelectorAll("#body tr[data-code] td.album");
-  say("ticking Album yields td.album cells", album.length === shown() && shown() > 0, album.length + " of " + shown());
+  say("ticking Album yields td.album cells", album.length === painted() && painted() > 0, album.length + " of " + painted());
   await show("Genre");
   const genre = document.querySelectorAll("#body tr[data-code] td.genre");
-  say("ticking Genre yields td.genre cells", genre.length === shown(), genre.length + " of " + shown());
+  say("ticking Genre yields td.genre cells", genre.length === painted(), genre.length + " of " + painted());
   await show("Year");
   document.body.click();
   await wait(50);
@@ -57,9 +58,11 @@ if (!p.toString()) {
   const official = document.querySelector("#official button.active");
   if (official) { click(official); await wait(50); }   // every row, so the -1s are on screen
   const lastDash = a => a.indexOf(DASH) < 0 || a.slice(a.indexOf(DASH)).every(v => v === DASH);
-  const asc = cells("Year");
+  // the DOM holds a window of the view (section 17): End paints its tail, where the dashes are
+  const tail = () => { const r = document.querySelector("#body tr[data-code]"); r.focus(); key("End", r); return cells("Year"); };
+  const asc = tail();
   click(sortBtn()); await wait(50);
-  const desc = cells("Year");
+  const desc = tail();
   say("sorting by Year puts the dashes last in both directions",
       asc.includes(DASH) && lastDash(asc) && lastDash(desc) && asc[0] !== desc[0], seq(asc.slice(-3)) + " " + seq(desc.slice(-3)));
 } else if (p.get("r.Difficulty")) {

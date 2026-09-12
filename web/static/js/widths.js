@@ -21,10 +21,10 @@ function sheet() {
 
 // Pin both edges. In an auto-layout table a width on its own is only a hint,
 // and a max-width can cap a column but never widen one past its content.
-// The empty-state row spans every column, so it is left out.
+// The empty-state row and the spacer rows span every column, so they are left out.
 function rule(width, nth) {
   const at = ":nth-child(" + nth + ")";
-  return ".fw-wrap thead th" + at + ",.fw-wrap tbody tr:not(.empty) td" + at +
+  return ".fw-wrap thead th" + at + ",.fw-wrap tbody tr:not(.empty):not(.pad) td" + at +
     "{width:" + width + "px;min-width:" + width + "px;max-width:" + width +
     "px;overflow:hidden;text-overflow:ellipsis}";
 }

@@ -41,6 +41,7 @@ There is no Linux Chrome on the dev box; the runner finds Windows Chrome at `/mn
 - The cross-origin YouTube `contentWindow` cannot be assigned; `video.js` shadows the getter with `Object.defineProperty`.
 - Injected pages are staged as `suite-<name>.html` so a suite called `about.js` cannot overwrite `about.html`.
 - Windows Chrome cannot write to a WSL path, so the profile directory it is given is a Windows path asked of `cmd.exe`.
+- The table's DOM is a window of the view (section 17): `#body tr[data-code]` is the painted rows, not every passing row. On the fixture the sheets are small enough to paint whole, so the existing suites hold; on `site/Local` only `window.js` asserts about rows beyond the window, and a new suite that needs every row reads `sheetRows()` and `#count`. A programmatic scroll delivers no scroll event under the virtual clock: dispatch one (`window.js`, `fade.js`).
 - `share.js` replaces `navigator.clipboard` with a capturing stub: headless Chrome grants no clipboard permission, and the page's fallback (`execCommand`) copies nothing a suite can read.
 - The pipeline test refuses a `--keep` directory whose `caches/` or `metrics/` is not empty: output names are minute-resolution and would collide.
 - `config.DIFF_WRITE_MODE` must be `None`: the two write modes touch `song.ini` files and `Restore` writes no spreadsheet.

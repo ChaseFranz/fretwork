@@ -64,5 +64,8 @@ export const chip = (hostId, text) =>
   [...document.querySelectorAll("#" + hostId + " button")].find(b => b.textContent === text);
 export const lit = hostId =>
   [...document.querySelectorAll("#" + hostId + " button.active")].map(b => b.textContent);
-export const shown = () => document.querySelectorAll("#body tr[data-code]").length;
+// The rows the table shows, from the count: the DOM holds a window of the
+// view (section 17), so it is not the place to count from.
+export const shown = () => parseInt((document.getElementById("count").textContent.match(/[\d,]+/) || ["0"])[0].replace(/,/g, ""), 10);
+export const painted = () => document.querySelectorAll("#body tr[data-code]").length;
 export const params = () => new URLSearchParams(location.search);

@@ -181,7 +181,7 @@ Open **http://localhost:8000** once it starts. It binds `127.0.0.1` only, so not
 
 **What the page does:**
 
-- **Sort** by clicking a column header, click again to flip direction. Opens sorted by D, hardest first
+- **Sort** by clicking a column header, click again to flip direction. Opens sorted by D, hardest first. The page paints only the rows near the screen, so a sheet of 60,000 charts scrolls like one of 600
 - **Added** (hidden by default) is the date the chart's pack was registered in `packs.toml`, joined when the page is built; the header's "Updated" line links to the "What's new" page, which lists every pack with its counts and the site's own changes
 - **Percentile**, beside D: where the chart sits among the charts on its sheet at the same level, officials and customs together, as a whole number (100 is the hardest). It is computed when the page is built, so it moves as the library grows and is not in the spreadsheet; the graph heading and each row's hover text spell it out. A chart counts once however many packs carry it
 - **Copies** (hidden by default) is how many charts on the sheet have exactly these notes at this level and part, this one included: 1 is unique, 2 means the same chart is in another folder, usually another pack. Rows are never merged, since each copy has its own code, graph and report link; the graph heading lists the other folders under "Same chart in", each a link that opens that copy's graph. `?f.Copies=2` is the view of every duplicated chart

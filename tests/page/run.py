@@ -136,6 +136,18 @@ def carry_query(plain):
     return "?" + urllib.parse.urlencode({"f.Level": "Hard,Medium", "f.Type": part, "sort": "NoteCount", "q": "a"}) + "&r.NoteCount=1:"
 
 
+def deep_code_query(plain):
+    """?code=<the official Expert chart with the lowest D on the first sheet>: the last row of the opening view (section 17)."""
+    data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
+    sheet = list(data)[0]
+    file = json.loads((plain.parent / data[sheet]["file"]).read_text(encoding="utf-8"))
+    cols, rows = file["columns"], file["rows"]
+    at = lambda n: cols.index(n)   # noqa: E731
+    pool = [r for r in rows if r[at("Level")] == "Expert" and r[at("Official")] is True and isinstance(r[at("D")], (int, float))]
+    lowest = min(pool, key=lambda r: r[at("D")])
+    return "?" + urllib.parse.urlencode({"code": lowest[at("Code")]})
+
+
 def genre_query(plain):
     """A search for a genre that no searched column on the first sheet contains."""
     data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
@@ -172,6 +184,7 @@ SUITES = [
     ("fields.js",    {"queries": ["", "?r.Difficulty=:3", "?r.Year=2000:2010", album_query, genre_query]}),
     ("copies.js",    {"queries": ["", "?f.Copies=2" + ALL_LEVELS]}),
     ("sheets.js",    {"queries": [carry_query]}),
+    ("window.js",    {"queries": ["", deep_code_query]}),
     ("graph.js",     {"queries": ["", "?code=00000000XD"]}),
     ("compare.js",   {"queries": [compare_query]}),
     ("song.js",      {}),
