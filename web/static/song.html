@@ -3,31 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<base href="../">
 <title>__TITLE__</title>
-<link rel="icon" href="../__FAVICON__" type="image/svg+xml">
+<link rel="icon" href="__FAVICON__" type="image/svg+xml">
 __META__
-<script>location.replace("../"+(location.search||"?song=__KEY__"))</script>
-<meta http-equiv="refresh" content="0; url=../?song=__KEY__">
+<script>if(location.search)location.replace(location.search)</script>
 __THEME__
+<script type="application/ld+json">__LD__</script>
 <style>
-  :root { color-scheme: light; --bg:#fbfafd; --text:#232030; --dim:#5f5b6b; --link:#1a67b0; }
-  :root[data-bs-theme="dark"] { color-scheme: dark; --bg:#1a1920; --text:#e4e2ea; --dim:#a3a1ad; --link:#5eaee8; }
+  :root { color-scheme: light; --bg:#fbfafd; --text:#232030; --dim:#5f5b6b; --brand:#9a189a; --link:#1a67b0; --rule:#d3cfdc; }
+  :root[data-bs-theme="dark"] { color-scheme: dark; --bg:#1a1920; --text:#e4e2ea; --dim:#a3a1ad; --brand:#e879e8; --link:#5eaee8; --rule:#3b3945; }
   body { margin:0; background:var(--bg); color:var(--text); padding:40px 20px 60px;
          font:15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   main { max-width:64ch; margin:0 auto; }
-  h1 { font-size:1.15rem; font-weight:600; margin:0 0 .35rem; }
-  p { margin:0 0 .5rem; }
-  p.by { color:var(--dim); }
-  ul { margin:0 0 1rem; padding:0 0 0 1.2rem; }
+  p.site { font-size:13px; margin:0 0 1rem; }
+  h1 { font-size:1.35rem; font-weight:600; margin:0 0 .2rem; }
+  p { margin:0 0 .6rem; }
+  p.by { color:var(--dim); margin-bottom:1rem; }
+  p.facts { font-size:13px; color:var(--dim); }
+  p.note { font-size:13px; color:var(--dim); }
+  p.open { margin:1.2rem 0; }
+  p.open a { font-weight:600; }
+  .tbl { overflow-x:auto; margin:.8rem 0; }
+  table { border-collapse:collapse; font-size:14px; min-width:100%; }
+  th, td { padding:.3rem .7rem .3rem 0; border-bottom:1px solid var(--rule); vertical-align:top; text-align:right; }
+  th:first-child, td:first-child { text-align:left; white-space:nowrap; }
+  th { color:var(--dim); font-size:13px; font-weight:600; }
+  td small { color:var(--dim); font-size:12px; display:block; }
+  td .tier { color:var(--dim); font-weight:400; font-size:12px; }
   a { color:var(--link); }
+  .none { color:var(--dim); }
 </style>
 </head>
 <body>
 <main>
+  <p class="site"><a href="./">__BRAND__</a></p>
   <h1>__SONG__</h1>
   <p class="by">__ARTIST__</p>
-  <ul>__LINES__</ul>
-  <p><a href="../?song=__KEY__">__OPEN__</a></p>
+  <p class="facts">__FACTS__</p>
+  __TABLE__
+  <p class="note">__NOTE__</p>
+  <p class="open"><a href="./?song=__KEY__">__OPEN__</a></p>
 </main>
 </body>
 </html>

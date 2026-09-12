@@ -2,6 +2,7 @@
 
 import datetime
 import pathlib
+import re
 import unittest
 
 import pandas as pd
@@ -70,7 +71,6 @@ class LibraryPageTest(unittest.TestCase):
         out = page.render_library(self.resolved(), small_frames(), names).decode('utf-8')
         self.assertEqual(out.count('<h2>'), 5)
         self.assertIn('2 packs, 3 songs, 5 charts', out)
-        self.assertIn('<a href="./?code=00000002XG">Beta</a>', out)
         self.assertIn('<span class="bar" style="width:100.0%"></span>', out)
         self.assertIn('href="./?f.Added=2026-09-07&amp;f.Level=Expert"', out)
         self.assertIn('<a href="https://example.com/one" rel="noopener">', out)
@@ -91,7 +91,7 @@ class LibraryPageTest(unittest.TestCase):
 
 
 class SongPagesTest(unittest.TestCase):
-    """A page per song (section 16): the facts, the tags, the forward, the sitemap, the robots line."""
+    """A page per song (sections 16 and 21): the facts, the tags, the page, the forward, the index, the sitemap, the robots line."""
 
     def test_song_facts(self):
         f = small_frames()
@@ -99,18 +99,18 @@ class SongPagesTest(unittest.TestCase):
         facts = page.song_facts(f)
         self.assertEqual(sorted(facts), ['0000000000a1', '0000000000a2', '0000000000a3'])
         a1 = facts['0000000000a1']
-        self.assertEqual((a1['title'], a1['artist']), ('Alpha', 'a'))
-        # the folder's parts in VALUE_ORDER order, each at Expert when it has one
-        self.assertEqual([(l['type'], l['level'], l['d'], l['tier'], l['pct']) for l in a1['lines']],
-                         [('Lead', 'Expert', 10.0, 3, 50), ('Bass', 'Expert', 4.0, 1, None)])
-        self.assertEqual(page.share_line(a1['lines'][0]), 'Expert Lead: D 10.00, Calc Tier 3, at or above 50%')
-        self.assertEqual(page.share_line(facts['0000000000a3']['lines'][0]), 'Expert Rhythm: D 20.50, at or above 100%')
+        self.assertEqual((a1['title'], a1['artist'], a1['official']), ('Alpha', 'a', True))
+        # the folder's parts in VALUE_ORDER order, every level each has, the tier once per part
+        self.assertEqual([(p['type'], p['tier'], sorted(p['levels'])) for p in a1['parts']],
+                         [('Lead', 3, ['Expert', 'Hard']), ('Bass', 1, ['Expert'])])
+        self.assertEqual(a1['parts'][0]['levels']['Hard'], {'code': '00000001HG', 'd': 5.0, 'pct': 80})
+        self.assertEqual(page.share_lines(a1), ['Expert Lead: D 10.00, Calc Tier 3, at or above 50%', 'Expert Bass: D 4.00, Calc Tier 1'])
+        self.assertEqual(page.share_lines(facts['0000000000a3']), ['Expert Rhythm: D 20.50, at or above 100%'])
 
-    def test_a_song_without_expert_uses_its_highest_level(self):
+    def test_a_song_without_expert_previews_its_highest_level(self):
         f = small_frames()
         f['Guitar'] = f['Guitar'][f['Guitar']['Code'] != '00000001XG']
-        line = page.song_facts(f)['0000000000a1']['lines'][0]
-        self.assertEqual((line['type'], line['level'], line['d']), ('Lead', 'Hard', 5.0))
+        self.assertEqual(page.share_lines(page.song_facts(f)['0000000000a1'])[0], 'Hard Lead: D 5.00, Calc Tier 3')
 
     def test_official_folder_leads(self):
         f = small_frames()
@@ -123,31 +123,70 @@ class SongPagesTest(unittest.TestCase):
 
     def test_render_song_page(self):
         names = {'favicon': 'static/favicon.x.svg'}
-        facts = page.song_facts(small_frames())
+        f = small_frames()
+        f['Guitar']['Pct'] = [50, 100, 80, 100]
+        facts = page.song_facts(f)
         out = page.render_song_page('0000000000a1', facts['0000000000a1'], names).decode('utf-8')
-        self.assertIn('<title>Alpha - a - Fretladder</title>', out)
-        self.assertIn('<meta property="og:title" content="Alpha - a">', out)
-        self.assertIn('<meta property="og:description" content="Expert Lead: D 10.00, Calc Tier 3; Expert Bass: D 4.00, Calc Tier 1">', out)
+        self.assertIn('<title>Alpha by a: chart difficulty - Fretladder</title>', out)
+        self.assertIn('<base href="../">', out)
+        self.assertIn('<meta property="og:title" content="Alpha by a">', out)
+        self.assertIn('<meta property="og:description" content="Expert Lead: D 10.00, Calc Tier 3, at or above 50%; Expert Bass: D 4.00, Calc Tier 1">', out)
         self.assertIn('<link rel="canonical" href="https://fretladder.com/song/0000000000a1.html">', out)
         self.assertNotIn('og:image', out)
-        self.assertIn('location.replace("../"+(location.search||"?song=0000000000a1"))', out)
-        self.assertIn('content="0; url=../?song=0000000000a1"', out)
-        self.assertIn('href="../static/favicon.x.svg"', out)
-        self.assertEqual(out.count('<script'), 2)                             # the forward and the theme
+        # a page, not a redirect: the forward only with a query, no meta refresh
+        self.assertIn('<script>if(location.search)location.replace(location.search)</script>', out)
+        self.assertNotIn('http-equiv="refresh"', out)
+        self.assertEqual(out.count('<script'), 3)                             # the forward, the theme, the JSON-LD
+        self.assertIn('"@type": "MusicRecording"', out)
+        self.assertIn('"byArtist": {"@type": "MusicGroup", "name": "a"}', out)
+        # every level of every part, each a link into the table on that chart
+        self.assertIn('<h1>Alpha</h1>', out)
+        self.assertIn('<a href="./?code=00000001XG">10.00</a><small>50%</small>', out)
+        self.assertIn('<a href="./?code=00000001HG">5.00</a><small>80%</small>', out)
+        self.assertIn('<a href="./?code=00000001XB">4.00</a>', out)
+        self.assertEqual(out.count('href="./?code='), 3)
+        self.assertIn('Lead <span class="tier">Tier 3</span>', out)
+        self.assertIn('<a href="methodology.html">', out)
+        self.assertIn('href="./?song=0000000000a1"', out)
+        self.assertIn('href="static/favicon.x.svg"', out)
         self.assertNotRegex(out, r'__[A-Z][A-Z_]*__')
-        pages = page.render_song_pages(small_frames(), names)
+        pages = page.render_song_pages(f, names)
         self.assertEqual(sorted(pages), ['song/0000000000a1.html', 'song/0000000000a2.html', 'song/0000000000a3.html'])
-        self.assertTrue(all(len(b) < 2200 for b in pages.values()), [len(b) for b in pages.values()])
+        self.assertTrue(all(len(b) < 4600 for b in pages.values()), [len(b) for b in pages.values()])
+
+    def test_songs_index(self):
+        facts = page.song_facts(small_frames())
+        facts['0000000000a4'] = dict(facts['0000000000a1'], title='10 Years Gone', artist='z')
+        facts['0000000000a5'] = dict(facts['0000000000a1'], title='(untitled)', artist='')
+        out = page.render_songs_index(facts, {'favicon': 'static/f.svg'}).decode('utf-8')
+        heads = re.findall(r'<h2 id="([^"]+)">', out)
+        self.assertEqual(heads, ['0-9', 'A', 'B', 'G', 'other'])
+        self.assertEqual(out.count('href="song/'), 5)
+        self.assertIn('<a href="song/0000000000a4.html">10 Years Gone</a> <span class="by">z</span>', out)
+        self.assertLess(out.index('song/0000000000a1.html'), out.index('song/0000000000a2.html'))
+        self.assertIn('5 of them', out)
+        self.assertEqual(out.count('<script'), 1)
 
     def test_sitemap_and_robots(self):
-        files = {'index.html': b'', 'about.html': b'', 'changelog.html': b'', 'song/0000000000a2.html': b'', 'song/0000000000a1.html': b''}
+        files = {'index.html': b'', 'about.html': b'', 'changelog.html': b'', 'songs.html': b'', 'song/0000000000a2.html': b'', 'song/0000000000a1.html': b''}
         out = page.render_sitemap(files, datetime.date(2026, 9, 11)).decode('utf-8')
-        self.assertEqual(out.count('<url>'), 5)
+        self.assertEqual(out.count('<url>'), 6)
         self.assertLess(out.index('fretladder.com/</loc>'), out.index('about.html'))
+        self.assertLess(out.index('songs.html'), out.index('song/0000000000a1'))
         self.assertLess(out.index('0000000000a1'), out.index('0000000000a2'))
         self.assertIn('<lastmod>2026-09-11</lastmod>', out)
         self.assertTrue(page.robots_txt().startswith(page.ROBOTS))
         self.assertIn('Sitemap: https://fretladder.com/sitemap.xml', page.robots_txt())
+        self.assertIn('Disallow: /graph/', page.ROBOTS)
+        self.assertNotIn('data/', page.ROBOTS)                                # crawlers render the rows (section 21)
+
+    def test_front_page_title(self):
+        self.assertTrue(page.site_title().startswith('Fretladder: ') and 'Clone Hero' in page.site_title())
+
+    def test_library_links_the_hardest_to_the_song_pages(self):
+        out = page.render_library(LibraryPageTest().resolved(), small_frames(), {'favicon': 'static/f.svg'}).decode('utf-8')
+        self.assertIn('<a href="song/0000000000a2.html">Beta</a>', out)
+        self.assertIn('<a href="./?code=00000002XG">20.50</a>', out)
 
 
 if __name__ == '__main__':

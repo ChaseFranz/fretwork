@@ -45,7 +45,7 @@ def write_if_changed(path, data):
 # under static/, data/ and song/ (a page per song, section 16), plus a
 # directory that sweep has emptied. graph/ has its own pruning, with its own
 # rules, and is never touched from here.
-PAGE_TOP = ('index.html', '404.html', 'about.html', 'changelog.html', 'library.html', 'methodology.html',
+PAGE_TOP = ('index.html', '404.html', 'about.html', 'changelog.html', 'library.html', 'songs.html', 'methodology.html',
             'robots.txt', 'sitemap.xml', 'bootstrap.css')
 SWEPT_DIRS = (*assets.IMMUTABLE_DIRS, assets.SONG_DIR)
 

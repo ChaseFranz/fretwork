@@ -41,9 +41,13 @@ say("its og:title names the song", tag("og:title") && title && tag("og:title").s
 say("its og:description is the parts' facts", /^(Expert|Hard|Medium|Easy) \S+: D \d/.test(tag("og:description") || ""), tag("og:description"));
 say("its og:url is its own address", tag("og:url") === siteUrl.replace(/\/+$/, "") + "/song/" + key + ".html", tag("og:url"));
 say("no image, no placeholder", !tag("og:image") && !/__[A-Z][A-Z_]*__/.test(text));
-say("it forwards to the app with its query, else the song", text.includes('location.replace("../"+(location.search||"?song=' + key + '"))') &&
-    text.includes('content="0; url=../?song=' + key + '"'));
-say("two scripts: the forward and the theme", doc.querySelectorAll("script").length === 2);
+// section 21: a page that forwards only when a shared link's query is on it
+say("it forwards to the app only with a query, and is a page otherwise", text.includes('if(location.search)location.replace(location.search)') &&
+    !text.includes('http-equiv="refresh"') && doc.querySelector("h1") && doc.querySelector("h1").textContent === title &&
+    doc.querySelectorAll('a[href^="./?code="]').length >= 1 && doc.querySelector('a[href="./?song=' + key + '"]'), doc.querySelector("h1") && doc.querySelector("h1").textContent);
+say("three scripts: the forward, the theme and the JSON-LD", doc.querySelectorAll("script").length === 3 &&
+    doc.querySelector('script[type="application/ld+json"]') && JSON.parse(doc.querySelector('script[type="application/ld+json"]').textContent)["@type"] === "MusicRecording");
+say("its base is the site root, so its links resolve as the other pages' do", doc.querySelector("base") && doc.querySelector("base").getAttribute("href") === "../");
 
 // with one chart up the link carries the code alone
 key && click(pane.querySelector('.legend [data-rm="' + vs.split(",")[0] + '"]'));

@@ -223,6 +223,18 @@ def run(base, site_strapline=None, want_strapline=None):
         cc = h.get('cache-control', '')
         rep.say(12, 'immutable script', 'immutable' in cc, f'cache-control {cc!r}')
 
+    # 13. a song page (sections 16 and 21): the first one the sitemap names is a page with the preview tags
+    status, _, body = fetch(base + '/sitemap.xml')
+    songs = re.findall(r'<loc>[^<]*/(song/[0-9a-f]{12}\.html)</loc>', body.decode('utf-8', 'replace')) if status == 200 else []
+    if not songs:
+        rep.say(13, 'song page', False, f'sitemap status {status}, no song page in it')
+    else:
+        status, headers, body = fetch(f'{base}/{songs[0]}')
+        text = body.decode('utf-8', 'replace')
+        ctype = headers.get('content-type', '')
+        rep.say(13, 'song page', status == 200 and ctype.startswith('text/html') and 'og:title' in text and 'http-equiv="refresh"' not in text,
+                f'{songs[0]}: status {status}, type {ctype!r}, og:title {"present" if "og:title" in text else "absent"}')
+
     print(f'{rep.ok + rep.skip + rep.failed} checks: {rep.ok} ok, {rep.skip} skip, {rep.failed} failed')
     return rep.failed
 

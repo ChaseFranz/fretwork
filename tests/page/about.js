@@ -25,13 +25,22 @@ for (const [page, key] of BOOT.docPages || []) {
   say("footer page " + page + " resolves, named " + JSON.stringify(BOOT.ui[key]), a && a.textContent === BOOT.ui[key] && d &&
       d.querySelectorAll("h1").length === 1 && d.querySelectorAll("script").length === 1, a ? (r && r.status) : "no link");
 }
+// the songs index (section 21): every song, a link per song page, from the footer
+{
+  const r = await fetch("songs.html");
+  const d = new DOMParser().parseFromString(await r.text(), "text/html");
+  const links = [...d.querySelectorAll('a[href^="song/"]')];
+  say("the songs index links every song page", r.status === 200 && links.length > 0 && links.every(a => /^song\/[0-9a-f]{12}\.html$/.test(a.getAttribute("href"))), links.length);
+  const first = links[0] && await fetch(links[0].getAttribute("href"));
+  say("and its first link is a page, not a redirect", first && first.status === 200 && (await first.text()).includes("<h1>"), first && first.status);
+}
 // the library page (section 20): five blocks, a bar per tier, the hardest linked into the table
 {
   const r = await fetch("library.html");
   const d = new DOMParser().parseFromString(await r.text(), "text/html");
   say("the library page has its five blocks", d.querySelectorAll("h2").length === 5, d.querySelectorAll("h2").length);
   say("a bar per tier, the widest full", d.querySelectorAll(".bar").length > 0 && [...d.querySelectorAll(".bar")].some(b => b.style.width === "100%"));
-  say("the hardest charts link into the table", [...d.querySelectorAll('a[href^="./?code="]')].length >= 1);
+  say("the hardest charts link into the table and to their song pages", [...d.querySelectorAll('a[href^="./?code="]')].length >= 1 && [...d.querySelectorAll('a[href^="song/"]')].length >= 1);
   say("the totals are the strapline's count", d.querySelector("p.totals") && d.querySelector("p.totals").textContent.includes(
       Object.values(BOOT.data).reduce((n, s) => n + s.rows, 0).toLocaleString("en-US") + " charts"), d.querySelector("p.totals") && d.querySelector("p.totals").textContent);
 }

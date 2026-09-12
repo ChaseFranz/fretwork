@@ -226,7 +226,7 @@ FOOTER_LINKS = (
 # key of its title. page.render_doc links each to the others; the footer lists them
 # after the request link; the boot payload carries the names so a test can count.
 DOC_PAGES = (('about.html', 'about'), ('changelog.html', 'changelog'), ('library.html', 'library'),
-             ('methodology.html', 'methodology'))
+             ('songs.html', 'songs'), ('methodology.html', 'methodology'))
 
 # The line above the rendered Methodology.md, naming the upstream file as the
 # source of truth. A module constant rather than a UI key: every UI key rides
@@ -354,6 +354,8 @@ def help_text(column):
 # interface strings for serve.py's page, kept here so the wording lives in one file
 UI = {
     'title':            'Fretwork',            # overridden by config.SITE_NAME at serve time
+    # the front page's <title> and og:title after the name: the words a search carries (section 21)
+    'site_title':       'difficulty ratings for Clone Hero and Guitar Hero charts',
     'description':      'Difficulty ratings for Clone Hero and Guitar Hero charts, '
                         'scored from note density and fret movement.',
     'updated':          'Updated {date}',
@@ -454,7 +456,16 @@ UI = {
     'share_d':          'D {d}',
     'share_tier':       'Calc Tier {tier}',
     'share_pct':        'at or above {pct}%',
-    'share_open':       'Open on {site}',
+    'share_open':       'Open in the table on {site}',
+    # the song page as a page, and the songs index (section 21)
+    'songs':            'Songs',
+    'songs_tip':        'Every song on the site, A to Z',
+    'songs_intro':      'Every song on the site, {n} of them, A to Z by title; each opens the song\u2019s page with its difficulty on every instrument and level.',
+    'song_page_title':  '{song}: chart difficulty - {site}',
+    'song_note':        'D is the difficulty fretwork computes from note density and fret movement, with the '
+                        'percentile among charts of the same instrument and level on the site and the Calc Tier '
+                        'anchored to the Expert chart; [how it is scored](methodology.html) and '
+                        '[what the library holds](library.html). A number opens that chart\u2019s graph.',
     # The video is the origin of all of this, so it leads the explainer. Served
     # from the no-cookie host, and only requested if someone opens the panel -
     # the iframe is not in the page until then.

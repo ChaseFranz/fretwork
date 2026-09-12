@@ -16,6 +16,7 @@ Linux and WSL only: the stub is a shebang script with no extension.
 
 import argparse
 import csv
+import html
 import html.parser
 import json
 import os
@@ -323,7 +324,8 @@ def run_all(work, header, args):
     st.check(b'__SHOUT__ Two Tier' in (site / boot_island(index)['data']['Guitar']['file']).read_bytes(), 'the placeholder-shaped title did not survive publish')
     st.check('<style>' in index and 'static/bootstrap.' not in index, 'fallback CSS not inlined')
     st.check(len(index) < 25000, f'index.html is {len(index)} bytes with the fallback CSS inlined; the rows should be in data/')
-    st.check('<title>Fretladder</title>' in index, 'title')
+    st.check(f'<title>{html.escape(page.site_title())}</title>' in index and 'Clone Hero' in page.site_title()
+             and '<h1 class="h6 mb-0 fw-semibold" id="brand">Fretladder</h1>' in index, 'title and brand')
     m = STRAPLINE.search(index)
     st.check(m and int(m.group(1).replace(',', '')) == len(total), f'strapline {m and m.group(0)}')
     st.check('Less < More' not in index, 'row text reached the island')
@@ -410,10 +412,16 @@ def run_all(work, header, args):
     st.check(song_pages == sorted(f'{k}.html' for k in song_keys) and len(song_pages) == len(lib.charted),
              f'song/ holds {len(song_pages)} pages for {len(song_keys)} keys, {len(lib.charted)} charted songs')
     one = (site / 'song' / song_pages[0]).read_text(encoding='utf-8')
-    st.check(one.count('<script') == 2 and 'og:title' in one and 'og:image' not in one and f'?song={song_pages[0][:-5]}' in one
-             and len(one) < 2200 and not re.search(r'__(TITLE|FAVICON|META|THEME|KEY|SONG|ARTIST|LINES|OPEN)__', one)   # A2's title is __SHOUT__ on purpose
+    # section 21: a page, not a redirect: the forward only with a query, the table of every level, the JSON-LD
+    st.check(one.count('<script') == 3 and 'og:title' in one and 'og:image' not in one and f'?song={song_pages[0][:-5]}' in one
+             and 'if(location.search)location.replace(location.search)' in one and 'http-equiv="refresh"' not in one
+             and '"@type": "MusicRecording"' in one and one.count('href="./?code=') >= 1 and '<base href="../">' in one
+             and len(one) < 4600 and not re.search(r'__(TITLE|FAVICON|META|THEME|KEY|SONG|ARTIST|FACTS|TABLE|NOTE|OPEN|LD|BRAND)__', one)   # A2's title is __SHOUT__ on purpose
              and assets.cache_class(f'song/{song_pages[0]}') == assets.CACHE_WEEK,
              f'song page: {len(one)} bytes, {one.count("<script")} scripts')
+    songs_index = (site / 'songs.html').read_text(encoding='utf-8')
+    st.check(songs_index.count('href="song/') == len(song_pages) and songs_index.count('<script') == 1 and '<h2 id="' in songs_index,
+             f'songs.html: {songs_index.count(chr(104) + "ref=" + chr(34) + "song/")} links for {len(song_pages)} pages')
     sitemap = (site / 'sitemap.xml').read_text(encoding='utf-8')
     st.check(sitemap.count('<url>') == 1 + sum(1 for n, _ in labels.DOC_PAGES if (site / n).is_file()) + len(song_pages)
              and sitemap.count('<lastmod>') == sitemap.count('<url>'), f'sitemap: {sitemap.count("<url>")} urls')
@@ -503,7 +511,7 @@ def run_all(work, header, args):
         server.terminate()
         server.wait(timeout=10)
     st.check(proc.returncode == 0, f'check_site exited {proc.returncode}')
-    st.check(st.out.count('\nok  ') + st.out.startswith('ok  ') == 9 and st.out.count('skip ') == 3, 'expected 9 ok and 3 skip')
+    st.check(st.out.count('\nok  ') + st.out.startswith('ok  ') == 10 and st.out.count('skip ') == 3, 'expected 10 ok and 3 skip')
     st.done('9 ok, 3 skip against the fixture bundle')
 
     # ---- section 00: the in-process assertions that need outputs ---------------------------
@@ -529,7 +537,7 @@ def run_all(work, header, args):
             except urllib.error.HTTPError as e:
                 return e.code, e.read()
         for path, want in (('/about.html', 200), ('/changelog.html', 200), ('/library.html', 200), ('/robots.txt', 200),
-                           (f'/song/{song_pages[0]}', 200), ('/sitemap.xml', 200), ('/nope', 404)):
+                           (f'/song/{song_pages[0]}', 200), ('/songs.html', 200), ('/sitemap.xml', 200), ('/nope', 404)):
             status, body_bytes = get(path)
             st.check(status == want, f'serve {path} -> {status}')
             if want == 200:

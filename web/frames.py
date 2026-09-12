@@ -76,8 +76,10 @@ def counts(frames):
             top = expert.dropna(subset=['D']).sort_values('D', ascending=False).head(HARDEST)
             for _, r in top.iterrows():
                 tier = r.get('CalcTier')
+                key = r.get('SongKey')
                 hardest.append({'code': str(r.get('Code', '')), 'title': str(r.get('Song Title', '')),
                                 'artist': str(r.get('Artist', '')), 'type': str(r.get('Type', '')),
+                                'key': key if isinstance(key, str) else None,
                                 'd': float(r['D']),
                                 'tier': None if tier is None or pd.isna(tier) else int(tier)})
         sheet_keys = set(df['SongKey'].dropna().astype(str)) if 'SongKey' in df.columns else set()

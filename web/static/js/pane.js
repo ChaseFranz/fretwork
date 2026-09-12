@@ -22,6 +22,7 @@ import { toast } from "./overlay.js";
 
 let controller = null;  // the mounted graph, while one is open
 let paneOpener = null;  // the row that opened the pane, for Escape
+const BASE_TITLE = document.title;   // the tab reads as the open chart while one is up, and as the site again after
 const PANE_MIN = 140;                                   // px; the smallest the grip drags to
 const SIDE_BY_SIDE = "(min-width: 900px)";              // the graph beside the song grid, else stacked
 
@@ -223,6 +224,8 @@ export function openPane(code, vs = [], opts = {}) {
   if (!opts.follow && state.paneMin) state.paneMin = false;
   writeUrl();
   p.setAttribute("aria-label", UI.pane_label + ": " + code);
+  const { get } = getter(code);
+  document.title = get("Song Title") ? get("Song Title") + " - " + get("Artist") + " - " + UI.title : code + " - " + UI.title;
   p.classList.add("on");
   applyHeight();
   c.innerHTML = heading(code) + paneButtons() + metaLine(code, null) + toolRow(code) +
@@ -294,6 +297,7 @@ export function refreshTools(code = state.graph) {
 export function closePane() {
   if (!paneIsOpen()) return;
   pane().classList.remove("on");
+  document.title = BASE_TITLE;
   if (controller) { controller.destroy(); controller = null; }
   state.graph = null;
   if (!state.picking) state.compare = [];

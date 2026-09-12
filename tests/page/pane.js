@@ -21,10 +21,12 @@ say("it follows the table in the document", !!(document.getElementById("grid").c
 const tableBefore = wrap.getBoundingClientRect().height;
 const rows = [...document.querySelectorAll("#body tr[data-code]")];
 const second = rows[1] || rows[0];
+const baseTitle = document.title;
 second.focus();
 click(second);
 await wait(600);
 say("a row click opens the pane on its chart", pane.classList.contains("on") && label().endsWith(": " + second.dataset.code), label());
+say("the tab names the open chart", document.title.startsWith(second.querySelector("td.title").textContent.trim()) && document.title.endsWith(UI.title), document.title);
 say("the table is shorter by the pane's height", wrap.getBoundingClientRect().height < tableBefore && Math.abs(tableBefore - wrap.getBoundingClientRect().height - pane.getBoundingClientRect().height) <= 2,
     Math.round(tableBefore) + " -> " + Math.round(wrap.getBoundingClientRect().height) + " with a " + Math.round(pane.getBoundingClientRect().height) + "px pane");
 say("the pane stands on the stylesheet's height", Math.abs(pane.getBoundingClientRect().height - 0.46 * innerHeight) <= 2, Math.round(pane.getBoundingClientRect().height) + " vs " + Math.round(0.46 * innerHeight));
@@ -64,6 +66,7 @@ const selRow = sel();
 click(selRow);
 await wait(300);
 say("clicking the open row closes the pane", !pane.classList.contains("on") && !sel() && params().get("code") === null);
+say("and the tab reads as the site again", document.title === baseTitle, document.title);
 say("the table has its height back", Math.abs(wrap.getBoundingClientRect().height - tableBefore) <= 2, Math.round(wrap.getBoundingClientRect().height));
 const first = document.querySelector("#body tr[data-code]");
 click(first);

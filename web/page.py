@@ -9,6 +9,7 @@ page are relative, so it works at a domain root or under any sub-path.
 import collections
 import datetime
 import html
+import json
 import re
 
 import config
@@ -21,15 +22,16 @@ _PLACEHOLDER = re.compile(r'__([A-Z][A-Z_]*)__')
 OG_IMAGE = 'graph/10145439XG.png'
 OG_CODE = OG_IMAGE.rsplit('/', 1)[-1].rsplit('.', 1)[0]   # the one chart publish still renders as a PNG
 
-# Crawlers are welcome on the page and not in the graph folder: it is ~12,000
-# PNGs and a couple of gigabytes, none of it meaningful out of context, and all
-# of it counted against the CDN's request and transfer allowance. The one graph
-# used as the social preview stays fetchable.
+# Crawlers are welcome on the page and not in the graph folder: it is 11,904
+# curve files, none of them meaningful out of context, and all of them counted
+# against the CDN's request allowance. The one graph used as the social preview
+# stays fetchable. data/ is crawlable on purpose (section 21): the rows are
+# there, and a crawler that renders the page needs them or it indexes an empty
+# table; it is three files, fetched now and then.
 ROBOTS = ('User-agent: *\n'
           'Allow: /\n'
           f'Allow: /{OG_IMAGE}\n'
-          'Disallow: /graph/\n'
-          'Disallow: /data/\n')
+          'Disallow: /graph/\n')
 SITEMAP = 'sitemap.xml'
 
 
@@ -76,6 +78,12 @@ def styles_head(names):
     return f'{first}\n<link rel="stylesheet" href="{names["style"]}">'
 
 
+# What the site is, in a title: the name, then the one line that carries the
+# words someone searches for (section 21).
+def site_title():
+    return f"{config.SITE_NAME}: {labels.UI['site_title']}"
+
+
 # Description always; the social-preview tags need an absolute URL, so they are
 # emitted only for a published site with config.SITE_URL set.
 def meta_head(public, canonical=''):
@@ -85,7 +93,7 @@ def meta_head(public, canonical=''):
         url = config.SITE_URL.rstrip('/')
         tags.append(f'<link rel="canonical" href="{html.escape(url)}/{html.escape(canonical)}">')
         for prop, content in (('og:type', 'website'), ('og:url', url),
-                              ('og:title', config.SITE_NAME), ('og:description', description),
+                              ('og:title', site_title()), ('og:description', description),
                               ('og:image', f'{url}/{OG_IMAGE}')):
             tags.append(f'<meta property="{prop}" content="{html.escape(content)}">')
         tags.append('<meta name="twitter:card" content="summary_large_image">')
@@ -119,6 +127,7 @@ def strapline(source, linked):
 def render_page(title, source, names, boot_json, public=False, linked=False):
     values = {
         'TITLE': html.escape(title),
+        'BRAND': html.escape(config.SITE_NAME),
         'SOURCE': strapline(source, linked),
         'META': meta_head(public),
         'THEME': THEME_SCRIPT,
@@ -272,11 +281,11 @@ def _isnum(v):
     return isinstance(v, (int, float)) and not isinstance(v, bool) and v == v
 
 
-# What a shared link previews with, per song: the primary folder's title and
-# artist (the same choice song.folders makes on the page: official first, then
-# Release, then title, then the code prefix), and one line per part of that
-# folder, its Expert chart when it has one and else its highest level, with D,
-# the tier and the percentile as the table shows them. Keyed by SongKey.
+# What a song's page and a shared link say, per song: the primary folder's
+# title, artist and facts (the same folder song.folders picks on the page:
+# official first, then Release, then title, then the code prefix), and every
+# level of every part of that folder with D, the percentile and the code, the
+# tier once per part. Keyed by SongKey.
 def song_facts(sheets):
     levels = list(reversed(labels.VALUE_ORDER['Level']))
     types = list(labels.VALUE_ORDER.get('Type', ()))
@@ -300,18 +309,42 @@ def song_facts(sheets):
             return (0 if str(first.get('Official')).lower() == 'true' else 1,
                     _text(first.get('Release')), _text(first.get('Song Title')), prefix)
         own = sorted(folders.items(), key=rank)[0][1]
-        parts = {}
+        by_part = {}
         for r in own:
-            parts.setdefault(_text(r.get('Type')), []).append(r)
-        lines = []
-        for part in sorted(parts, key=lambda t: (types.index(t) if t in types else len(types), t)):
-            best = sorted(parts[part], key=lambda r: levels.index(r['Level']) if r.get('Level') in levels else len(levels))[0]
-            lines.append({'level': _text(best.get('Level')), 'type': part,
-                          'd': best['D'] if _isnum(best.get('D')) else None,
-                          'tier': int(best['CalcTier']) if _isnum(best.get('CalcTier')) else None,
-                          'pct': int(best['Pct']) if _isnum(best.get('Pct')) else None})
-        facts[key] = {'title': _text(own[0].get('Song Title')), 'artist': _text(own[0].get('Artist')), 'lines': lines}
+            by_part.setdefault(_text(r.get('Type')), []).append(r)
+        parts = []
+        for part in sorted(by_part, key=lambda t: (types.index(t) if t in types else len(types), t)):
+            rs = by_part[part]
+            tier = next((int(r['CalcTier']) for r in rs if _isnum(r.get('CalcTier'))), None)
+            have = {}
+            for r in rs:
+                level = _text(r.get('Level'))
+                if level in levels and level not in have:
+                    have[level] = {'code': str(r['Code']), 'd': r['D'] if _isnum(r.get('D')) else None,
+                                   'pct': int(r['Pct']) if _isnum(r.get('Pct')) else None}
+            parts.append({'type': part, 'tier': tier, 'levels': have})
+        main = own[0]
+        year = main.get('Year')
+        facts[key] = {'title': _text(main.get('Song Title')), 'artist': _text(main.get('Artist')),
+                      'charter': _text(main.get('Charter')), 'release': _text(main.get('Release')),
+                      'official': str(main.get('Official')).lower() == 'true',
+                      'album': _text(main.get('Album')), 'genre': _text(main.get('Genre')),
+                      'year': int(year) if _isnum(year) and int(year) > 0 else None,
+                      'parts': parts}
     return facts
+
+
+# One line per part for the preview: its Expert chart, else its highest level.
+def share_lines(fact):
+    levels = list(reversed(labels.VALUE_ORDER['Level']))
+    lines = []
+    for part in fact['parts']:
+        level = next((l for l in levels if l in part['levels']), None)
+        if level is None:
+            continue
+        chart = part['levels'][level]
+        lines.append(share_line({'level': level, 'type': part['type'], 'd': chart['d'], 'tier': part['tier'], 'pct': chart['pct']}))
+    return lines
 
 
 def share_line(line):
@@ -339,34 +372,115 @@ def song_meta(key, title, description):
     return '\n'.join(tags)
 
 
-# One page per song: the tags a shared link previews with (song_meta), the
-# facts as text, and a forward to the app with the exact chart in this page's
-# own query (song/<key>.html?code=A&vs=B opens that comparison; no query opens
-# the song). Unfurlers read the tags and follow nothing; browsers run the
-# forward script, or the refresh without one. Self-contained like the other
-# document pages (its own two palettes, the theme script), and never linked
-# from the app: the pane's Copy link button is what hands these out. The
-# template carries no comment of its own, since it goes out 1,748 times.
+# One page per song (sections 16 and 21): the tags a shared link previews
+# with (song_meta), the song as a page a search engine can read (every level
+# of every part in a table, the facts, a note on what the numbers are, a
+# MusicRecording block), and a forward to the app only when the URL carries a
+# query, which is what Copy link produces (song/<key>.html?code=A&vs=B opens
+# that comparison); a bare URL, the sitemap's and the songs index's, renders.
+# <base href="../"> makes every relative URL the site root's, so the favicon,
+# the note's page links and the forward resolve as they do on the other
+# document pages. Self-contained like those (its own two palettes, the theme
+# script). The template carries no comment of its own, since it goes out
+# 1,748 times.
+def song_table(fact):
+    ui = labels.UI
+    levels = list(reversed(labels.VALUE_ORDER['Level']))
+    head = ''.join(f'<th>{html.escape(l)}</th>' for l in levels)
+    rows = []
+    for part in fact['parts']:
+        tier = '' if part['tier'] is None else f' <span class="tier">{html.escape(ui["song_tier"].format(n=part["tier"]))}</span>'
+        cells = []
+        for level in levels:
+            chart = part['levels'].get(level)
+            if chart is None or chart['d'] is None:
+                cells.append(f'<td class="none">{labels.MISSING_TEXT}</td>')
+                continue
+            pct = '' if chart['pct'] is None else f'<small>{chart["pct"]}%</small>'
+            cells.append(f'<td><a href="./?code={html.escape(chart["code"])}">{chart["d"]:.2f}</a>{pct}</td>')
+        rows.append(f'    <tr><td>{html.escape(part["type"])}{tier}</td>{"".join(cells)}</tr>')
+    return ('  <div class="tbl"><table>\n    <thead><tr><th>' + html.escape(labels.label('Type')) + '</th>' + head + '</tr></thead>\n'
+            '    <tbody>\n' + '\n'.join(rows) + '\n    </tbody>\n  </table></div>')
+
+
+def song_ld(key, fact):
+    ld = {'@context': 'https://schema.org', '@type': 'MusicRecording', 'name': fact['title'],
+          'url': f'{config.SITE_URL.rstrip("/")}/{SONG_DIR}/{key}.html' if config.SITE_URL else f'{SONG_DIR}/{key}.html',
+          'description': '; '.join(share_lines(fact))}
+    if fact['artist']:
+        ld['byArtist'] = {'@type': 'MusicGroup', 'name': fact['artist']}
+    if fact['album']:
+        ld['inAlbum'] = {'@type': 'MusicAlbum', 'name': fact['album']}
+    return json.dumps(ld, ensure_ascii=False).replace('<', '\\u003c')
+
+
 def render_song_page(key, fact, names):
-    title = f'{fact["title"]} - {fact["artist"]}' if fact['artist'] else fact['title']
-    lines = [share_line(line) for line in fact['lines']]
+    ui = labels.UI
+    by = f'{fact["title"]} by {fact["artist"]}' if fact['artist'] else fact['title']
+    lines = share_lines(fact)
+    kind = labels.VALUE_LABELS.get('Official', {}).get('true' if fact['official'] else 'false', '')
+    facts = [v for v in (fact['charter'], fact['release'], kind, fact['album'],
+                         str(fact['year']) if fact['year'] else '', fact['genre']) if v]
     values = {
-        'TITLE': html.escape(f'{title} - {config.SITE_NAME}'),
+        'TITLE': html.escape(ui['song_page_title'].format(song=by, site=config.SITE_NAME)),
         'FAVICON': names['favicon'],
-        'META': song_meta(key, title, '; '.join(lines)),
+        'META': song_meta(key, by, '; '.join(lines)),
         'THEME': THEME_SCRIPT,
+        'LD': song_ld(key, fact),
+        'BRAND': html.escape(config.SITE_NAME),
         'KEY': key,
         'SONG': html.escape(fact['title']),
         'ARTIST': html.escape(fact['artist']),
-        'LINES': ''.join(f'<li>{html.escape(line)}</li>' for line in lines),
-        'OPEN': html.escape(labels.UI['share_open'].format(site=config.SITE_NAME)),
+        'FACTS': html.escape(' / '.join(facts)),
+        'TABLE': song_table(fact),
+        'NOTE': rich_text(ui['song_note']),
+        'OPEN': html.escape(ui['share_open'].format(site=config.SITE_NAME)),
     }
     return fill(assets.read_text('song.html'), values)
 
 
-def render_song_pages(sheets, names):
-    return {f'{SONG_DIR}/{key}.html': render_song_page(key, fact, names)
-            for key, fact in song_facts(sheets).items()}
+def render_song_pages(sheets, names, facts=None):
+    if facts is None:
+        facts = song_facts(sheets)
+    return {f'{SONG_DIR}/{key}.html': render_song_page(key, fact, names) for key, fact in facts.items()}
+
+
+# Every song, A to Z by title, each a link to its page: the crawl path to the
+# song pages and their internal links (section 21). Digits under "0-9", the
+# rest under "#"; a title's leading "The " does not move it.
+SONGS_PAGE = 'songs.html'
+
+
+def _index_letter(title):
+    t = title.casefold()
+    for ch in t:
+        if ch.isalpha():
+            return ch.upper()
+        if ch.isdigit():
+            return '0-9'
+        if not ch.isspace():
+            return '#'
+    return '#'
+
+
+def render_songs_index(facts, names):
+    ui = labels.UI
+    entries = sorted(((fact['title'], fact['artist'], key) for key, fact in facts.items()),
+                     key=lambda e: (e[0].casefold(), e[1].casefold()))
+    groups = {}
+    for title, artist, key in entries:
+        groups.setdefault(_index_letter(title), []).append((title, artist, key))
+    order = sorted(groups, key=lambda g: (g == '#', g != '0-9', g))
+    parts = [f'  <p class="intro">{html.escape(ui["songs_intro"].format(n=f"{len(entries):,}"))}</p>',
+             '  <p class="totals">' + ' '.join(f'<a href="#{html.escape(g if g != "#" else "other")}">{html.escape(g)}</a>' for g in order) + '</p>']
+    for g in order:
+        parts.append(f'  <h2 id="{html.escape(g if g != "#" else "other")}">{html.escape(g)}</h2>')
+        items = ''.join(f'<li><a href="{SONG_DIR}/{key}.html">{html.escape(title)}</a>'
+                        + (f' <span class="by">{html.escape(artist)}</span>' if artist else '') + '</li>'
+                        for title, artist, key in groups[g])
+        parts.append(f'  <ul class="songs">{items}</ul>')
+    body = '<div class="lib">\n' + '\n'.join(parts) + '\n</div>'
+    return render_doc(SONGS_PAGE, ui['songs'], body, names)
 
 
 # Every page a crawler may index: the charts page, the document pages, the
@@ -512,9 +626,12 @@ def render_library(resolved, sheets, names):
         parts.append(f'  <h3>{html.escape(sheet)}</h3>')
         rows = []
         for rank, r in enumerate(st['hardest'], 1):
-            link = f'<a href="./?code={html.escape(r["code"])}">{html.escape(r["title"])}</a>'
+            # the title to the song's page (section 21), the number into the table on the chart
+            title = (f'<a href="{SONG_DIR}/{html.escape(r["key"])}.html">{html.escape(r["title"])}</a>'
+                     if r.get('key') and _KEY.match(r['key']) else html.escape(r['title']))
+            d = f'<a href="./?code={html.escape(r["code"])}">{r["d"]:,.2f}</a>'
             tier = labels.MISSING_TEXT if r['tier'] is None else _n(r['tier'])
-            rows.append([_n(rank), link, html.escape(r['artist']), html.escape(r['type']), f'{r["d"]:,.2f}', tier])
+            rows.append([_n(rank), title, html.escape(r['artist']), html.escape(r['type']), d, tier])
         parts.append(_table([('#', 'r'), (labels.label('Song Title'), ''), (labels.label('Artist'), ''),
                              (labels.label('Type'), ''), (labels.label('D'), 'r'), (labels.label('CalcTier'), 'r')], rows))
 
@@ -579,7 +696,7 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_p
     sheets = frames.with_links(sheets, links_mod.link_columns(linked))
     total = sum(len(df) for df in sheets.values())
     if public:
-        title, source = config.SITE_NAME, public_source(header, xlsx_path, total)
+        title, source = site_title(), public_source(header, xlsx_path, total)
     else:
         title = f"{config.SITE_NAME} - {header}"
         source = f"{xlsx_path.name}  -  {total} rows  -  {', '.join(sheets)}"
@@ -596,7 +713,10 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_p
     files['methodology.html'] = render_methodology(names)
     files.update(changelog_pages(resolved, sheets, names))
     files.update(library_pages(resolved, sheets, names))
-    files.update(render_song_pages(sheets, names))
+    facts = song_facts(sheets)
+    files.update(render_song_pages(sheets, names, facts))
+    if facts:
+        files[SONGS_PAGE] = render_songs_index(facts, names)
     if config.SITE_URL:
         files[SITEMAP] = render_sitemap(files, sheet_date(header, xlsx_path))
     files['robots.txt'] = robots_txt().encode('utf-8')
