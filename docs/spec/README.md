@@ -1,6 +1,6 @@
 # Fretladder spec: index
 
-This directory is the implementation spec for the fretladder site and the parts of the fretwork pipeline it depends on. It is sixteen section files, one per piece of work (14 and 15 written after their code, on the maintainer's feedback the evening and the night the first fourteen landed), written on 2026-09-11 against the fork's `main` at `69b5a8f` from subsystem maps of the whole repo and read-only measurements of the Local library. Each section is self-contained: what is true today with `path:line` citations, the design with the alternatives it rejected, the exact interfaces, the files it touches, numbered steps each ending in a check and a commit message, what verifies it, its risks, and what it deliberately leaves out. A future session implements one section at a time, in the order below, and updates this file when it lands. The sections were written in parallel and then reviewed together; where two of them disagreed, the resolution is recorded here under "Decisions that override section text", and that list wins over any sentence in a section file.
+This directory is the implementation spec for the fretladder site and the parts of the fretwork pipeline it depends on. It is twenty-one section files, one per piece of work (14 and 15 written after their code, on the maintainer's feedback the evening and the night the first fourteen landed; 16 to 20 written the next morning as the second plan, from the follow-up lists of the first fifteen), written on 2026-09-11 against the fork's `main` at `69b5a8f` from subsystem maps of the whole repo and read-only measurements of the Local library. Each section is self-contained: what is true today with `path:line` citations, the design with the alternatives it rejected, the exact interfaces, the files it touches, numbered steps each ending in a check and a commit message, what verifies it, its risks, and what it deliberately leaves out. A future session implements one section at a time, in the order below, and updates this file when it lands. The sections were written in parallel and then reviewed together; where two of them disagreed, the resolution is recorded here under "Decisions that override section text", and that list wins over any sentence in a section file.
 
 Where the site stood when the spec was written, the morning of 2026-09-11: `https://fretladder.com` was live on the `09072026-2031` build pair, tagged `fretladder-v1.0.0` at `963631d`, 20 commits behind `main`. It lists 11,904 charts (10,873 official) from 1,758 songs in 26 packs on three sheets (Guitar 6,610 rows, Bass 5,038, Keys 256). The page is one `index.html` of 1,780,936 bytes, of which the inline `#fw-boot` JSON island is 1,778,082 bytes (99.8%), plus 17 ES modules, `app.css`, Bootstrap and a favicon: 21 requests per cold view, about 350 KB compressed, and because every page file is deployed `no-cache` a repeat visit costs the same 21 requests. Graphs are 11,904 matplotlib PNGs, 2,188,837,822 bytes on disk (median 182 KB, 60 to 468 KB each), rendered at 0.12 s per chart, so a full re-render is about 24 minutes; the one after commit `69b5a8f` (which changed the fingerprint's composition) is still owed and is paid in section 00. Hosting is S3 behind CloudFront on the Free flat-rate plan: 1,000,000 requests and 100 GB a month, no overage billing, so at 21 requests a view the plan is about 47,600 views a month with no graph opened, or about 41,600 at three graphs each, and requests bind long before bytes do. Section 05 takes a cold view to 6 requests and a repeat visit to 1; section 06 retires the PNGs for 47.6 MB of curve JSON. The only traffic so far is the fork's own: 67 GitHub views from 2 visitors in 14 days, 0 issues.
 
@@ -26,6 +26,11 @@ Where the site stands now, after the day's twelve sections (the interim deploys 
 | 13 | [Where to get this chart](13-source-links.md) | Enchor half landed (2026-09-11, dec3b14..efae180; tag fretladder-v1.1.0; the probe said no to the MD5 filter, so the join is metadata, 1,709 of 1,748 songs linked); the leaderboards half still needs the maintainer's answer | M | 04, 05, the Enchor probe, the leaderboards maintainer's answer | `chart_md5` at build, two offline lookup tools writing `caches/<header>_links.json`, a per-song `data/links.<hash8>.json`, two anchors (Chorus Encore, Clone Hero leaderboard) in the graph heading. Step 1 (the probe) and step 2 are Ready today. |
 | 14 | [Details pane and the link columns](14-details-pane.md) | Landed (2026-09-11, 9a4add5..3c7eb06; tag fretladder-v1.2.0; three deploys by the maintainer that evening) | L | 06, 07, 13 | The graph and the song grid become one details pane under the table, a region rather than two stacked dialogs: the row is highlighted, the arrows move the chart, the height drags, the caret collapses; a `Chart` column after Artist naming the host the chart is on, general over `labels.CHART_HOSTS`, with the arrow in the cell, and a `Leaderboard` bit beside it, the same links leading the pane's tool row; compare is pick-from-the-table alone; `?song=` an alias for the song's primary chart; a compare legend that names only what differs. |
 | 15 | [Palette roles and the two themes](15-palette-and-themes.md) | Landed (2026-09-11, 3361aac; awaiting the maintainer's deploy) | M | 06, 14 | Every colour a role with a value per theme: the brand means only "on", links are one blue, the three curves and the three compare series are separate trios, the level colours read as four, one ground with the canvas painted on it; a light theme following the OS or the header's toggle, decided before the first paint on every page; the contrast audit run in both. |
+| 16 | [Share previews and permalinks](16-share-previews.md) | Ready | M | 05, 14 | A page per song under `song/` carrying the Open Graph tags a shared link needs (title, artist, Expert D, tier and percentile per instrument) and forwarding to the app with the exact chart in its query; a Copy link button in the pane; a stale code falling back to its song; `sitemap.xml`; `song/` as the fourth deploy class, a week. |
+| 17 | [Paint only what is on screen](17-windowed-rows.md) | Ready | L | 05, 14 | The table holds the rows on screen and a margin, with two spacer rows standing for the rest at a measured average height; the view is computed once and the window painted on scroll; the arrow keys, End and a shared code reach rows that are not painted; twelve suites read their expectations from the data instead of the DOM. Measured: 6,610 rows are 112,028 nodes today. |
+| 18 | [Small things](18-small-things.md) | Ready | S each | 03, 14 | Six independent items: search folding accents, case and the ampersand; genre spellings folded at page build with a hand table for the rest; a `Pack` column; `?t=` for the readout position and the hardest 30 seconds marked; the pane grip from the keyboard; Download CSV of the current view. |
+| 19 | [The live-site watch](19-site-watch.md) | Ready | S | 01 | A daily workflow running `tools/check_site.py` against the live site, one issue per outage with the tool's output, closed by the run that sees it well again; a `--json` flag on the tool; a badge; the CloudFront compression command for the maintainer. |
+| 20 | [The library overview page](20-library-overview.md) | Ready | M | 02, 03, 10 | `library.html`: charts per sheet and level (rows and distinct), Expert charts per tier as bar tables, official against custom, the ten hardest per sheet, the packs; from the same frames the page serves, in `doc.html`, no script; linked from the footer and the explainer. |
 
 ## Implementation order
 
@@ -54,6 +59,15 @@ Three phases. Every section publishes through section 00's fixes, so 00 is first
 - 13's Enchor probe (step 1) can run any time after 04; its build step rides 05's rebuild; the leaderboards half (steps 5 to 8) waits on the maintainer's answer and may never ship.
 - 11 is last by definition: blocked on an upstream commit that does not exist.
 
+**Phase 4: the second plan, after v1.3.0.** `16, 17, 19, 18, 20`.
+
+- 16 first: it is the only section that changes whether anyone finds the site, and it is self-contained.
+- 17 next, before the library grows rather than after; it is the largest and touches the most suites, and every later section that paints rows (18's `Pack` column, 20's links into the table) lands on the windowed table rather than being adapted to it.
+- 19 the same afternoon as either: an hour, and from then on the deploys of 16 and 17 are watched.
+- 18 in any order, as idle-time work between the larger ones; its items are independent and each is one commit.
+- 20 last: it needs nothing new, and its numbers are more interesting once 16 has brought visitors and the library has grown.
+- Not in this plan: `.sng` support (the maintainer does not want it), 11 (upstream), 13's leaderboards half (the maintainer's answer), 01's posts (the maintainer's).
+
 ```mermaid
 flowchart LR
   S00[00 fixes-first]
@@ -70,6 +84,8 @@ flowchart LR
   S11[11 drums]
   S12[12 methodology-page]
   S13[13 source-links]
+  S14[14 details-pane]
+  S15[15 palette-themes]
   UP[upstream drums commit]
   PROBE[Enchor probe and leaderboards answer]
 
@@ -100,6 +116,25 @@ flowchart LR
   S08 -.-> S10
   S10 -.-> S06
   S03 -.-> S12
+  S16[16 share previews]
+  S17[17 windowed rows]
+  S18[18 small things]
+  S19[19 site watch]
+  S20[20 library page]
+  S06 --> S14
+  S07 --> S14
+  S13 --> S14
+  S06 --> S15
+  S14 --> S15
+  S05 --> S16
+  S14 --> S16
+  S05 --> S17
+  S14 --> S17
+  S01 --> S19
+  S03 --> S20
+  S16 -.-> S17
+  S17 -.-> S18
+  S17 -.-> S20
 ```
 
 Solid arrows are the `Depends on` line of the target section; dotted arrows are order preferences from the list above (the target still works without the source, but lands more cleanly after it).
