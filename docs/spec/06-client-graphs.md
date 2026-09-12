@@ -31,7 +31,7 @@ Draw every chart's graph in the browser from `graph/<code>.json`, reproducing wh
 
 **Songs to compare.** In the live spreadsheet 1,529 of 1,758 songs have more than one chart across the three sheets (8 charts is the mode at 1,195 songs; max 12), so "the other charts of this song" is a non-empty default for 87% of graphs.
 
-**Colours on the graph background** (`figure_bg` `#1E1E1E`): `color_d` `#B71FB7` 3.09:1, `color_nps` `#127BC1` 3.67:1, `color_vps` `#DD6C1B` 4.95:1, `text_color` `#EAEAEA` 13.9:1, `muted_text_color` `#AAAAAA` 7.2:1, `--fw-dim` `#9ba3ab` 6.5:1. On Bootstrap's `#212529` the same three series measure 2.86, 3.40 and 4.58, so `color_d` fails the 3:1 floor there; that is why the card takes the canvas background (Design 5). None of the three series colours may be used as text.
+**Colours on the graph background** (superseded by section 15 on 2026-09-11: the canvas now paints the page's own tokens on the page's ground, per theme, and the compare series are a trio of their own; the numbers below are the v1.2.0 state) (`figure_bg` `#1E1E1E`): `color_d` `#B71FB7` 3.09:1, `color_nps` `#127BC1` 3.67:1, `color_vps` `#DD6C1B` 4.95:1, `text_color` `#EAEAEA` 13.9:1, `muted_text_color` `#AAAAAA` 7.2:1, `--fw-dim` `#9ba3ab` 6.5:1. On Bootstrap's `#212529` the same three series measure 2.86, 3.40 and 4.58, so `color_d` fails the 3:1 floor there; that is why the card takes the canvas background (Design 5). None of the three series colours may be used as text.
 
 ## Design
 

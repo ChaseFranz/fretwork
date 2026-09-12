@@ -35,6 +35,16 @@ ROBOTS = ('User-agent: *\n'
 # count, and every file the site is, {relative name: bytes}, graphs excepted.
 Built = collections.namedtuple('Built', 'xlsx_path sheets total files')
 
+# The theme, decided before the first paint so a light-theme visitor never sees
+# a dark flash: the header toggle's stored choice (fw.theme, static/js/theme.js)
+# or the OS's, stamped on <html> as the attribute Bootstrap and app.css key on.
+# In the head of every page, the document pages and the 404 included, since
+# each carries its own two palettes; the template's data-bs-theme="dark" is
+# what a visitor with no script gets.
+THEME_SCRIPT = ('<script>(function(){var t=null;try{t=localStorage.getItem("fw.theme")}catch(e){}'
+                'if(t!=="light"&&t!=="dark")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";'
+                'document.documentElement.setAttribute("data-bs-theme",t)})()</script>')
+
 
 # Checks the template against the values before substituting: every placeholder
 # must have a value (a typo or a missing value) and every value must be named by
@@ -103,6 +113,7 @@ def render_page(title, source, names, boot_json, public=False, linked=False):
         'TITLE': html.escape(title),
         'SOURCE': strapline(source, linked),
         'META': meta_head(public),
+        'THEME': THEME_SCRIPT,
         'FAVICON': names['favicon'],
         'STYLES': styles_head(names),
         'SCRIPT': names['script'],
@@ -139,12 +150,13 @@ def rich_text(text):
     return ''.join(out)
 
 
-# The 404 body. Static text, no data and no scripts, so it stays valid however
-# old the bundle around it gets.
+# The 404 body. Static text, no data and no script but the theme's, so it stays
+# valid however old the bundle around it gets.
 def render_404(names):
     values = {
         'FAVICON': names['favicon'],
         'TITLE': html.escape(f"{labels.UI['not_found_title']} - {config.SITE_NAME}"),
+        'THEME': THEME_SCRIPT,
         'BRAND': html.escape(config.SITE_NAME),
         'MESSAGE': html.escape(labels.UI['not_found']),
         'LINK': html.escape(labels.UI['not_found_link']),
@@ -153,8 +165,8 @@ def render_404(names):
 
 
 # The document pages: about and the changelog. One template, static text and
-# no scripts, like the 404, so they keep working when the app around them does
-# not. The link list leads with the site's other document pages.
+# no script but the theme's, like the 404, so they keep working when the app
+# around them does not. The link list leads with the site's other document pages.
 def render_doc(name, title, body, names):
     others = [(labels.UI[key], page) for page, key in labels.DOC_PAGES if page != name]
     links = '\n'.join(
@@ -165,6 +177,7 @@ def render_doc(name, title, body, names):
         'FAVICON': names['favicon'],
         'TITLE': html.escape(f"{title} - {config.SITE_NAME}"),
         'META': meta_head(public=True, canonical=name),
+        'THEME': THEME_SCRIPT,
         'BRAND': html.escape(f"{config.SITE_NAME} \u2013 {title}"),
         'BACK': html.escape(labels.UI['about_back']),
         'BODY': body,

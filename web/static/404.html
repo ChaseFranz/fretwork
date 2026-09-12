@@ -9,15 +9,18 @@
      wrong folder. index.html is the opposite case and keeps its relative URLs. -->
 <link rel="icon" href="/__FAVICON__" type="image/svg+xml">
 <meta name="robots" content="noindex">
+__THEME__
 <style>
-  :root { color-scheme: dark; }
+  /* the app's roles and values (static/css/app.css), repeated so the page stands alone */
+  :root { color-scheme: light; --bg:#fbfafd; --text:#232030; --dim:#5f5b6b; --brand:#9a189a; --link:#1a67b0; }
+  :root[data-bs-theme="dark"] { color-scheme: dark; --bg:#1a1920; --text:#e4e2ea; --dim:#a3a1ad; --brand:#e879e8; --link:#5eaee8; }
   body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-         background:#212529; color:#dee2e6; text-align:center; padding:24px;
+         background:var(--bg); color:var(--text); text-align:center; padding:24px;
          font:16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   h1 { font-size:1.1rem; font-weight:600; margin:0 0 1.5rem; }
-  .code { font-size:3rem; font-weight:600; margin:0; color:#e879e8; }
-  p.msg { color:#9ba3ab; margin:.5rem 0 1.75rem; }
-  a { color:#e879e8; }
+  .code { font-size:3rem; font-weight:600; margin:0; color:var(--brand); }
+  p.msg { color:var(--dim); margin:.5rem 0 1.75rem; }
+  a { color:var(--link); }
 </style>
 </head>
 <body>

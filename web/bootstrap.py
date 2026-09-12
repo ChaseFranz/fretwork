@@ -18,9 +18,12 @@ BOOTSTRAP_URL = (f"https://cdn.jsdelivr.net/npm/bootstrap@{BOOTSTRAP_VERSION}"
                  f"/dist/css/bootstrap.min.css")
 BOOTSTRAP_MIN_BYTES = 100_000  # sanity floor - a captive-portal HTML page is way under this
 
+# The colours are app.css's role tokens, which load after this and define
+# every --bs-* the rules below read, in both themes; the values here are only
+# what paints before that sheet arrives.
 FALLBACK_CSS = """<style>
-  :root { --bs-body-bg:#1a1a1c; --bs-body-color:#eaeaea; --bs-border-color:#34343a;
-          --bs-tertiary-bg:#232326; --bs-secondary-color:#9a9aa2;
+  :root { --bs-body-bg:#1a1920; --bs-body-color:#e4e2ea; --bs-border-color:#3b3945;
+          --bs-tertiary-bg:#23222b; --bs-secondary-color:#a3a1ad;
           --bs-font-monospace:ui-monospace,SFMono-Regular,Consolas,monospace; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bs-body-bg); color:var(--bs-body-color);
@@ -39,18 +42,18 @@ FALLBACK_CSS = """<style>
   .text-secondary, .form-text { color:var(--bs-secondary-color); }
   .form-control, .form-control-sm { background:var(--bs-tertiary-bg); color:var(--bs-body-color);
     border:1px solid var(--bs-border-color); border-radius:6px; padding:5px 9px; font-size:13px; outline:none; }
-  .form-control:focus { border-color:#b71fb7; }
+  .form-control:focus { border-color:var(--fw-brand); }
   .btn { background:var(--bs-tertiary-bg); color:var(--bs-body-color); cursor:pointer;
     border:1px solid var(--bs-border-color); border-radius:6px; padding:5px 10px; font-size:12px; }
-  .btn:hover { border-color:#b71fb7; }
-  .btn-primary, .btn.active { background:#b71fb7; border-color:#b71fb7; color:#fff; }
+  .btn:hover { border-color:var(--fw-brand); }
+  .btn-primary, .btn.active { background:var(--fw-brand); border-color:var(--fw-brand); color:#fff; }
   .btn-link { background:none; border:0; }
   .btn-group { display:flex; } .btn-group .btn { border-radius:0; }
   .btn-group .btn:first-child { border-radius:6px 0 0 6px; }
   .btn-group .btn:last-child { border-radius:0 6px 6px 0; }
   table { border-collapse:collapse; width:100%; }
-  th, td { border-bottom:1px solid #26262b; text-align:left; }
-  tbody tr:hover td { background:#26262c; }
+  th, td { border-bottom:1px solid var(--bs-border-color); text-align:left; }
+  tbody tr:hover td { background:var(--bs-tertiary-bg); }
   .badge { display:inline-block; padding:2px 8px; font-size:11px; }
   .rounded-pill { border-radius:9px; }
   .dropdown-menu { display:none; background:var(--bs-tertiary-bg);

@@ -13,6 +13,7 @@ import { loadSheet, loadAll, prefetchIdle } from "./load.js";
 import { readUrl } from "./url.js";
 import { initWidths } from "./widths.js";
 import { state } from "./state.js";
+import { initTheme } from "./theme.js";
 
 function labelChrome() {
   el("brand").innerHTML = esc(UI.title) +
@@ -50,6 +51,7 @@ function buildFooter() {
 }
 
 labelChrome();
+initTheme();
 buildFooter();
 initDropdown();
 initChooser();

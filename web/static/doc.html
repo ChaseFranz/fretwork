@@ -6,28 +6,34 @@
 <title>__TITLE__</title>
 <link rel="icon" href="__FAVICON__" type="image/svg+xml">
 __META__
+__THEME__
 <!-- The one template for the site's document pages (about, changelog, methodology).
      Self-contained on purpose: these pages answer "is this the official site?",
      "can I download songs here?" and "what is in it?", so they should still
      render if the app's stylesheet, its scripts or its data are broken or missing. -->
 <style>
-  :root { color-scheme: dark; --dim:#9ba3ab; --accent:#e879e8; }
-  body { margin:0; background:#212529; color:#dee2e6; padding:40px 20px 60px;
+  /* the app's roles and values (static/css/app.css), repeated here so the page
+     stands alone: the ground, the text, the dim, the brand for headings, the
+     link colour for links, the rule; light and dark, chosen the way the app
+     chooses (the script above) */
+  :root { color-scheme: light; --bg:#fbfafd; --text:#232030; --dim:#5f5b6b; --brand:#9a189a; --link:#1a67b0; --rule:#d3cfdc; }
+  :root[data-bs-theme="dark"] { color-scheme: dark; --bg:#1a1920; --text:#e4e2ea; --dim:#a3a1ad; --brand:#e879e8; --link:#5eaee8; --rule:#3b3945; }
+  body { margin:0; background:var(--bg); color:var(--text); padding:40px 20px 60px;
          font:15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   main { max-width:64ch; margin:0 auto; }
   h1 { font-size:1.15rem; font-weight:600; margin:0 0 .35rem; }
-  .back { font-size:13px; color:var(--accent); }
+  .back { font-size:13px; }
   h2 { font-size:12px; text-transform:uppercase; letter-spacing:.6px;
-       color:var(--accent); margin:2rem 0 .4rem; }
+       color:var(--brand); margin:2rem 0 .4rem; }
   p { margin:0; }
   p.totals { color:var(--dim); font-size:13px; margin-bottom:.5rem; }
   p.item { margin:0 0 .5rem; }
   h2 a { color:inherit; text-decoration:none; }
   h2 a:hover { text-decoration:underline; }
-  hr { border:0; border-top:1px solid #343a40; margin:2.5rem 0 1.25rem; }
+  hr { border:0; border-top:1px solid var(--rule); margin:2.5rem 0 1.25rem; }
   ul { margin:0; padding:0; list-style:none; font-size:13px; }
   li { margin:.35rem 0; }
-  a { color:var(--accent); }
+  a { color:var(--link); }
   footer { margin-top:1.5rem; font-size:12px; color:var(--dim); }
   /* The rendered methodology (web/markdown.py), scoped so the other document
      pages do not change: its own title is the first h2 and must read larger
@@ -43,7 +49,7 @@ __META__
                    color:var(--dim); }
   .md .tbl, .md .eq { overflow-x:auto; margin:.8rem 0; }
   .md table { border-collapse:collapse; font-size:14px; }
-  .md th, .md td { padding:.2rem .7rem .2rem 0; border-bottom:1px solid #343a40; }
+  .md th, .md td { padding:.2rem .7rem .2rem 0; border-bottom:1px solid var(--rule); }
   .md th { text-align:left; color:var(--dim); font-size:13px; }
   .md .r { text-align:right; }
   .md .c { text-align:center; }

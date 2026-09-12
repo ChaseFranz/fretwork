@@ -125,12 +125,13 @@ def run(base, site_strapline=None, want_strapline=None):
             f'fw-boot {"present" if "fw-boot" in page else "absent"}, og:image {og!r}, '
             f'script {script!r}, stylesheets {styles!r}')
 
-    # 4. about page: no scripts, at least one heading, canonical under https
+    # 4. about page: one script (the theme's, in the head), at least one heading, canonical under https
     status, headers, body = fetch(base + '/about.html')
     about = body.decode('utf-8', 'replace')
     ctype = headers.get('content-type', '')
-    passed = status == 200 and ctype.startswith('text/html') and '<script' not in about and '<h2' in about
-    detail = f'status {status}, type {ctype!r}, script {"present" if "<script" in about else "absent"}, h2 {"present" if "<h2" in about else "absent"}'
+    passed = (status == 200 and ctype.startswith('text/html') and about.count('<script') == 1
+              and 'localStorage.getItem("fw.theme")' in about and '<h2' in about)
+    detail = f'status {status}, type {ctype!r}, {about.count("<script")} scripts, h2 {"present" if "<h2" in about else "absent"}'
     if not local and passed:
         canonical = f'<link rel="canonical" href="{base}/about.html">'
         passed = canonical in about

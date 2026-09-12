@@ -6,30 +6,27 @@ into the script, so spreadsheet text can never be parsed as code.
 """
 
 import json
-import sys
 
 import config
 from functions import labels as labels_mod
 
-# The render profile keys a canvas can use. figsize, dpi and the point sizes
-# are matplotlib's and stay out; the page sizes its own text.
-WEB_RENDER_KEYS = ('mode', 'color_d', 'color_nps', 'color_vps', 'linewidth', 'grid_alpha',
-                   'fill_curves', 'fill_alpha', 'figure_bg', 'axes_bg', 'text_color',
-                   'muted_text_color', 'grid_color', 'spine_color')
+# The render profile keys the canvas uses: how the picture is drawn, not what
+# colour it is. figsize, dpi and the point sizes are matplotlib's and stay out;
+# the page sizes its own text. The colours stay out too: the page's are the
+# role tokens in static/css/app.css, one set per theme, which the canvas reads
+# at each paint (graph.js gPalette), so the graph follows the theme; the PNG
+# render.py and the social preview draw keep config.RENDER_THEMES.
+WEB_RENDER_KEYS = ('linewidth', 'grid_alpha', 'fill_curves', 'fill_alpha')
 
 
 # The same two-dict merge plot.resolve_profile does, so the page and render.py
-# draw from one palette; an unknown mode falls back to light in both. A key the
-# merge lacks raises, which is the drift guard for an upstream file this fork
-# does not edit. The page's own chrome is dark only, hence the warning.
+# draw the same lines. A key the merge lacks raises, which is the drift guard
+# for an upstream file this fork does not edit.
 def render_profile():
     mode = config.RENDER_DEFAULT.get('mode', 'light')
     theme = config.RENDER_THEMES.get(mode, config.RENDER_THEMES['light'])
     merged = {**config.RENDER_DEFAULT, **theme}
-    profile = {k: merged[k] for k in WEB_RENDER_KEYS}
-    if profile['mode'] != 'dark':
-        print(f"warning: config.RENDER_DEFAULT mode is {profile['mode']!r}; the page is dark only", file=sys.stderr)
-    return profile
+    return {k: merged[k] for k in WEB_RENDER_KEYS}
 
 
 def boot_payload(manifest, sheet_of_code, links=None):

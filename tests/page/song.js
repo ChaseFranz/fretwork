@@ -98,7 +98,7 @@ if (multi.length) {
   const on = () => [...sbody().querySelectorAll(".sgrid .cell.on")];
   say("each chart on the graph is marked in the grid, in legend order", on().map(c => c.dataset.code).join() === codes.join() &&
       on().map(c => c.querySelector(".sl").textContent).join() === ["A", "B", "C"].slice(0, codes.length).join(), on().map(c => c.dataset.code + c.querySelector(".sl").textContent).join());
-  const swatches = [...pane.querySelectorAll(".legend .sw")].map(e => e.style.borderColor);
+  const swatches = [...pane.querySelectorAll(".legend .sw")].map(e => getComputedStyle(e).borderTopColor);
   say("with the legend's colours", on().every((c, k) => c.style.getPropertyValue("--sc") && getComputedStyle(c).borderTopColor === swatches[k]),
       on().map(c => getComputedStyle(c).borderTopColor).join(" | ") + " vs " + swatches.join(" | "));
   say("the primary keeps its ring as well", sbody().querySelector(".cell.here.on") && sbody().querySelector(".cell.here").dataset.code === codes[0]);

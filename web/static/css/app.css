@@ -1,30 +1,91 @@
   /* project-specific only - Bootstrap handles layout, controls, table, dropdown, modal */
-  /* Two magentas, not one. b71fb7 is a fill: white on it clears AA at 5.4:1, but
-     as text on the dark page it is only 2.9:1, so anything the accent colours as
-     TEXT uses the lighter tint instead (5.3:1 on the header, 6.1:1 on the body).
-     --fw-dim replaces Bootstrap's #6c757d, which its .text-secondary utility and
-     its outline buttons hardcode in both themes and which is 3.3:1 here.
-     Ratios are against #212529 body / #2b3035 header; keep anything that is text
-     above 4.5:1, and anything you can click above 3:1. */
-  :root { --fw-accent:#b71fb7; --fw-accent-text:#e879e8;
-          --fw-code:#4aa3e0; --fw-dim:#9ba3ab; }
-  [data-bs-theme="dark"] { --bs-primary:#b71fb7; --bs-link-color-rgb:74,163,224; }
+  /* The palette is a set of roles, not colours (docs/spec/15-palette-and-themes.md):
+     every rule below names a role, and the two theme blocks give each role its
+     value. Magenta is the brand and means "on" or "do this" (an active chip, a
+     pressed toggle, the primary button, the open row's edge); links are the
+     blue; the graph's three curves and the three compare series are two
+     separate trios, so no colour ever changes meaning; the four level colours
+     are the spreadsheet's hue families saturated for each ground. --fw-brand is
+     a FILL (white on it is 5.4:1) and never text: text in the brand colour is
+     --fw-brand-text. Every text pair below measures 4.5:1 or better on its own
+     ground and every swatch or clickable thing 3:1 (tests/page/contrast.js
+     audits both themes); the ratios are in the spec. A dark ground is the
+     default; light follows the OS or the header's toggle (static/js/theme.js). */
+  :root, [data-bs-theme="light"] {
+    --fw-bg:#fbfafd; --fw-bg-rgb:251,250,253;
+    --fw-bg-raised:#f1eff6; --fw-bg-raised-rgb:241,239,246;
+    --fw-bg-hover:#e7e4ee; --fw-bg-hover-rgb:231,228,238;
+    --fw-border:#d3cfdc;
+    --fw-text:#232030; --fw-text-rgb:35,32,48;
+    --fw-strong:#000000; --fw-strong-rgb:0,0,0;
+    --fw-dim:#5f5b6b; --fw-dim-rgb:95,91,107;
+    --fw-brand:#b71fb7; --fw-brand-rgb:183,31,183; --fw-brand-text:#9a189a;
+    --fw-link:#1a67b0; --fw-link-rgb:26,103,176;
+    --fw-select:rgba(0,0,0,.08); --fw-backdrop:rgba(24,20,34,.6);
+    --fw-curve-d:#b71fb7; --fw-curve-nps:#1a6fc0; --fw-curve-vps:#c85f14;
+    --fw-series-a:var(--fw-curve-d); --fw-series-b:#0e8a8a; --fw-series-c:#9a7200;
+    --fw-easy:#186f42; --fw-medium:#1f63a8; --fw-hard:#8a5a00; --fw-expert:#c02a4c;
+  }
+  [data-bs-theme="dark"] {
+    --fw-bg:#1a1920; --fw-bg-rgb:26,25,32;
+    --fw-bg-raised:#23222b; --fw-bg-raised-rgb:35,34,43;
+    --fw-bg-hover:#2c2b36; --fw-bg-hover-rgb:44,43,54;
+    --fw-border:#3b3945;
+    --fw-text:#e4e2ea; --fw-text-rgb:228,226,234;
+    --fw-strong:#ffffff; --fw-strong-rgb:255,255,255;
+    --fw-dim:#a3a1ad; --fw-dim-rgb:163,161,173;
+    --fw-brand:#b71fb7; --fw-brand-rgb:183,31,183; --fw-brand-text:#e879e8;
+    --fw-link:#5eaee8; --fw-link-rgb:94,174,232;
+    --fw-select:rgba(255,255,255,.12); --fw-backdrop:rgba(0,0,0,.85);
+    --fw-curve-d:#c93cc9; --fw-curve-nps:#3b9ee0; --fw-curve-vps:#e58a3c;
+    --fw-series-a:var(--fw-curve-d); --fw-series-b:#2fc7c7; --fw-series-c:#e6c03f;
+    --fw-easy:#7fd8a3; --fw-medium:#8ec0f2; --fw-hard:#f4ad52; --fw-expert:#f78aa0;
+  }
+  /* Bootstrap reads these for its body, table, form controls, dropdowns and
+     borders; bridged once, after both of its theme blocks, so its components
+     stand on the page's ground rather than its own greys. */
+  :root, [data-bs-theme="light"], [data-bs-theme="dark"] {
+    --bs-body-bg:var(--fw-bg); --bs-body-bg-rgb:var(--fw-bg-rgb);
+    --bs-body-color:var(--fw-text); --bs-body-color-rgb:var(--fw-text-rgb);
+    --bs-emphasis-color:var(--fw-strong); --bs-emphasis-color-rgb:var(--fw-strong-rgb);
+    --bs-secondary-color:var(--fw-dim); --bs-secondary-color-rgb:var(--fw-dim-rgb);
+    --bs-tertiary-color:var(--fw-dim);
+    --bs-secondary-bg:var(--fw-bg-hover); --bs-secondary-bg-rgb:var(--fw-bg-hover-rgb);
+    --bs-tertiary-bg:var(--fw-bg-raised); --bs-tertiary-bg-rgb:var(--fw-bg-raised-rgb);
+    --bs-border-color:var(--fw-border); --bs-border-color-translucent:var(--fw-border);
+    --bs-heading-color:inherit;
+    --bs-link-color:var(--fw-link); --bs-link-color-rgb:var(--fw-link-rgb);
+    --bs-link-hover-color:var(--fw-link); --bs-link-hover-color-rgb:var(--fw-link-rgb);
+    --bs-primary:var(--fw-brand); --bs-primary-rgb:var(--fw-brand-rgb);
+  }
   html, body { height:100%; }
   body { font-size:13px; margin:0; display:flex; flex-direction:column; }
-  .fw-accent { color:var(--fw-accent-text); }
-  :focus-visible { outline:2px solid var(--fw-accent-text); outline-offset:2px; }
+  :focus-visible { outline:2px solid var(--fw-brand-text); outline-offset:2px; }
   .fw-wrap tbody tr:focus-visible, .fw-wrap thead th .lbl:focus-visible {
-    outline:2px solid var(--fw-accent-text); outline-offset:-2px; }
+    outline:2px solid var(--fw-brand-text); outline-offset:-2px; }
   .text-secondary { color:var(--fw-dim)!important; }
-  .btn-check:checked + .btn, .btn-fw.active { background:var(--fw-accent); border-color:var(--fw-accent); color:#fff; }
+  .btn-check:checked + .btn, .btn-fw.active { background:var(--fw-brand); border-color:var(--fw-brand); color:#fff; }
   /* Bootstrap bakes its button colours into the compiled CSS rather than reading
-     --bs-primary, so overriding that variable alone leaves the buttons blue. */
-  .btn-outline-secondary { --bs-btn-color:var(--fw-dim); --bs-btn-border-color:#495057;
-    --bs-btn-hover-color:#fff; --bs-btn-hover-bg:#3d444b; --bs-btn-hover-border-color:var(--fw-dim); }
-  .btn-outline-primary { --bs-btn-color:var(--fw-accent-text); --bs-btn-border-color:var(--fw-accent);
-    --bs-btn-hover-color:#fff; --bs-btn-hover-bg:var(--fw-accent); --bs-btn-hover-border-color:var(--fw-accent); }
-  .btn-primary { --bs-btn-bg:var(--fw-accent); --bs-btn-border-color:var(--fw-accent);
-    --bs-btn-hover-bg:#9c1a9c; --bs-btn-hover-border-color:#9c1a9c; }
+     --bs-primary, so overriding that variable alone leaves the buttons blue; the
+     focus glow, the checked box and the focused search box are blue there too. */
+  .btn-outline-secondary { --bs-btn-color:var(--fw-dim); --bs-btn-border-color:var(--fw-border);
+    --bs-btn-hover-color:var(--fw-strong); --bs-btn-hover-bg:var(--fw-bg-hover); --bs-btn-hover-border-color:var(--fw-dim);
+    --bs-btn-focus-shadow-rgb:var(--fw-dim-rgb); }
+  .btn-outline-primary { --bs-btn-color:var(--fw-brand-text); --bs-btn-border-color:var(--fw-brand);
+    --bs-btn-hover-color:#fff; --bs-btn-hover-bg:var(--fw-brand); --bs-btn-hover-border-color:var(--fw-brand);
+    --bs-btn-focus-shadow-rgb:var(--fw-brand-rgb); }
+  .btn-primary { --bs-btn-bg:var(--fw-brand); --bs-btn-border-color:var(--fw-brand);
+    --bs-btn-hover-bg:color-mix(in srgb, var(--fw-brand) 85%, black); --bs-btn-hover-border-color:color-mix(in srgb, var(--fw-brand) 85%, black);
+    --bs-btn-focus-shadow-rgb:var(--fw-brand-rgb); }
+  .form-control:focus { border-color:var(--fw-brand); box-shadow:0 0 0 .2rem rgba(var(--fw-brand-rgb), .25); }
+  .form-check-input:checked { background-color:var(--fw-brand); border-color:var(--fw-brand); }
+  .form-check-input:focus { border-color:var(--fw-brand); box-shadow:0 0 0 .2rem rgba(var(--fw-brand-rgb), .25); }
+  /* the toast: the page's text on its ground, inverted, in either theme */
+  #hint .badge { background:var(--fw-text); color:var(--fw-bg); }
+  /* the theme toggle: a small icon button in the brand row; while the theme
+     switches (theme.js) nothing fades, so the page changes as one */
+  #theme { padding:0 6px; line-height:1.4; font-size:13px; }
+  html.theming *, html.theming *::before, html.theming *::after { transition:none!important; }
   .fw-head { flex:0 0 auto; z-index:1030; }
   .fw-wrap { flex:1 1 auto; min-height:0; overflow:auto; }
   /* .more is set from scroll.js, only while something is past the right edge */
@@ -32,7 +93,7 @@
     -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 40px), transparent); }
   .fw-foot { flex:0 0 auto; font-size:11px; color:var(--bs-secondary-color); }
   .fw-foot a { color:var(--bs-secondary-color); text-decoration:none; }
-  .fw-foot a:hover { color:var(--fw-code); text-decoration:underline; }
+  .fw-foot a:hover { color:var(--fw-link); text-decoration:underline; }
   .sep { opacity:.35; margin:0 .35rem; }
   #src2 { display:none; }
   /* an underlined text link, not another chip: it opens an explanation, it does
@@ -42,15 +103,15 @@
   .fw-head #src a, #src2 a { color:inherit; text-decoration:underline dotted; text-underline-offset:2px; }
   .fw-head #src a:hover, #src2 a:hover { color:var(--bs-body-color); text-decoration:underline dotted; }
   .fw-head .info { background:none; border:0; padding:0; font-size:12px; cursor:pointer;
-    color:var(--fw-accent-text); text-decoration:underline; text-underline-offset:2px; }
+    color:var(--fw-link); text-decoration:underline; text-underline-offset:2px; }
   .fw-head .info:hover { color:var(--bs-body-color); }
   .beta { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.6px;
-    color:var(--fw-accent-text); border:1px solid var(--fw-accent-text); border-radius:10px;
+    color:var(--fw-brand-text); border:1px solid var(--fw-brand-text); border-radius:10px;
     padding:1px 6px; vertical-align:2px; }
   /* no measure cap: one footer line beats three, and it is a single sentence */
   .fw-foot .beta-note { color:var(--bs-body-color); }
-  .fw-foot a.req { color:var(--fw-accent-text); font-weight:600; }
-  .fw-foot a.req:hover { color:var(--fw-accent-text); }
+  .fw-foot a.req { color:var(--fw-link); font-weight:600; }
+  .fw-foot a.req:hover { color:var(--fw-link); }
   .fw-wrap table { margin-bottom:0; }
   .fw-wrap thead th { position:sticky; top:0; z-index:2; background:var(--bs-tertiary-bg);
     padding:0; font-size:11px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
@@ -62,33 +123,35 @@
     color:inherit; font:inherit; letter-spacing:inherit; text-transform:inherit; }
   /* the drag target for column width: invisible until the header is hovered */
   .fw-wrap thead th .rz { position:absolute; top:0; right:0; width:7px; height:100%;
-    cursor:col-resize; touch-action:none; opacity:0; background:var(--fw-accent-text); }
+    cursor:col-resize; touch-action:none; opacity:0; background:var(--fw-brand-text); }
   .fw-wrap thead th:hover .rz { opacity:.45; }
   .fw-wrap thead th .rz:hover { opacity:1; }
   body.resizing { cursor:col-resize; user-select:none; }
-  .fw-wrap thead th.sorted .lbl, .fw-wrap thead th.filtered .flt { color:var(--fw-accent-text); }
-  .fw-wrap thead th.filtered { background:#2b2233; }
+  .fw-wrap thead th.sorted .lbl, .fw-wrap thead th.filtered .flt { color:var(--fw-brand-text); }
+  .fw-wrap thead th.filtered { background:color-mix(in srgb, var(--fw-brand) 14%, var(--fw-bg-raised)); }
   .fw-wrap td { padding:5px 10px; white-space:nowrap; vertical-align:middle; }
   td.num { text-align:right; font-variant-numeric:tabular-nums; }
   /* rank is a view position, not data - keep it narrow and quiet */
   thead th.rank, td.rank { width:1%; }
   td.rank { color:var(--bs-secondary-color); }
-  td.code { font-family:var(--bs-font-monospace); color:var(--fw-code); cursor:pointer; }
+  td.code { font-family:var(--bs-font-monospace); color:var(--fw-link); cursor:pointer; }
   td.code:hover { text-decoration:underline; }
   td.title { max-width:300px; white-space:normal; overflow-wrap:break-word; }
   td.song { min-width:150px; }
-  /* the link columns: one arrow, the anchor for a row the file knows, dim
-     while the file is on its way, nothing for a row without the link */
+  /* the link columns: one arrow, the anchor for a row the file knows (a link,
+     so the link colour), dim while the file is on its way, nothing for a row
+     without the link */
   td.lnkc { text-align:center; padding-left:4px; padding-right:4px; font-size:14px; line-height:1; }
-  td.lnkc a.ext { color:var(--fw-accent-text); text-decoration:none; display:inline-block; padding:2px 6px; }
+  td.lnkc a.ext { color:var(--fw-link); text-decoration:none; display:inline-block; padding:2px 6px; }
   td.lnkc a.ext:hover { text-decoration:underline; }
   td.lnkc .wait { color:var(--fw-dim); opacity:.5; }
-  /* the row open in the details pane: the accent as a tint and a left edge,
-     over the hover; in compare mode every row on the graph wears its series
-     colour on that edge (a swatch, never text) with its legend letter after
-     the rank, as the song grid's cells do */
-  .fw-wrap .table-hover > tbody > tr.sel > * { --bs-table-bg-state: rgba(183,31,183,.22); }
-  .fw-wrap tbody tr.sel > td:first-child { box-shadow:inset 3px 0 0 var(--fw-accent-text), inset 0 0 0 9999px var(--bs-table-bg-state); }
+  /* the row open in the details pane: a neutral wash (the colour is the edge,
+     as a selection in an editor, so the brand still means only "on") and the
+     brand on the left edge; in compare mode every row on the graph wears its
+     series colour on that edge (a swatch, never text) with its legend letter
+     after the rank, as the song grid's cells do */
+  .fw-wrap .table-hover > tbody > tr.sel > * { --bs-table-bg-state: var(--fw-select); }
+  .fw-wrap tbody tr.sel > td:first-child { box-shadow:inset 3px 0 0 var(--fw-brand-text), inset 0 0 0 9999px var(--bs-table-bg-state); }
   /* the second shadow is Bootstrap's own cell fill, with its fallback chain: an
      undefined --bs-table-bg-state (a row that is neither hovered nor .sel) would
      void the whole declaration and the edge with it */
@@ -97,12 +160,13 @@
   .fw-wrap tbody tr .sl { margin-left:5px; font-size:10px; font-weight:700; font-style:normal; color:var(--bs-body-color); }
   td.artist { max-width:220px; }
   td.album { max-width:220px; }
-  /* The four level colours still come from xlsx_format.py, so the site and the
-     spreadsheet agree on which colour means which level - but they are worn as
-     an outline rather than as a filled block, which stops four saturated
+  /* The four level colours are xlsx_format.py's hue families (green, blue,
+     amber, rose), so the site and the spreadsheet agree on which colour means
+     which level, saturated for each ground so the four read as four - and worn
+     as an outline rather than as a filled block, which stops four saturated
      rectangles per row competing with the song titles. */
   .lvl { background:none; border:1px solid currentColor; font-weight:600; padding:0 7px; }
-  .Easy{color:#c6efce}.Medium{color:#bdd7ee}.Hard{color:#ffe5b4}.Expert{color:#ffc7ce}
+  .Easy{color:var(--fw-easy)}.Medium{color:var(--fw-medium)}.Hard{color:var(--fw-hard)}.Expert{color:var(--fw-expert)}
   /* D is the number the site exists for; weight says so without a colour ramp.
      Not called .lead - that is a Bootstrap utility and it is 1.25rem. */
   td.headline { font-weight:600; color:var(--bs-emphasis-color); }
@@ -118,7 +182,7 @@
   tbody tr { cursor:pointer; }
   td.code { font-family:var(--bs-font-monospace); color:var(--bs-secondary-color); }
   td.code .cp { visibility:hidden; margin-left:6px; opacity:.7; }
-  tr:hover td.code { color:var(--fw-code); }
+  tr:hover td.code { color:var(--fw-link); }
   tr:hover td.code .cp { visibility:visible; }
   td.code .cp:hover { opacity:1; }
   #cd { position:fixed; width:230px; max-height:min(420px,70vh); overflow:auto; z-index:1050; font-size:12px; }
@@ -128,15 +192,15 @@
   #cd .cc .grip { cursor:grab; opacity:.6; padding:0 2px; user-select:none; }
   #cd .cc .grip:active { cursor:grabbing; }
   #cd .form-check { flex:1; margin-bottom:0; padding:2px 4px 2px 1.5rem; }
-  #about { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
+  #about { position:fixed; inset:0; background:var(--fw-backdrop); display:none;
            align-items:center; justify-content:center; z-index:1060; padding:24px; }
   #about.on { display:flex; }
   #about .mcard { max-width:100%; max-height:92vh; overflow:auto; }
   /* The details pane (section 14): a flex sibling under the table, so the table
-     shrinks and nothing is positioned over it. Its background is set from
-     RENDER.figure_bg by openPane, never here: the three series colours were
-     measured against that colour and it reaches the page only through boot.
-     The grip is the top edge; .min is the heading alone. */
+     shrinks and nothing is positioned over it. It stands on the page's own
+     ground, as the canvas does (graph.js paints --fw-bg), so there is one
+     background and the graph is not a box. The grip is the top edge; .min is
+     the heading alone. */
   .fw-pane { flex:0 0 auto; display:none; flex-direction:column; height:46vh; min-height:0;
     border-top:1px solid var(--bs-border-color); position:relative; }
   .fw-pane.on { display:flex; }
@@ -144,7 +208,7 @@
   .fw-pane .pgrip { flex:0 0 auto; height:9px; cursor:row-resize; touch-action:none;
     display:flex; align-items:center; justify-content:center; background:var(--bs-tertiary-bg); }
   .fw-pane .pgrip span { width:44px; height:3px; border-radius:2px; background:var(--fw-dim); opacity:.75; }
-  .fw-pane .pgrip:hover span { background:var(--fw-accent-text); opacity:1; }
+  .fw-pane .pgrip:hover span { background:var(--fw-brand-text); opacity:1; }
   .fw-pane.min .pgrip { cursor:default; }
   body.resizing-v { cursor:row-resize; user-select:none; }
   .fw-pane .pcard { flex:1 1 auto; min-height:0; overflow:auto; scrollbar-gutter:stable; position:relative;
@@ -175,30 +239,30 @@
     padding:2px 0; }
   .sgrid .inst { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding:0 8px 0 0; font-weight:600; }
   .sgrid .tier { font-weight:400; color:var(--fw-dim); }
-  .sgrid .cmp { background:none; border:1px solid #495057; border-radius:4px; color:var(--fw-dim); font-size:11px;
+  .sgrid .cmp { background:none; border:1px solid var(--fw-border); border-radius:4px; color:var(--fw-dim); font-size:11px;
     padding:1px 6px; cursor:pointer; }
-  .sgrid .cmp:hover { color:#fff; border-color:var(--fw-dim); }
+  .sgrid .cmp:hover { color:var(--fw-strong); border-color:var(--fw-dim); }
   .sgrid .cell { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:44px;
     border:1px solid var(--bs-border-color); border-radius:6px; background:none; color:var(--bs-body-color);
     font-variant-numeric:tabular-nums; padding:4px 2px; }
   .sgrid button.cell { cursor:pointer; }
-  .sgrid button.cell:hover { background:rgba(255,255,255,.06); }
+  .sgrid button.cell:hover { background:rgba(var(--fw-strong-rgb), .06); }
   .sgrid .cell b { font-weight:600; }
   .sgrid .cell small { color:var(--fw-dim); font-size:11px; }
-  .sgrid .cell.here { border-color:var(--fw-accent-text); box-shadow:inset 0 0 0 1px var(--fw-accent-text); }
+  .sgrid .cell.here { border-color:var(--fw-brand-text); box-shadow:inset 0 0 0 1px var(--fw-brand-text); }
   .sgrid .cell.none { color:var(--fw-dim); border-style:dashed; }
   /* in compare mode a cell on the graph wears its series colour as a top bar,
      never as text (the series colours are swatches, not words), with its
      legend letter in the corner; the primary keeps the ring as well */
   .sgrid .cell { position:relative; }
   .sgrid .cell.on { border-top:3px solid var(--sc); padding-top:2px; }
-  .sgrid .cell.on.here { box-shadow:inset 0 0 0 1px var(--fw-accent-text); }
+  .sgrid .cell.on.here { box-shadow:inset 0 0 0 1px var(--fw-brand-text); }
   .sgrid .cell .sl { font-size:10px; font-weight:700; font-style:normal; color:var(--fw-dim); margin-right:3px; }
   .sgrid button.cell:disabled { cursor:not-allowed; opacity:.55; }
-  .sgrid .cmp[aria-pressed="true"] { background:var(--fw-accent); border-color:var(--fw-accent); color:#fff; }
+  .sgrid .cmp[aria-pressed="true"] { background:var(--fw-brand); border-color:var(--fw-brand); color:#fff; }
   .mhead .lnk { display:flex; flex-wrap:wrap; align-items:baseline; gap:0; font-size:11px; }
   .mhead .lnk a { white-space:nowrap; }
-  .mhead .lnk a { color:var(--fw-accent-text); }
+  .mhead .lnk a { color:var(--fw-link); }
   #about .mcard { max-width:min(680px, 100%); background:var(--bs-body-bg);
     border:1px solid var(--bs-border-color); border-radius:8px; padding:20px 22px; }
   /* the card is wide enough for the video; the prose is not, so it keeps a measure */
@@ -207,17 +271,17 @@
     border:0; border-radius:6px; }
   #about p.cap { font-size:11px; color:var(--fw-dim); }
   #about h2 { font-size:12px; text-transform:uppercase; letter-spacing:.6px;
-    color:var(--fw-accent-text); margin:1.1rem 0 .3rem; }
+    color:var(--fw-brand-text); margin:1.1rem 0 .3rem; }
   #about p { margin:0; font-size:13px; line-height:1.55; max-width:62ch; }
   #about .mhead { margin-bottom:0; align-items:center; justify-content:space-between; }
   #about .x { background:none; border:0; color:var(--fw-dim); font-size:22px;
     line-height:1; padding:0 2px; cursor:pointer; }
   #about .x:hover { color:var(--bs-body-color); }
   #about p.more { margin-top:1.4rem; font-size:11px; }
-  #about p.more a { color:var(--fw-accent-text); }
+  #about p.more a { color:var(--fw-link); }
   .mhead .rpt { font-size:11px; white-space:nowrap; }
   .mhead .copies { flex-basis:100%; font-size:11px; }
-  .mhead .copies a { color:var(--fw-accent-text); }
+  .mhead .copies a { color:var(--fw-link); }
   .mmeta { display:flex; flex-wrap:wrap; gap:2px 0; font-size:11px; color:var(--fw-dim); margin-bottom:6px; }
   .mmeta b { font-weight:600; color:var(--bs-body-color); }
   .readout { margin:6px 0 2px; font-size:12px; font-variant-numeric:tabular-nums; white-space:pre-wrap;

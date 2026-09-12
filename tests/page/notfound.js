@@ -12,5 +12,6 @@ say("it names the status", doc.querySelector("p.code") && doc.querySelector("p.c
 const home = doc.querySelector('a[href="/"]');
 say("a root-absolute way home, worded from the payload", home && home.textContent === BOOT.ui.not_found_link, home && home.textContent);
 say("crawlers are told not to index it", doc.querySelector('meta[name="robots"]') && /noindex/.test(doc.querySelector('meta[name="robots"]').content));
-say("no scripts, no placeholders", doc.querySelectorAll("script").length === 0 && !/__[A-Z][A-Z_]*__/.test(doc.body.textContent));
+say("one script, the theme's, and no placeholders", doc.querySelectorAll("script").length === 1 && doc.head.innerHTML.includes('localStorage.getItem("fw.theme")') &&
+    !/__[A-Z][A-Z_]*__/.test(doc.body.textContent));
 done();

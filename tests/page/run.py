@@ -157,6 +157,7 @@ SUITES = [
     ("song.js",      {}),
     ("song_url.js",  {"queries": [song_query, song_only_query, "?song=000000000000"]}),
     ("pane.js",      {}),
+    ("theme.js",     {"storage": {"fw.theme": "light"}}),      # opens light whatever the OS prefers
     ("fade.js",      {"windows": ["700,900", "1000,900", "1440,900"]}),
     ("video.js",     {}),
     ("links.js",     {"delay": {"data/links.": 800}}),
@@ -186,12 +187,17 @@ def storage_script(seeds):
     return "<script>try{localStorage.clear();" + sets + "}catch(e){}</script>\n"
 
 
+def seeded(src, storage):
+    assert src.count("<head>") == 1
+    return src.replace("<head>", "<head>\n" + storage_script(storage), 1)
+
+
 def stage(site, work, suites):
     src = (site / "index.html").read_text(encoding="utf-8")
     found = ANCHOR.findall(src)
     assert len(found) == 1, f"module tag found {len(found)} times, expected once"
     anchor = found[0]
-    assert src.count("<script") == 2, "index.html should hold the island and one module tag"
+    assert src.count("<script") == 3, "index.html should hold the theme script, the island and one module tag"
     assert not any(name in src for name, _ in suites), "index.html is not pristine"
     for name in sorted(deploy.BUNDLE_TOP - {"index.html", "static", "data", "graph"}):   # every entry page
         if (site / name).is_file():
@@ -206,14 +212,15 @@ def stage(site, work, suites):
     shutil.copytree(site / "graph", work / "graph")
     (work / "src").mkdir()
     shutil.copy(REPO / "web" / "static" / "js" / "dom.js", work / "src" / "dom.js")   # links.js tests rich()
-    (work / "plain.html").write_text(src.replace(anchor, storage_script(None) + anchor), encoding="utf-8")
+    # the storage script goes at the top of the head: it must run before the
+    # theme script reads fw.theme, so a seeded theme is the one the page opens in
+    (work / "plain.html").write_text(seeded(src, None), encoding="utf-8")
     shutil.copy(HERE / "lib.js", work / "lib.js")
     for name, opts in suites:
         shutil.copy(HERE / name, work / name)
         if opts.get("page"):
             continue
-        page = src.replace(anchor, storage_script(opts.get("storage")) + anchor +
-                           '\n<script type="module" src="' + name + '"></script>')
+        page = seeded(src, opts.get("storage")).replace(anchor, anchor + '\n<script type="module" src="' + name + '"></script>')
         (work / suite_page(name)).write_text(page, encoding="utf-8")
     return 'static/bootstrap.' in src              # False means FALLBACK_CSS is inlined
 

@@ -8,14 +8,14 @@
 // that opened it so the arrow keys keep moving (and the graph follows), and
 // Escape closes it and returns to the row. The height is dragged at the top
 // edge and remembered (fw.pane); the heading's caret collapses it.
-import { UI, VALUE_LABELS, MISS_TEXT, SHEET_OF_CODE, SHEETS, RENDER } from "./boot.js";
+import { UI, VALUE_LABELS, MISS_TEXT, SHEET_OF_CODE, SHEETS } from "./boot.js";
 import { el, esc } from "./dom.js";
 import { t, lab, isMissing } from "./format.js";
 import { cols, state, findRow, savePane } from "./state.js";
 import { writeUrl } from "./url.js";
 import { loadSheet, loadAll, loadLinks } from "./load.js";
 import { linkAnchors } from "./links.js";
-import { loadCurves, mountGraph, exportPng, outputFilename, G_SERIES, G_MOST } from "./graph.js";
+import { loadCurves, mountGraph, exportPng, outputFilename, G_MOST } from "./graph.js";
 import { songSection } from "./song.js";
 import { markRows } from "./table.js";
 import { toast } from "./overlay.js";
@@ -186,7 +186,6 @@ export function openPane(code, vs = [], opts = {}) {
   p.setAttribute("aria-label", UI.pane_label + ": " + code);
   p.classList.add("on");
   applyHeight();
-  c.style.background = RENDER.figure_bg;
   c.innerHTML = heading(code) + paneButtons() + metaLine(code, null) + toolRow(code) +
     '<div class="pbody"><div class="gbody"><div class="text-secondary py-4">' + esc(UI.rendering) + "</div></div>" +
     '<div class="sbody"></div></div>';
@@ -215,10 +214,10 @@ export function openPane(code, vs = [], opts = {}) {
       fillSong(code);
       markRows();
     }
-    const charts = results.filter(r => r.curves).map((r, k) => {
+    // in series order: charts[k] is drawn and marked as series k
+    const charts = results.filter(r => r.curves).map(r => {
       const found = findRow(r.code);
-      return { code: r.code, row: found && found.row, columns: found && found.columns,
-               curves: r.curves, colour: RENDER[G_SERIES[k]] };
+      return { code: r.code, row: found && found.row, columns: found && found.columns, curves: r.curves };
     });
     c.querySelector(".mmeta").outerHTML = metaLine(code, primary.curves.head);
     controller = mountGraph(c.querySelector(".gbody"), charts, {
@@ -385,4 +384,6 @@ export function initPane() {
   document.addEventListener("pointercancel", gripUp);
   el("pick").addEventListener("click", e => { if (e.target.closest('[data-act="unpick"]')) stopPicking(); });
   document.addEventListener("fw:links", () => refreshTools());
+  // the canvas reads its colours at each paint, so a theme switch is a redraw
+  document.addEventListener("fw:theme", () => { if (controller && !state.paneMin) controller.redraw(); });
 }

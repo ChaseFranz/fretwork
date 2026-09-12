@@ -143,7 +143,7 @@ class PageTest(unittest.TestCase):
         self.assertEqual(c.math_in_eq, 7)
         self.assertEqual(count('table'), 4)
         self.assertEqual(c.table_in_tbl, 4)
-        self.assertEqual(count('script'), 0)
+        self.assertEqual(count('script'), 1)     # the theme's, page.THEME_SCRIPT, and nothing else
         self.assertFalse(any('$$' in t or '**' in t or '|---' in t for t in c.text))
         self.assertIn('href="https://github.com/Staycation44/fretwork/blob/main/Methodology.md"', out)
 

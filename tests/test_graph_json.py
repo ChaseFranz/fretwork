@@ -1,6 +1,7 @@
 """The client-side graph (section 06): the palette and words the page carries mirror plot.py, and the smoothing is pinned."""
 
 import pathlib
+import re
 import unittest
 
 import numpy as np
@@ -20,7 +21,7 @@ PINNED_D = [0.186288075129, 0.211092044157, 0.223465862854, 0.200829216391, 0.14
 
 class RenderProfileTest(unittest.TestCase):
 
-    def test_boot_profile_equals_plot_resolve_profile(self):
+    def test_boot_profile_is_plot_resolve_profile_s_numbers(self):
         from functions import plot
         got = boot.render_profile()
         want = plot.resolve_profile()
@@ -28,8 +29,21 @@ class RenderProfileTest(unittest.TestCase):
         for key in boot.WEB_RENDER_KEYS:
             self.assertEqual(got[key], want[key], key)
 
-    def test_the_page_is_dark(self):
-        self.assertEqual(boot.render_profile()['mode'], 'dark')
+    def test_no_colour_reaches_the_page(self):
+        # the page's colours are app.css's tokens, per theme; the profile carries only how the lines are drawn
+        for key in boot.WEB_RENDER_KEYS:
+            self.assertNotRegex(key, r'color|bg|mode', key)
+
+    def test_the_stylesheet_defines_every_token_the_canvas_reads_in_both_themes(self):
+        css = (REPO / 'web' / 'static' / 'css' / 'app.css').read_text(encoding='utf-8')
+        js = (REPO / 'web' / 'static' / 'js' / 'graph.js').read_text(encoding='utf-8')
+        read = set(re.findall(r'"(--fw-[a-z-]+)"', js))
+        self.assertTrue({'--fw-bg', '--fw-series-a', '--fw-series-c', '--fw-curve-d'} <= read, read)
+        blocks = {name: css[css.index(name):] for name in (':root, [data-bs-theme="light"] {', '[data-bs-theme="dark"] {')}
+        for name, text in blocks.items():
+            block = text[:text.index('}')]
+            for token in sorted(read):
+                self.assertIn(token + ':', block, f'{token} is not defined in {name}')
 
     def test_graph_words_are_plot_literals(self):
         src = (REPO / 'functions' / 'plot.py').read_text(encoding='utf-8')

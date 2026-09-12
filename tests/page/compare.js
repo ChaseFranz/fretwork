@@ -4,7 +4,7 @@
 import { BOOT, rows as sheetRows, say, skip, done, wait, click, key, ready, params } from "./lib.js";
 await ready();
 
-const { ui: UI, render: RENDER } = BOOT;
+const { ui: UI } = BOOT;
 const p = params();
 const sheet = p.get("sheet") || Object.keys(BOOT.data)[0];
 const rows = await sheetRows(sheet);
@@ -31,7 +31,10 @@ const levelOnly = (li, r) => li.querySelector(".lt").textContent.trim().split(" 
 say("two levels of one song and part are named by level alone", rowOf(code) && rowOf(vs) &&
     rowOf(code)[col("Type")] === rowOf(vs)[col("Type")] && levelOnly(legend()[0], rowOf(code)) && levelOnly(legend()[1], rowOf(vs)),
     legend().map(l => l.querySelector(".lt").textContent.trim()).join(" | "));
-say("the series colours are the profile's, in order", legend()[0].querySelector(".sw").style.borderColor !== legend()[1].querySelector(".sw").style.borderColor);
+say("the series colours are the stylesheet's tokens, in order", legend()[0].querySelector(".sw").style.borderColor === "var(--fw-series-a)" &&
+    legend()[1].querySelector(".sw").style.borderColor === "var(--fw-series-b)" &&
+    getComputedStyle(legend()[0].querySelector(".sw")).borderTopColor !== getComputedStyle(legend()[1].querySelector(".sw")).borderTopColor,
+    legend().map(l => l.querySelector(".sw").style.borderColor).join(" | "));
 const many = new RegExp("^" + UI.graph_readout_many.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\{\w+\\\}/g, ".+") + "$");
 say("the readout carries a ~D per chart", many.test(readout()) && /A \S+\s+B \S+/.test(readout()), JSON.stringify(readout()));
 await wait(400);
@@ -74,7 +77,7 @@ say("the primary's row stays the selected one", !document.querySelector("#body t
     document.querySelector("#body tr.sel") && document.querySelector("#body tr.sel").dataset.code);
 // the table mirrors the legend: the picked row wears its series colour and letter
 const picked = document.querySelector('#body tr[data-code="' + third + '"]');
-const swatchC = legend()[2].querySelector(".sw").style.borderColor;
+const swatchC = getComputedStyle(legend()[2].querySelector(".sw")).borderTopColor;
 say("the picked row is marked with its legend letter", picked && picked.classList.contains("on") && picked.querySelector(".sl") && picked.querySelector(".sl").textContent === "C",
     picked && picked.outerHTML.slice(0, 120));
 say("and its series colour on the left edge", picked && getComputedStyle(picked.firstElementChild).boxShadow.includes(swatchC), picked && getComputedStyle(picked.firstElementChild).boxShadow);

@@ -507,4 +507,8 @@ UI = {
     'columns':          'Columns',
     'columns_tip':      'Choose which columns to show',
     'columns_reset':    'Reset columns',
+
+    # the theme toggle: its label is the action it offers
+    'theme_to_light':   'Switch to the light theme',
+    'theme_to_dark':    'Switch to the dark theme',
 }

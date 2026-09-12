@@ -15,7 +15,8 @@ const gbody = () => modal.querySelector(".gbody");
 const readout = () => modal.querySelector(".readout");
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 
-say("the page carries the render profile", RENDER && typeof RENDER.color_d === "string" && RENDER.mode === "dark", JSON.stringify(RENDER));
+say("the page carries the picture's numbers and no colour", RENDER && typeof RENDER.linewidth === "number" && typeof RENDER.fill_alpha === "number" &&
+    !Object.keys(RENDER).some(k => /color|bg|mode/.test(k)), JSON.stringify(RENDER));
 
 // --- a drums code, or any code with no curve file, is a plain message ------------
 if (params().get("code") === "00000000XD") {
@@ -37,9 +38,14 @@ say("it is an application for the arrow keys", canvas().getAttribute("role") ===
 say("it is described by the readout", canvas().getAttribute("aria-describedby") === readout().id && readout().getAttribute("aria-live") === "polite");
 say("it is labelled with the song", (canvas().getAttribute("aria-label") || "").startsWith("Difficulty graph of "), canvas().getAttribute("aria-label"));
 const card = modal.querySelector(".pcard");
-say("the card takes the figure background", getComputedStyle(card).backgroundColor === (() => {
-  const s = document.createElement("span"); s.style.color = RENDER.figure_bg; document.body.appendChild(s);
-  const c = getComputedStyle(s).color; s.remove(); return c; })(), getComputedStyle(card).backgroundColor);
+// the ground: the card paints nothing of its own and the canvas paints the
+// page's --fw-bg, so the graph is not a box on the page (section 15)
+const ground = (() => {
+  const s = document.createElement("span"); s.style.color = "var(--fw-bg)"; document.body.appendChild(s);
+  const c = getComputedStyle(s).color; s.remove(); return c; })();
+const corner = (() => { const d = canvas().getContext("2d").getImageData(1, 1, 1, 1).data; return "rgb(" + d[0] + ", " + d[1] + ", " + d[2] + ")"; })();
+say("the card has no background of its own", /rgba\(0, 0, 0, 0\)|transparent/.test(getComputedStyle(card).backgroundColor), getComputedStyle(card).backgroundColor);
+say("the canvas is painted on the page's ground", corner === ground, corner + " vs " + ground);
 say("the canvas fills the card's width", Math.abs(canvas().getBoundingClientRect().width - gbody().getBoundingClientRect().width) <= 1,
     canvas().getBoundingClientRect().width + " vs " + gbody().getBoundingClientRect().width);
 say("its backing store follows devicePixelRatio", canvas().width === Math.round(canvas().getBoundingClientRect().width * (window.devicePixelRatio || 1)),

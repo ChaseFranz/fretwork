@@ -379,7 +379,8 @@ def run_all(work, header, args):
     st.check(re.search(rf'curves: {len(codes)} rendered, 0 unchanged', st.out), 'curves banner')
     about = (site / 'about.html').read_text(encoding='utf-8')
     a = Anchors(); a.feed(about)
-    st.check(a.scripts == 0 and a.h2 == len(labels.ABOUT), f'about.html: {a.scripts} scripts, {a.h2} h2')
+    # one script, the theme's (page.THEME_SCRIPT), on every page; nothing else runs on the document pages
+    st.check(a.scripts == 1 and page.THEME_SCRIPT in about and a.h2 == len(labels.ABOUT), f'about.html: {a.scripts} scripts, {a.h2} h2')
     same_site = {'./'} | {name for name in deploy.BUNDLE_TOP if name.endswith('.html')}
     st.check(all(h in same_site or urllib.parse.urlparse(h).netloc in ('github.com', 'www.youtube.com', 'youtu.be')
                  for h in a.hrefs), f'about.html anchors {a.hrefs}')
@@ -387,7 +388,7 @@ def run_all(work, header, args):
     # section 12: Methodology.md rendered, its tables checked, no scripts and nothing left unrendered
     method = (site / 'methodology.html').read_text(encoding='utf-8')
     st.check(not PLACEHOLDER.search(method) and method.count('<table') == 4 and method.count('<math display="block"') == 7
-             and '<script' not in method and method.count('<h1') == 1 and '$$' not in method and '**' not in method,
+             and method.count('<script') == 1 and page.THEME_SCRIPT in method and method.count('<h1') == 1 and '$$' not in method and '**' not in method,
              f'methodology.html: {method.count("<table")} tables, {method.count(chr(36) * 2)} $$')
     st.check(not PLACEHOLDER.search(about) and not PLACEHOLDER.search((site / '404.html').read_text()), 'placeholders')
     st.check((site / 'robots.txt').read_text() == page.ROBOTS, 'robots.txt')
@@ -396,7 +397,8 @@ def run_all(work, header, args):
     st.check(static == want_static, f'static files {static} vs {want_static}')
     st.check(all(re.fullmatch(r'[a-z]+\.[0-9a-f]{8}\.(js|css|svg)', n) for n in static), 'a static file is not hashed')
     st.check(re.search(r'<script type="module" src="static/app\.[0-9a-f]{8}\.js"></script>', index) is not None
-             and index.count('<script') == 2, 'the module tag')
+             and index.count('<script') == 3 and index.index(page.THEME_SCRIPT) < index.index('<link rel="stylesheet"'), 'the module tag and the theme script before the styles')
+    st.check(page.THEME_SCRIPT in (site / '404.html').read_text(encoding='utf-8'), 'the 404 page carries the theme script')
     st.done(f'{len(codes)} graphs, {len(static)} hashed static files, {len(data_files)} sheet files, fallback styles inlined')
 
     # ---- publish with bootstrap ------------------------------------------------------

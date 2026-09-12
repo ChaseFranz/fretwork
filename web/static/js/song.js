@@ -5,20 +5,21 @@
 // apart by the code prefix, and the one the open chart is in heads the list.
 // Markup only, from the rows already loaded (the pane calls loadAll() first):
 // nothing here imports pane.js, so the bundle has no cycle.
-import { SHEETS, UI, LEVELS, VALUE_ORDER, VALUE_LABELS, MISS_TEXT, RENDER } from "./boot.js";
+import { SHEETS, UI, LEVELS, VALUE_ORDER, VALUE_LABELS, MISS_TEXT } from "./boot.js";
 import { esc } from "./dom.js";
 import { t, lab, decimals, isMissing } from "./format.js";
-import { G_LETTERS, G_SERIES, G_MOST } from "./graph.js";
+import { G_LETTERS, G_MOST, seriesVar } from "./graph.js";
 import { state } from "./state.js";
 
 // What the graph holds, so the grid can mirror the legend: in compare mode
-// (two or more charts) each code's letter and colour; one chart alone is
-// browsing, not comparing, and gets the ring and nothing else.
+// (two or more charts) each code's letter and colour (the series token, as
+// var(), so a mark follows the theme by itself); one chart alone is browsing,
+// not comparing, and gets the ring and nothing else.
 export function onGraph() {
   const codes = [state.graph, ...state.compare].filter(Boolean);
   const comparing = codes.length > 1;
   return { codes, comparing, full: codes.length >= G_MOST,
-    mark: new Map(comparing ? codes.map((c, k) => [c, { letter: G_LETTERS[k], colour: RENDER[G_SERIES[k]] }]) : []) };
+    mark: new Map(comparing ? codes.map((c, k) => [c, { letter: G_LETTERS[k], colour: seriesVar(k) }]) : []) };
 }
 
 // Every row carrying the key, in sheet order, as {sheet, columns, row}.

@@ -2,11 +2,14 @@
 // functions/plot.py draws, re-smoothed here so a smoothing change never
 // republishes a file, plus what a picture cannot do - a readout of the values
 // under the cursor (pointer or arrow keys), up to three charts on one axis, and
-// a PNG export named the way render.py names its files. Appearance comes from
-// RENDER, the profile plot.resolve_profile() builds, so the page and render.py
-// draw from one palette. Every helper is prefixed g- or lives inside
-// mountGraph's closure: the bundle is one scope, and draw, render, heading,
-// opener and toast are already top-level names elsewhere.
+// a PNG export named the way render.py names its files. The picture's shape
+// (line width, grid alpha, the fill) comes from RENDER, plot.resolve_profile()'s
+// numbers, so the page and render.py draw the same lines; its colours are the
+// page's own, read from the stylesheet's tokens at every paint (gPalette), so
+// the graph follows the theme and is painted on the page's ground. Every
+// helper is prefixed g- or lives inside mountGraph's closure: the bundle is one
+// scope, and draw, render, heading, opener and toast are already top-level
+// names elsewhere.
 import { RENDER, UI, MISS_TEXT } from "./boot.js";
 import { esc } from "./dom.js";
 import { t, mmss } from "./format.js";
@@ -89,26 +92,46 @@ function gPolyline(ctx, ys, Xi, Y) {
   for (let i = 1; i < ys.length; i++) ctx.lineTo(Xi(i), Y(ys[i]));
 }
 
+// A compare's three series, in order: the letter the readout and legend use
+// and the token of its colour. The pane colours the charts from this and the
+// song grid marks its cells from it, so the three agree; the tokens are the
+// stylesheet's, so a mark is written as var(--fw-series-a) and follows the
+// theme by itself, and only the canvas needs the value (gPalette).
+export const G_LETTERS = ["A", "B", "C"];
+export const G_SERIES = ["--fw-series-a", "--fw-series-b", "--fw-series-c"];
+export const G_MOST = G_LETTERS.length;      // charts on one graph
+export const seriesVar = k => "var(" + G_SERIES[k] + ")";
+
+// The page's colours for the canvas, read from the tokens app.css defines per
+// theme: the ground (the canvas is painted on it, so it is not a box), the
+// text, the dim for the spines and the cursor, the three curves and the three
+// series. Read at each paint, which is how a theme switch reaches the graph.
+export function gPalette() {
+  const cs = getComputedStyle(document.documentElement);
+  const tok = name => cs.getPropertyValue(name).trim();
+  return { bg: tok("--fw-bg"), text: tok("--fw-text"), dim: tok("--fw-dim"),
+    d: tok("--fw-curve-d"), nps: tok("--fw-curve-nps"), vps: tok("--fw-curve-vps"),
+    series: G_SERIES.map(tok) };
+}
+
 // The plot into a 2d context sized W by H CSS px; fonts are {label, tick} px.
 // Returns the plot rectangle so the cursor code can map x to time.
-function gPaint(ctx, W, H, charts, fonts, margin) {
+function gPaint(ctx, W, H, charts, fonts, margin, pal) {
   const { xMax, yMax, compare } = gExtent(charts);
   const left = margin.left, top = margin.top;
   const pw = Math.max(1, W - margin.left - margin.right), ph = Math.max(1, H - margin.top - margin.bottom);
   const X = ms => left + (ms / xMax) * pw;
   const Y = v => top + ph - (v / yMax) * ph;
 
-  ctx.fillStyle = RENDER.figure_bg;
+  ctx.fillStyle = pal.bg;
   ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = RENDER.axes_bg;
-  ctx.fillRect(left, top, pw, ph);
 
-  // grid, matplotlib's 0.6 width at grid_alpha
+  // grid, matplotlib's 0.6 width at grid_alpha, in the text colour
   const xStep = gPickStep(G_TICK_STEPS, xMax / 1000, 10);
   const yStep = gPickStep(G_Y_STEPS, yMax, 6);
   ctx.save();
   ctx.globalAlpha = RENDER.grid_alpha;
-  ctx.strokeStyle = RENDER.grid_color;
+  ctx.strokeStyle = pal.text;
   ctx.lineWidth = 0.6;
   for (let s = 0; s * 1000 <= xMax; s += xStep) {
     ctx.beginPath(); ctx.moveTo(X(s * 1000), top); ctx.lineTo(X(s * 1000), top + ph); ctx.stroke();
@@ -123,8 +146,8 @@ function gPaint(ctx, W, H, charts, fonts, margin) {
   ctx.beginPath(); ctx.rect(left, top, pw, ph); ctx.clip();
   ctx.lineWidth = RENDER.linewidth;
   ctx.lineJoin = "round";
-  for (const c of charts) {
-    const colour = compare ? c.colour : RENDER.color_d;
+  charts.forEach((c, k) => {
+    const colour = compare ? pal.series[k] : pal.d;
     const Xi = i => X(i * c.curves.step);
     if (RENDER.fill_curves) {
       gPolyline(ctx, c.curves.d, Xi, Y);
@@ -135,20 +158,20 @@ function gPaint(ctx, W, H, charts, fonts, margin) {
     gPolyline(ctx, c.curves.d, Xi, Y); ctx.stroke();
     if (!compare) {
       ctx.setLineDash(G_DASH);
-      ctx.strokeStyle = RENDER.color_nps; gPolyline(ctx, c.curves.nps, Xi, Y); ctx.stroke();
-      ctx.strokeStyle = RENDER.color_vps; gPolyline(ctx, c.curves.vps, Xi, Y); ctx.stroke();
+      ctx.strokeStyle = pal.nps; gPolyline(ctx, c.curves.nps, Xi, Y); ctx.stroke();
+      ctx.strokeStyle = pal.vps; gPolyline(ctx, c.curves.vps, Xi, Y); ctx.stroke();
       ctx.setLineDash([]);
     }
-  }
+  });
   ctx.restore();
 
   // spines
-  ctx.strokeStyle = RENDER.spine_color;
+  ctx.strokeStyle = pal.dim;
   ctx.lineWidth = 1;
   ctx.strokeRect(left + 0.5, top + 0.5, pw - 1, ph - 1);
 
   // ticks and labels
-  ctx.fillStyle = RENDER.text_color;
+  ctx.fillStyle = pal.text;
   ctx.font = fonts.tick + "px system-ui, sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "top";
   for (let s = 0; s * 1000 <= xMax; s += xStep) ctx.fillText(mmss(s), X(s * 1000), top + ph + 3);
@@ -190,18 +213,13 @@ function gNames(charts) {
   return charts.map(c => c.row ? t(key, { level: gField(c, "Level"), type: gField(c, "Type") }) : c.code);
 }
 
-// A compare's three series, in order: the letter the readout and legend use
-// and the profile key of its colour. The pane colours the charts from this and
-// the song grid marks its cells from it, so the three agree.
-export const G_LETTERS = ["A", "B", "C"];
-export const G_SERIES = ["color_d", "color_nps", "color_vps"];
-export const G_MOST = G_LETTERS.length;      // charts on one graph
 const gLetters = G_LETTERS;
 const gFix = v => v === null || v === undefined || Number.isNaN(v) ? MISS_TEXT : v.toFixed(2);
 
 // --- the mounted graph --------------------------------------------------------------
 
-// host: the .gbody element. charts: [{code, row, columns, curves, colour}].
+// host: the .gbody element. charts: [{code, row, columns, curves}], whose
+// order is the series order: charts[k] is drawn in series k's colour.
 // opts.onRemove(code) wires the legend's remove buttons in compare mode;
 // opts.fill() true means the host's height is fixed by its layout and the
 // canvas takes what is left of it under the readout and legend, rather than
@@ -223,7 +241,7 @@ export function mountGraph(host, charts, opts = {}) {
   host.append(canvas, readout, legend);
 
   const buffer = document.createElement("canvas");   // the plot, painted once per size
-  let W = 0, H = 0, hostH = 0, dpr = 1, geom = null, cursor = 0, raf = 0;
+  let W = 0, H = 0, hostH = 0, dpr = 1, geom = null, cursor = 0, raf = 0, pal = gPalette();
   const filling = () => !!(opts.fill && opts.fill());
   const ctx = canvas.getContext("2d");
 
@@ -253,7 +271,8 @@ export function mountGraph(host, charts, opts = {}) {
     }
     const bctx = buffer.getContext("2d");
     bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    geom = gPaint(bctx, W, H, charts, { label: 11, tick: 10 }, G_MARGIN);
+    pal = gPalette();
+    geom = gPaint(bctx, W, H, charts, { label: 11, tick: 10 }, G_MARGIN, pal);
   };
 
   // the buffer, then only the hairline and the dots: cost independent of n
@@ -262,18 +281,18 @@ export function mountGraph(host, charts, opts = {}) {
     ctx.drawImage(buffer, 0, 0);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const x = geom.X(cursor);
-    ctx.strokeStyle = RENDER.muted_text_color; ctx.lineWidth = 1;
+    ctx.strokeStyle = pal.dim; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, geom.top); ctx.lineTo(x, geom.top + geom.ph); ctx.stroke();
-    for (const c of charts) {
+    charts.forEach((c, k) => {
       const i = Math.round(cursor / c.curves.step);
-      if (i >= c.curves.n) continue;
-      const dots = geom.compare ? [[c.curves.d[i], c.colour]]
-        : [[c.curves.d[i], RENDER.color_d], [c.curves.nps[i], RENDER.color_nps], [c.curves.vps[i], RENDER.color_vps]];
+      if (i >= c.curves.n) return;
+      const dots = geom.compare ? [[c.curves.d[i], pal.series[k]]]
+        : [[c.curves.d[i], pal.d], [c.curves.nps[i], pal.nps], [c.curves.vps[i], pal.vps]];
       for (const [v, colour] of dots) {
         ctx.fillStyle = colour;
         ctx.beginPath(); ctx.arc(x, geom.Y(v), 3, 0, Math.PI * 2); ctx.fill();
       }
-    }
+    });
   };
 
   const writeReadout = () => {
@@ -298,24 +317,27 @@ export function mountGraph(host, charts, opts = {}) {
   };
 
   // The series legend for one chart; one entry per chart, with a remove
-  // button, for a comparison. The buttons are --fw-dim, never a series colour.
+  // button, for a comparison. The swatches are written as the tokens, so they
+  // follow the theme with the rest of the page; the buttons are --fw-dim,
+  // never a series colour.
   const writeLegend = () => {
     const swatch = (colour, dotted) => '<span class="sw' + (dotted ? " dot" : "") + '" style="border-color:' + esc(colour) + '"></span>';
     if (charts.length < 2) {
-      legend.innerHTML = [[UI.graph_d, RENDER.color_d, false], [UI.graph_nps, RENDER.color_nps, true],
-        [UI.graph_vps, RENDER.color_vps, true]]
+      legend.innerHTML = [[UI.graph_d, "var(--fw-curve-d)", false], [UI.graph_nps, "var(--fw-curve-nps)", true],
+        [UI.graph_vps, "var(--fw-curve-vps)", true]]
         .map(([text, colour, dotted]) => "<li>" + swatch(colour, dotted) + esc(text) + "</li>").join("");
       return;
     }
     const names = gNames(charts);
-    legend.innerHTML = charts.map((c, k) => "<li>" + swatch(c.colour, false) +
+    legend.innerHTML = charts.map((c, k) => "<li>" + swatch(seriesVar(k), false) +
       '<span class="lt">' + esc(gLetters[k]) + " " + esc(names[k]) + "</span>" +
       '<button type="button" class="rm" data-rm="' + esc(c.code) + '" aria-label="' +
       esc(t("compare_remove", { code: c.code })) + '" title="' + esc(t("compare_remove", { code: c.code })) +
       '">&times;</button></li>').join("");
   };
 
-  // the legend first: in fill mode the canvas takes what the legend leaves
+  // the legend first: in fill mode the canvas takes what the legend leaves;
+  // the palette is read again inside size(), so a theme switch redraws here
   const redraw = () => {
     writeLegend();
     size();
@@ -389,32 +411,34 @@ export function outputFilename(codes, row, columns) {
 }
 
 // The same charts at the figure's own size, dpr 1, with the two header lines
-// drawn in, so a share from a phone and from a desktop look the same.
+// drawn in, so a share from a phone and from a desktop look the same; in the
+// theme the page is in, since that is the picture the visitor is looking at.
 export function exportPng(charts, heading) {
   const c = document.createElement("canvas");
   c.width = G_EXPORT.width; c.height = G_EXPORT.height;
   const ctx = c.getContext("2d");
+  const pal = gPalette();
   const headTop = 16, title = 17, meta = 12, gap = 8;
   const headH = headTop + title + gap + meta + 14;
-  ctx.fillStyle = RENDER.figure_bg;
+  ctx.fillStyle = pal.bg;
   ctx.fillRect(0, 0, c.width, c.height);
   ctx.textBaseline = "top"; ctx.textAlign = "left";
-  ctx.fillStyle = RENDER.text_color;
+  ctx.fillStyle = pal.text;
   ctx.font = "bold " + title + "px system-ui, sans-serif";
   ctx.fillText(heading.title || "", G_MARGIN.left, headTop, c.width - G_MARGIN.left - G_MARGIN.right);
-  ctx.fillStyle = RENDER.muted_text_color;
+  ctx.fillStyle = pal.dim;
   ctx.font = meta + "px system-ui, sans-serif";
   ctx.fillText(heading.meta || "", G_MARGIN.left, headTop + title + gap, c.width - G_MARGIN.left - G_MARGIN.right);
   const legendH = 26;
   ctx.save();
   ctx.translate(0, headH);
-  const geom = gPaint(ctx, c.width, c.height - headH - legendH, charts, { label: 11, tick: 10 }, G_MARGIN);
+  const geom = gPaint(ctx, c.width, c.height - headH - legendH, charts, { label: 11, tick: 10 }, G_MARGIN, pal);
   ctx.restore();
   // legend centred under the axes, as the PNG has it
   const names = gNames(charts);
   const entries = geom.compare
-    ? charts.map((ch, k) => [gLetters[k] + " " + names[k], ch.colour, false])
-    : [[UI.graph_d, RENDER.color_d, false], [UI.graph_nps, RENDER.color_nps, true], [UI.graph_vps, RENDER.color_vps, true]];
+    ? charts.map((ch, k) => [gLetters[k] + " " + names[k], pal.series[k], false])
+    : [[UI.graph_d, pal.d, false], [UI.graph_nps, pal.nps, true], [UI.graph_vps, pal.vps, true]];
   ctx.font = "11px system-ui, sans-serif"; ctx.textBaseline = "middle"; ctx.textAlign = "left";
   const widths = entries.map(([text]) => ctx.measureText(text).width + 34);
   let x = (c.width - widths.reduce((a, b) => a + b, 0)) / 2;
@@ -422,7 +446,7 @@ export function exportPng(charts, heading) {
   entries.forEach(([text, colour, dotted], k) => {
     ctx.strokeStyle = colour; ctx.lineWidth = 2; ctx.setLineDash(dotted ? G_DASH : []);
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 22, y); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = RENDER.text_color;
+    ctx.fillStyle = pal.text;
     ctx.fillText(text, x + 28, y);
     x += widths[k];
   });
