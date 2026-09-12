@@ -326,8 +326,11 @@ improvements. The viewer was offered upstream as PR #6 and closed unmerged on
 2026-09-07; it is this fork's project now. Releases of the hosted site are tagged
 `fretladder-vX.Y.Z` - a separate namespace from upstream's `vX.Y` tags, which
 arrive with every fetch and must not be reused. A deploy is tagged at the commit
-whose sources produced the live bundle, with the chart count and the bundle's
-publish time in the message.
+whose sources produced the live bundle, and pushing the tag publishes it under
+GitHub Releases (`.github/workflows/release.yml`, notes from the tag message), so
+the tag message is written as release notes: a first line naming the release with
+the chart count and the deploy time, a blank line, then what changed, as
+paragraphs or `-` bullets.
 
 - **`main` on the fork is `upstream/main` plus the viewer.** Feature work branches
   from `main`, is named for the feature (`rank-column`), and merges back with a merge

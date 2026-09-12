@@ -1,0 +1,24 @@
+name: release
+# A site release is a fretladder-vX.Y.Z tag at the commit whose sources produced
+# the live bundle (CLAUDE.md, "Working with the repo"). Pushing the tag publishes
+# it under Releases, with the tag's own message as the notes: so a tag message is
+# written as release notes, a first line that names the release and the chart
+# count, then what changed. Upstream's vX.Y tags are not in this namespace and
+# never match.
+on:
+  push:
+    tags: ['fretladder-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: gh release create "$GITHUB_REF_NAME" --verify-tag --notes-from-tag --title "${GITHUB_REF_NAME/fretladder-v/fretladder v}"
+        env:
+          GH_TOKEN: ${{ github.token }}

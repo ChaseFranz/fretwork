@@ -1,3 +1,11 @@
+[![ci](https://github.com/ChaseFranz/fretwork/actions/workflows/ci.yml/badge.svg)](https://github.com/ChaseFranz/fretwork/actions/workflows/ci.yml) [![site release](https://img.shields.io/github/v/release/ChaseFranz/fretwork?label=fretladder&color=b71fb7)](https://github.com/ChaseFranz/fretwork/releases) [![fretladder.com](https://img.shields.io/badge/live-fretladder.com-b71fb7)](https://fretladder.com) [![licence](https://img.shields.io/github/license/ChaseFranz/fretwork)](LICENSE)
+
+**This fork is [fretladder](https://fretladder.com)**: fretwork's difficulty ratings for 11,904 Guitar Hero, Rock Band and Clone Hero charts as a hosted, searchable table, with each chart's graph drawn in the browser, every chart of its song beside it, and a link to where it is published. The engine, its calibration and the command-line tools are [Staycation44's fretwork](https://github.com/Staycation44/fretwork), unchanged and merged in as they move; this repository adds the viewer (`serve.py`, `publish.py`, `deploy.py`, `web/`), the pack registry, the link lookups and the tests. Site releases are tagged `fretladder-vX.Y.Z` and listed under [Releases](https://github.com/ChaseFranz/fretwork/releases), each at the commit whose sources produced the live bundle; the plan behind them is [`docs/spec/`](docs/spec/README.md). It is an independent fork, not affiliated with fretwork's author; the [about page](https://fretladder.com/about.html) says what the site is and is not. Song pack requests and rating reports go through the [issue forms](https://github.com/ChaseFranz/fretwork/issues/new/choose).
+
+[![fretladder: the charts table with a chart's details pane open, three levels of one song compared](https://raw.githubusercontent.com/ChaseFranz/fretwork/screenshots/fretladder-pane.png)](https://fretladder.com)
+
+The rest of this file is the engine's own README, with sections 5 to 7 and 9 for what the fork adds.
+
 # Fretwork - 5-Fret Difficulty Analyzer <!-- omit in toc -->
 
 Fretwork is an analysis tool to calculate difficulty values across Easy/Medium/Hard/Expert for Guitar/Bass/Keys from notes.chart & notes.mid files (Guitar Hero, Rock Band, Clone Hero, YARG) using Notes Per Second (note density) & Variability Per Second (fret change) metrics.
