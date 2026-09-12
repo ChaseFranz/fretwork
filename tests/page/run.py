@@ -117,6 +117,20 @@ def song_only_query(plain):
     return "?" + urllib.parse.urlencode({"song": file["rows"][0][file["columns"].index("SongKey")]})
 
 
+def carry_query(plain):
+    """Two levels, the first sheet's first Part (which the second sheet lacks), a range, a sort and a search, for sheets.js."""
+    data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
+    first, second = list(data)[:2]
+    parts = {}
+    for sheet in (first, second):
+        file = json.loads((plain.parent / data[sheet]["file"]).read_text(encoding="utf-8"))
+        parts[sheet] = [r[file["columns"].index("Type")] for r in file["rows"]]
+    part = parts[first][0]
+    if part in parts[second]:
+        raise SystemExit(f"{part!r} is on both {first} and {second}; sheets.js needs a Part the second sheet lacks")
+    return "?" + urllib.parse.urlencode({"f.Level": "Hard,Medium", "f.Type": part, "sort": "NoteCount", "q": "a"}) + "&r.NoteCount=1:"
+
+
 def genre_query(plain):
     """A search for a genre that no searched column on the first sheet contains."""
     data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
@@ -152,6 +166,7 @@ SUITES = [
     ("load.js",      {"queries": [bass_code_query, bass_code_query_with_sheet, ""], "delay": {"data/": 600}}),
     ("fields.js",    {"queries": ["", "?r.Difficulty=:3", "?r.Year=2000:2010", album_query, genre_query]}),
     ("copies.js",    {"queries": ["", "?f.Copies=2" + ALL_LEVELS]}),
+    ("sheets.js",    {"queries": [carry_query]}),
     ("graph.js",     {"queries": ["", "?code=00000000XD"]}),
     ("compare.js",   {"queries": [compare_query]}),
     ("song.js",      {}),

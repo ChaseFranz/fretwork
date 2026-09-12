@@ -60,6 +60,19 @@ function matchesFilter(row, columns, col, filter) {
          (filter.hi === null || v <= filter.hi);
 }
 
+// The filters after a sheet switch: they carry over (a level chosen on
+// Guitar is still the level wanted on Bass, and the search and the sort carry
+// too), except one that could match nothing here, which would leave an empty
+// table with no chip or caret saying why: a column the sheet lacks, or a set
+// filter none of whose values the sheet has (a Part of Lead on Bass). A range
+// is kept as set. Called once the sheet's rows are here.
+export function carryFilters() {
+  for (const [col, f] of Object.entries(state.filters)) {
+    if (idx(col) < 0) { delete state.filters[col]; continue; }
+    if (f.type === "set" && !distinct(col).some(v => f.sel.has(v))) delete state.filters[col];
+  }
+}
+
 // Rows passing the search and every filter except exceptCol, so a dropdown
 // can count values in the context of the other active filters.
 export function passing(exceptCol) {

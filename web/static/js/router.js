@@ -10,6 +10,7 @@ import { openDD, closeDD } from "./dropdown.js";
 import { toggleCD, closeCD } from "./chooser.js";
 import { openAbout, closeAbout, aboutIsOpen, toast } from "./overlay.js";
 import { openPane, closePane, paneIsOpen, addCompare, removeCompare, stopPicking } from "./pane.js";
+import { carryFilters } from "./query.js";
 import { state, idx } from "./state.js";
 import { draw, holdRow } from "./table.js";
 
@@ -172,15 +173,17 @@ function onKeydown(e) {
   onGridKey(e);
 }
 
-// Repaint the sheet chips too, since switching sheets re-enters here.
+// Repaint the sheet chips too, since switching sheets re-enters here. The
+// filters, the search and the sort carry across the switch; a filter that
+// could match nothing on the new sheet is dropped once its rows are here
+// (carryFilters), and a sort column it lacks falls back to D.
 export function render() {
   chips("sheets", Object.keys(SHEETS), state.sheet, v => {
     state.sheet = v;
-    state.filters = {};
     state.loadError = null;
     if (idx(state.sortCol) < 0) state.sortCol = "D";
     render();                                   // the loading row, at once
-    loadSheet(v).then(render, () => { state.loadError = true; render(); });
+    loadSheet(v).then(() => { carryFilters(); render(); }, () => { state.loadError = true; render(); });
   });
   draw();
 }

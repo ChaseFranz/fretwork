@@ -92,6 +92,9 @@ say("a sheet with few distinct D values gets the checkbox list", d2.range === (d
 click([...document.querySelectorAll("#sheets button")].find(b => b.textContent === sheets[0])); await wait(100);
 
 // --- sorting a categorical column follows its own order ---------------------------------
+// the opening Level filter carries across the sheet switches above (sheets.js),
+// so it is cleared here: every level has to be on screen for the sort to show
+click(document.getElementById("clear")); await wait(50);
 const cellAt = colName => document.querySelector("#body tr:first-child td:nth-child(" + (headCols().indexOf(colName) + 1) + ")").textContent.trim();
 click(document.querySelector('#head th[data-c="Level"] .lbl')); await wait(50);
 const first = cellAt("Level");
