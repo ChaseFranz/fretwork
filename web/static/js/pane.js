@@ -133,19 +133,24 @@ const paneButtons = () =>
   '">' + (state.paneMin ? "&#9650;" : "&#9660;") + "</button>" +
   '<button type="button" class="x" data-act="close" aria-label="' + esc(UI.close_tip) + '" title="' + esc(UI.close_tip) + '">&times;</button></div>';
 
+const codesOpen = () => [state.graph, ...state.compare];
+const MOST = 3;                 // charts on one graph; the colours are the profile's three
+
 // Where the chart is published first, in the accent, then the graph's tools.
 // Compare is pick-from-the-table alone: the table's own search and filters
 // are the picker, and the song grid beside the graph lists the song's other
-// charts, so a search box of its own would only duplicate both.
+// charts, so a search box of its own would only duplicate both. With three
+// charts up the button is disabled and its tip says so; the row is rebuilt on
+// every add or remove, so the state is never stale.
 function toolRow(code) {
   const key = getter(code).get("SongKey");
+  const full = codesOpen().length >= MOST;
   return '<div class="gtools">' + linkAnchors(key, "btn btn-sm btn-outline-primary ext") +
-    '<button type="button" class="btn btn-sm btn-outline-secondary" data-act="pick" title="' + esc(UI.compare_pick_tip) + '">' + esc(UI.compare_pick) + "</button>" +
+    '<button type="button" class="btn btn-sm btn-outline-secondary" data-act="pick"' + (full ? " disabled" : "") +
+    ' title="' + esc(full ? UI.compare_full : UI.compare_pick_tip) + '">' + esc(UI.compare_pick) + "</button>" +
     '<button type="button" class="btn btn-sm btn-outline-secondary" data-act="save">' + esc(UI.save_png) + "</button>" +
     "</div>";
 }
-
-const codesOpen = () => [state.graph, ...state.compare];
 
 // The open chart's row, marked wherever it is on screen. The mark is also
 // drawn by table.js on every repaint, from state.graph; this is the between-
@@ -203,7 +208,7 @@ export function openPane(code, vs = state.compare, opts = {}) {
   fillSong(code);
   // the tools are a function of state: when the links file lands after the
   // open, the row is redrawn, and only while this chart is still up
-  if (!state.links) loadLinks().then(() => refreshLinks(code), () => {});
+  if (!state.links) loadLinks().then(() => refreshTools(code), () => {});
 
   const codes = codesOpen();
   Promise.all(codes.map(x => loadCurves(x).then(curves => ({ code: x, curves }), () => ({ code: x })))).then(results => {
@@ -218,6 +223,7 @@ export function openPane(code, vs = state.compare, opts = {}) {
       lost.forEach(x => toast(t("compare_missing", { code: x })));
       state.compare = state.compare.filter(x => !lost.includes(x));
       writeUrl();
+      refreshTools(code);
     }
     const charts = results.filter(r => r.curves).map((r, k) => {
       const found = findRow(r.code);
@@ -245,8 +251,10 @@ export function openPane(code, vs = state.compare, opts = {}) {
   });
 }
 
-// The links file landed: the tool row gets its anchors, in place.
-export function refreshLinks(code = state.graph) {
+// The tool row is a function of state: rebuilt in place when the links file
+// lands after the open, and when a compared chart is dropped for want of a
+// curve file, so the anchors and the disabled state are never stale.
+export function refreshTools(code = state.graph) {
   if (!paneIsOpen() || state.graph !== code) return;
   const old = card().querySelector(".gtools");
   if (old) old.outerHTML = toolRow(code);
@@ -269,7 +277,7 @@ export function closePane() {
 
 export function addCompare(code) {
   if (codesOpen().includes(code)) { toast(UI.compare_dup); return false; }
-  if (codesOpen().length >= 3) { toast(UI.compare_full); return false; }
+  if (codesOpen().length >= MOST) { toast(UI.compare_full); return false; }
   openPane(state.graph, [...state.compare, code], { follow: true });
   return true;
 }
@@ -292,6 +300,7 @@ export function removeCompare(code) {
 // click joins the graph (or Escape cancels). The pane stays, so the second
 // chart is seen landing on the graph.
 export function startPicking() {
+  if (codesOpen().length >= MOST) { toast(UI.compare_full); return; }
   const found = findRow(state.graph);
   const song = found ? found.row[found.columns.indexOf("Song Title")] : state.graph;
   state.picking = true;
@@ -385,5 +394,5 @@ export function initPane() {
   document.addEventListener("pointerup", gripUp);
   document.addEventListener("pointercancel", gripUp);
   el("pick").addEventListener("click", e => { if (e.target.closest('[data-act="unpick"]')) stopPicking(); });
-  document.addEventListener("fw:links", () => refreshLinks());
+  document.addEventListener("fw:links", () => refreshTools());
 }

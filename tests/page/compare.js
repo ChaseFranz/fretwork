@@ -81,23 +81,20 @@ say("with another song on the graph the entries carry the titles", !rowOf(third)
     legend().map(l => l.querySelector(".lt").textContent.trim()).join(" | "));
 await wait(400);
 say("the URL names both extras", params().get("vs") === vs + "," + third, params().get("vs"));
+// three is the most: the button is disabled and its tip says so, and a fourth
+// row click is a plain row click, not a pick
+say("with three charts the button is disabled and says why", pick().disabled && pick().title === UI.compare_full, pick().title);
+say("a disabled button stays hoverable for its tip", getComputedStyle(pick()).pointerEvents !== "none" && getComputedStyle(pick()).cursor === "not-allowed",
+    getComputedStyle(pick()).pointerEvents + " " + getComputedStyle(pick()).cursor);
 click(pick());
 await wait(100);
-const fourth = [...document.querySelectorAll("#body tr[data-code]")].find(tr => ![code, vs, third].includes(tr.dataset.code));
-if (fourth) {
-  click(fourth);
-  await wait(500);
-  say("a fourth is refused with a hint, and the picking ends", gbody().fw.charts.length === 3 && bar.classList.contains("d-none") &&
-      document.getElementById("hint").textContent === UI.compare_full, document.getElementById("hint").textContent);
-} else {
-  key("Escape");
-  await wait(100);
-}
+say("clicking it starts no picking", bar.classList.contains("d-none") && gbody().fw.charts.length === 3);
 
 // --- remove: an extra, then the primary, which promotes ------------------------------
 click(modal.querySelector('.legend .rm[data-rm="' + third + '"]'));
 await wait(600);
 say("removing an extra leaves two", gbody().fw.charts.map(c => c.code).join() === code + "," + vs, gbody().fw.charts.map(c => c.code).join());
+say("and the button is enabled again with its own tip", !pick().disabled && pick().title === UI.compare_pick_tip, pick().title);
 click(modal.querySelector('.legend .rm[data-rm="' + code + '"]'));
 await wait(600);
 say("removing the primary promotes the first extra", modal.getAttribute("aria-label").endsWith(": " + vs) && gbody().fw.charts.length === 1 &&

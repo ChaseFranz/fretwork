@@ -150,6 +150,9 @@
   .fw-pane .pbtns button:hover { color:var(--bs-body-color); }
   .fw-pane .gtools { margin:2px 0 6px; }
   .fw-pane .gtools a.ext { text-decoration:none; }
+  /* Bootstrap gives a disabled button pointer-events:none, which also hides
+     its title; the tip is the reason the button is off, so it stays hoverable */
+  .fw-pane .gtools button:disabled { pointer-events:auto; cursor:not-allowed; }
   /* the graph beside the song grid when there is room; the graph fills the
      height it is given (graph.js's fill), the grid scrolls on its own */
   .fw-pane .pbody { display:flex; gap:18px; flex:1 1 auto; min-height:0; }
