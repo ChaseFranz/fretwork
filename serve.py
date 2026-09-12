@@ -19,8 +19,10 @@ served same-origin from /bootstrap.css, so the page has no CDN dependency at
 view time and keeps working offline after the first run. --no-bootstrap skips
 it and falls back to the built-in styles.
 
-Reads the spreadsheet, not the cache - run analyze.py first. The cache is only
-touched (lazily) the first time a graph is requested.
+Reads the spreadsheet, not the cache, for the table - run analyze.py first. The
+cache is loaded at startup when there is one, for the pack join (the Added
+column and the changelog); a graph click reuses it. Without a cache the page
+still serves, without those two.
 
 Serves exactly the four pages publish.py writes (index.html, about.html,
 404.html, robots.txt); an unknown path gets the 404 page with status 404.
@@ -31,25 +33,41 @@ The page itself lives in web/ - see web/static/ for its markup and scripts.
 import argparse
 
 import config
-from web import assets, banner, bootstrap, page
+from functions import packs
+from web import banner, bootstrap, page
 from web.graph import GraphRenderer
 from web.server import MetricsServer
 
 
+# The pack join needs the cache, so serve loads it at startup when there is
+# one (0.2 s; a graph click reuses it). Without a cache the page serves with no
+# Added column and no changelog. Unlike publish, an unregistered or missing
+# folder only warns: serve is for looking at any header's library.
+def resolve_packs(renderer, packs_path):
+    try:
+        cache = renderer.cache()
+    except FileNotFoundError:
+        return None, f"packs: no cache for {renderer.header}, Added column and changelog off"
+    try:
+        resolved = packs.resolve(cache, packs.load(packs_path))
+    except (FileNotFoundError, packs.PacksError) as exc:
+        return None, f"packs: {exc}; Added column and changelog off"
+    warning = packs.report(resolved)
+    return resolved, (warning or f"packs: {len(resolved.registry.packs)} registered from {resolved.registry.path.name}")
+
+
 def serve(header=None, xlsx_path=None, cache_path=None, port=8000, out_dir=None,
-          use_bootstrap=True):
+          use_bootstrap=True, packs_path=None):
     header = header or config.HEADER
     bootstrap_css = bootstrap.ensure_bootstrap(use_bootstrap)
+    renderer = GraphRenderer(header, cache_path, out_dir)
+    resolved, packs_line = resolve_packs(renderer, packs_path or packs.PACKS_FILE)
 
-    xlsx_path, sheets, total, body = page.build(header, xlsx_path, bootstrap_css)
-    pages = {'/' + name: data for name, data in page.site_pages(body).items()}
-
-    httpd = MetricsServer(
-        port, pages, assets.load_static(), bootstrap_css,
-        GraphRenderer(header, cache_path, out_dir))
+    built = page.build(header, xlsx_path, bootstrap_css, resolved=resolved)
+    httpd = MetricsServer(port, {'/' + name: data for name, data in built.files.items()}, renderer)
 
     with httpd:
-        banner.print_startup(xlsx_path, sheets, total, bootstrap_css, port)
+        banner.print_startup(built.xlsx_path, built.sheets, built.total, bootstrap_css, port, packs_line)
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
@@ -65,10 +83,13 @@ def main():
     parser.add_argument('--port', type=int, default=8000, help="localhost port (default 8000)")
     parser.add_argument('--no-bootstrap', action='store_true',
                         help="skip the Bootstrap fetch and use the built-in styles")
+    parser.add_argument('--packs', default=None,
+                        help=f"pack registry to join (default: {packs.PACKS_FILE.name} in the repo root)")
     args = parser.parse_args()
 
     serve(header=args.header, xlsx_path=args.xlsx, cache_path=args.cache,
-          port=args.port, out_dir=args.out_dir, use_bootstrap=not args.no_bootstrap)
+          port=args.port, out_dir=args.out_dir, use_bootstrap=not args.no_bootstrap,
+          packs_path=args.packs)
 
 
 if __name__ == '__main__':

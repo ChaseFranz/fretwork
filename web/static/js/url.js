@@ -2,7 +2,7 @@
 // carries what the sender was looking at. Column visibility, order and widths are
 // per-viewer preferences and stay in localStorage: they belong to the reader, not
 // to the link.
-import { DATA } from "./boot.js";
+import { SHEETS, SHEET_OF_CODE } from "./boot.js";
 import { state } from "./state.js";
 
 const SET = "f.";     // f.Level=Expert,Hard
@@ -12,7 +12,7 @@ let pending = null;
 
 function params() {
   const out = new URLSearchParams();
-  const sheets = Object.keys(DATA);
+  const sheets = Object.keys(SHEETS);
   if (state.sheet !== sheets[0]) out.set("sheet", state.sheet);
   const q = document.getElementById("q").value.trim();
   if (q) out.set("q", q);
@@ -24,7 +24,11 @@ function params() {
     if (f.type === "set") out.set(SET + col, [...f.sel].join(","));
     else out.set(RANGE + col, (f.lo ?? "") + ":" + (f.hi ?? ""));
   }
-  if (state.graph) out.set("code", state.graph);
+  if (state.song) out.set("song", state.song);
+  if (state.graph) {
+    out.set("code", state.graph);
+    if (state.compare.length) out.set("vs", state.compare.join(","));
+  }
   return out;
 }
 
@@ -40,13 +44,25 @@ export function writeUrl() {
 }
 
 // A link's own state replaces the site's opening filters rather than adding to
-// them, so "everything, unfiltered" is a shareable view too.
+// them, so "everything, unfiltered" is a shareable view too. Returns what the
+// link asked to open: {code, song}, either null; a malformed song key is null.
 export function readUrl() {
   const got = new URLSearchParams(location.search);
-  if (!got.toString()) return;
+  if (!got.toString()) return { code: null, song: null };
 
   const sheet = got.get("sheet");
-  if (sheet && DATA[sheet]) state.sheet = sheet;
+  if (sheet && SHEETS[sheet]) state.sheet = sheet;
+  // a shared code without a sheet: its instrument letter says which sheet it is on
+  const code = got.get("code");
+  if (code && !sheet) {
+    const guess = SHEET_OF_CODE[code.slice(-1).toUpperCase()];
+    if (guess && SHEETS[guess]) state.sheet = guess;
+  }
+  // the charts drawn beside it: at most two, well-formed, not the code itself
+  const vs = got.get("vs");
+  if (code && vs) {
+    state.compare = [...new Set(vs.split(",").filter(c => /^[A-Za-z0-9]{10}$/.test(c) && c !== code))].slice(0, 2);
+  }
   const q = got.get("q");
   if (q) document.getElementById("q").value = q;
   const sort = got.get("sort");
@@ -66,5 +82,6 @@ export function readUrl() {
         type: "range", lo: lo === "" ? null : +lo, hi: hi === "" ? null : +hi };
     }
   }
-  return got.get("code");
+  const song = got.get("song");
+  return { code: code || null, song: song && /^[0-9a-f]{12}$/.test(song) ? song : null };
 }

@@ -1,8 +1,8 @@
 // Builds the table's HTML. Everything it needs is passed in.
-import { TIMECOLS, HELP, UI, MISS_TEXT, MISS_HELP } from "./boot.js";
+import { SHEETS, TIMECOLS, HELP, UI, MISS_TEXT, MISS_HELP } from "./boot.js";
 import { esc } from "./dom.js";
-import { lab, mmss, isMissing, decimals } from "./format.js";
-import { RANK_COL } from "./state.js";
+import { lab, t, mmss, isMissing, decimals } from "./format.js";
+import { RANK_COL, state } from "./state.js";
 
 // Rank is a position in the current view, so there is nothing to sort or
 // filter it by; it gets a bare header instead of the usual controls.
@@ -42,6 +42,8 @@ const TEXT_CLASS = {
   "Artist": "title artist",
   "Charter": "title",
   "Release": "title",
+  "Album": "title album",
+  "Genre": "genre",
 };
 
 // No conditional-formatting fill. The table is nearly always sorted by D, so a
@@ -52,7 +54,13 @@ function numberCell(col, v) {
   return '<td class="num' + (col === "D" ? " headline" : "") + '">' + text + "</td>";
 }
 
-function bodyCell(col, v) {
+// The title cell's pip opens the song panel; out of flow, so a title that
+// fills its last line is not pushed onto another. Only when the sheet has a
+// SongKey column, since the panel is keyed on it.
+function bodyCell(col, v, songKey) {
+  if (col === "Song Title" && typeof songKey === "string")
+    return '<td class="' + TEXT_CLASS[col] + '" title="' + esc(v ?? "") + '">' + esc(v ?? "") +
+      '<span class="sp" data-song="' + esc(songKey) + '" title="' + esc(UI.song_view) + '">&#8862;</span></td>';
   if (col === "Code")
     return '<td class="code" title="' + esc(UI.copy_code_tip) + '">' + esc(v) +
       '<span class="cp" data-copy="' + esc(v) + '">&#128203;</span></td>';
@@ -74,17 +82,27 @@ function bodyCell(col, v) {
   return "<td>" + esc(v === null ? "" : v) + "</td>";
 }
 
-export function bodyRow(row, visibleCols, code, rank) {
+export function bodyRow(row, visibleCols, code, rank, tip, songKey) {
   const cells = visibleCols
     .map(([col, i]) => col === RANK_COL
       ? '<td class="num rank">' + rank + "</td>"
-      : bodyCell(col, row[i]))
+      : bodyCell(col, row[i], songKey))
     .join("");
-  return '<tr tabindex="-1" title="' + esc(UI.row_tip) + '" data-code="' +
+  return '<tr tabindex="-1" title="' + esc(tip) + '" data-code="' +
     esc(code) + '">' + cells + "</tr>";
 }
 
 export function emptyRow(span) {
   return '<tr class="empty"><td colspan="' + span + '" class="text-secondary p-3">' +
     esc(UI.no_data) + "</td></tr>";
+}
+
+// While a sheet's rows are in flight, or when they failed to arrive. The same
+// shape as emptyRow, and the .empty class, so the widths stylesheet skips it.
+export function loadingRow(span, failed) {
+  const body = failed
+    ? esc(UI.load_failed) + ' <a href="">' + esc(UI.reload) + "</a>"
+    : esc(t("loading", { n: SHEETS[state.sheet].rows }));
+  return '<tr class="empty loading"><td colspan="' + span + '" class="text-secondary p-3">' +
+    body + "</td></tr>";
 }

@@ -22,7 +22,7 @@ Formula terms are spelled out in Methodology.md; the help text here is the short
 version of the same thing.
 """
 
-from functions import instruments
+from functions import formula, instruments
 
 # NPS/VPS get spelled out - "notes/sec" and "fret changes/sec" are what they
 # actually measure, and that reads better than the acronym in a column header
@@ -38,6 +38,13 @@ COLUMN_LABELS = {
     'Type':       'Part',
     'Charter':    'Charter',
     'Release':    'Source',
+    'Album':      'Album',
+    'Year':       'Year',
+    'Genre':      'Genre',
+    'Added':      'Added',
+    'SongKey':    'Song key',
+    'NotesHash':  'Notes hash',
+    'Copies':     'Copies',
     'Official':   'Official',
 
     # shape of the chart
@@ -49,6 +56,7 @@ COLUMN_LABELS = {
     'D':          'Difficulty (D)',
     'RemapDiff':  'Remap Tier',
     'CalcTier':   'Calc Tier',
+    'Pct':        'Percentile',
 
     # note density
     'pNPS':       'Peak notes/sec',
@@ -77,6 +85,13 @@ COLUMN_HELP = {
     'Type':       'Which part this row is: Lead, Co-op, Rhythm, Bass or Keys.',
     'Charter':    'Who charted the song, from song.ini.',
     'Release':    'Release or source pack. Officials are matched against the tables in sources/.',
+    'Album':      'Album from song.ini, as the charter wrote it. Empty when the file has none.',
+    'Year':       'Release year from song.ini. A dash means the file has no four-digit year.',
+    'Genre':      'Genre from song.ini, as the charter wrote it. Spellings vary between charters; empty when the file has none.',
+    'Added':      'When the pack this chart came in was added to the site, from packs.toml.',
+    'SongKey':    'A hash of every chart in the song: the same charts give the same key, whatever folder they came from, so it survives a re-download.',
+    'NotesHash':  'Fingerprint of the notes. Two charts with the same hash play identically, whatever they are called.',
+    'Copies':     'How many charts on this sheet have exactly these notes at this level and part, this one included. 1 is unique; 2 means the same chart is in another folder, usually another pack.',
     'Official':   'True when the source pack is an official Guitar Hero or Rock Band release.',
 
     'NoteCount':  'Total notes in this chart. Frets played together count as one note, same as the games score it.',
@@ -85,7 +100,8 @@ COLUMN_HELP = {
     'Difficulty': 'The diff_* tier already in song.ini. -1 means the tag is missing.',
     'D':          'Calculated difficulty, D = N x V x CoV. The main output. Higher is harder, uncapped.',
     'RemapDiff':  'D binned to 0-6, calibrated per instrument so the spread matches official tiers. From the Expert chart only.',
-    'CalcTier':   'Log-scaled tier, one step per 0.44 increase in ln(D) above 7.6. Uncapped, so hard customs reach 10+. From the Expert chart only.',
+    'CalcTier':   f'Log-scaled tier, one step per {formula.LN_INC} increase in ln(D) above {formula.BASE_D}. Uncapped, so hard customs reach 10+. From the Expert chart only.',
+    'Pct':        'Sits at or above N% of the charts on this sheet at the same level, officials and customs together. Each distinct chart counts once, however many packs carry it. Ties share a value and the top chart reads 100. The Guitar sheet pools Lead, Rhythm and Co-op, which share one calibration group.',
 
     'pNPS':       'Busiest one-second window, in notes per second.',
     'aNPS':       'Notes per second across the whole chart, including rests.',
@@ -113,6 +129,7 @@ COLUMN_HELP = {
 # the same idea for any human-facing surface.
 MISSING_VALUES = {
     'Difficulty': (-1,),
+    'Year': (-1,),
 }
 
 MISSING_TEXT = '\u2014'  # em dash
@@ -121,6 +138,8 @@ MISSING_HELP = {
     'Difficulty': 'No difficulty rating in song.ini (diff_* is -1 or absent)',
     'RemapDiff':  'No Expert chart for this instrument to anchor the tier to',
     'CalcTier':   'No Expert chart for this instrument to anchor the tier to',
+    'Added':      'Not registered in packs.toml',
+    'Year':       'No four-digit year in song.ini',
 }
 
 
@@ -160,6 +179,10 @@ ENGINE_REPO = 'https://github.com/Staycation44/fretwork'
 CHANNEL = 'https://www.youtube.com/@StaycationGH'
 FORK_REPO = 'https://github.com/ChaseFranz/fretwork'
 VIDEO = 'https://youtu.be/emoWMpDJ4ls'
+# The two destinations a chart's graph links out to, when the offline lookups
+# (tools/enchor_lookup.py, tools/leaderboards_lookup.py) found it there.
+ENCHOR = 'https://enchor.us'
+LEADERBOARDS = 'https://leaderboards.clonehero.net'
 
 # The author is "Staycation44" everywhere in the prose, matching the GitHub
 # account and the video credit - except in the two copyright notices below, which
@@ -177,13 +200,26 @@ FOOTER_LINKS = (
     ('Site source', FORK_REPO),
 )
 
+# The site's document pages, in footer order: the published file name and the UI
+# key of its title. page.render_doc links each to the others; the footer lists them
+# after the request link; the boot payload carries the names so a test can count.
+DOC_PAGES = (('about.html', 'about'), ('changelog.html', 'changelog'), ('methodology.html', 'methodology'))
+
+# The line above the rendered Methodology.md, naming the upstream file as the
+# source of truth. A module constant rather than a UI key: every UI key rides
+# in the charts page's boot island, and nothing there reads this sentence.
+METHODOLOGY_SOURCE = (
+    f'Rendered at publish from [Methodology.md]({ENGINE_REPO}/blob/main/Methodology.md) in the '
+    f'fretwork engine repository, which is the reference for the formula and its calibration '
+    f'tables. The tables on this page are checked against the code that scored every chart here.')
+
 # Left-to-right order on the page, which is not the spreadsheet's order: D is what
 # the site is for, so it sits beside the song instead of past the right edge.
 # Anything missing from this list keeps its spreadsheet position, at the end.
 DISPLAY_ORDER = (
-    'Song Title', 'Artist', 'D', 'CalcTier', 'Level', 'Type',
-    'DurationS', 'NoteCount', 'Charter', 'Release',
-    'Difficulty', 'RemapDiff', 'Official', 'Code',
+    'Song Title', 'Artist', 'D', 'Pct', 'CalcTier', 'Level', 'Type',
+    'DurationS', 'NoteCount', 'Charter', 'Release', 'Album', 'Year', 'Genre', 'Added', 'Copies',
+    'Difficulty', 'RemapDiff', 'Official', 'Code', 'SongKey', 'NotesHash',
 )
 
 # Off by default, so a first visit is the ten columns worth reading rather than
@@ -193,9 +229,18 @@ DISPLAY_ORDER = (
 #   RemapDiff   CalcTier says the same thing without a 0-6 ceiling
 #   Official    the header has a chip for it, which is the useful form
 #   Code        only means something to render.py
+#   Added       the changelog page tells the same story with names and dates
+#   Album       wraps, and the first view is already full at 390 px
+#   Year        a filter on it works while hidden, which is how it is used
+#   Genre       likewise; 212 spellings make it a filter, not a column to read
 # Charter is deliberately NOT in this list: the people most likely to read this
 # site are the ones who charted what is in it.
-DEFAULT_HIDDEN = ('Difficulty', 'RemapDiff', 'Official', 'Code')
+DEFAULT_HIDDEN = ('Album', 'Year', 'Genre', 'Difficulty', 'RemapDiff', 'Official', 'Code', 'Added', 'Copies',
+                  'SongKey', 'NotesHash')
+
+# Bump when DEFAULT_HIDDEN changes: a returning visitor's saved column set is
+# replaced by the new default once, and their order and widths are kept.
+PREFS_VERSION = 3
 
 
 # The in-page answer to "what is this number?", which until now lived only in a
@@ -210,11 +255,13 @@ EXPLAINER = (
      'changes), and how unevenly that work is spread across the song (CoV). Higher '
      'is harder, and the scale has no ceiling \u2013 the hardest charts here run past 1000.'),
     ('Reading the tiers',
-     'Calc Tier is D on a log scale: one step for every 0.44 rise in ln(D) above 7.6, '
+     f'Calc Tier is D on a log scale: one step for every {formula.LN_INC} rise in ln(D) above {formula.BASE_D}, '
      'so it keeps climbing past 10 for the hardest customs. Remap Tier is the same '
      'value binned into the 0\u20136 range the games use, calibrated per instrument. Both '
      'are computed from the Expert chart and then shown on every difficulty of that '
-     'song, because song.ini carries only one rating per instrument.'),
+     'song, because song.ini carries only one rating per instrument. Percentile is '
+     'where a chart\u2019s D sits among the charts on its sheet at the same level, so it '
+     'moves as the library grows, counting a chart once however many packs carry it.'),
     ('What it does not know',
      'Strum, HOPO and tap state are discarded, so how a chart flows does not change '
      'its score. There is no pattern recognition \u2013 trills, anchoring and chord '
@@ -224,7 +271,7 @@ EXPLAINER = (
      f'Every chart here was parsed and scored by [fretwork]({ENGINE_REPO}), an '
      f'open-source project by [Staycation44]({CHANNEL}). This site runs that engine '
      f'unchanged and only displays the result. The full method, including the '
-     f'calibration tables, is in [Methodology.md]({ENGINE_REPO}/blob/main/Methodology.md).'),
+     f'calibration tables, is on the [methodology page](methodology.html).'),
 )
 
 
@@ -238,7 +285,8 @@ ABOUT = (
      '\u2013 Guitar Hero, Rock Band, Clone Hero, and the custom charts made for them. '
      'Every rating is computed from the chart file itself. None of it is hand-assigned, '
      'voted on, or edited afterwards. How the calculation works is explained under '
-     '\u201cHow it works\u201d on the charts page.'),
+     '\u201cHow it works\u201d on the charts page, and in full on the '
+     '[methodology page](methodology.html).'),
     ('An independent project',
      f'Fretladder is not affiliated with, endorsed by, or run by '
      f'[Staycation44]({CHANNEL}), and it is not the [fretwork]({ENGINE_REPO}) project '
@@ -249,8 +297,9 @@ ABOUT = (
     ('What is stored here, and what is not',
      'The site hosts no audio and no chart files, and nothing can be downloaded from it. '
      'What it holds is numbers calculated from charts, the song, artist, charter and pack '
-     'names those charts already carry, and one rendered graph per chart. It is not a '
-     'place to get songs.'),
+     'names those charts already carry, and one graph per chart, drawn from its note density. Where a '
+     'chart is published on Chorus Encore, or has a Clone Hero leaderboard, its graph links there; nothing '
+     'is hosted here. It is not a place to get songs.'),
     ('Ownership',
      'Guitar Hero, Rock Band and Clone Hero, and the names and marks that go with them, '
      'belong to their respective owners. The songs belong to their rights holders, and '
@@ -302,7 +351,7 @@ UI = {
     'reorder_tip':      'Drag to reorder',
     'resize_tip':       'Drag to resize, double-click to fit',
     'columns_reset_tip':'Back to the default columns, order and widths',
-    'search':           'Search song, artist, charter or source...',
+    'search':           'Search song, artist, album, charter or source...',
     'clear_one':        'Clear 1 filter',
     'clear_many':       'Clear {n} filters',
     'count':            '{shown} of {total} charts',
@@ -332,6 +381,16 @@ UI = {
     'explainer_title':  'How difficulty is scored',
     'about':            'About this site',
     'about_back':       'Back to the charts',
+    'changelog':        'What\u2019s new',
+    'methodology':      'Methodology',
+    'changelog_tip':    'Every pack on the site, and when it was added',
+    'changelog_intro':  'Every pack on the site, newest first, with the date it was added and where it is '
+                        'published, and what changed on the site itself. The date in the charts page '
+                        'header is when the numbers were last computed. Percentiles are relative to the '
+                        'whole library on that day, so they shift a little with every update.',
+    'changelog_totals': '{packs} packs, {songs} songs, {charts} charts',
+    'pack_counts':      '{songs} songs, {charts} charts',
+    'changelog_date_tip': 'Show the Expert charts added on this date',
     # The video is the origin of all of this, so it leads the explainer. Served
     # from the no-cookie host, and only requested if someone opens the panel -
     # the iframe is not in the page until then.
@@ -341,12 +400,63 @@ UI = {
     'video_caption':    f'Solving Guitar Hero\u2019s Difficulty Problem \u2013 '
                         f'[Staycation44]({CHANNEL})',
     'explainer_more':   'Watch it on YouTube',
-    'explainer_method': 'The full method (Methodology.md)',
-    'method_url':       f'{ENGINE_REPO}/blob/main/Methodology.md',
+    'explainer_method': 'The full method',
+    'method_url':       'methodology.html',
 
     # reporting a rating that looks wrong, from the chart's own graph
     'report':           'Report this rating',
     'report_url':       f'{FORK_REPO}/issues/new?template=rating.yml',
+
+    # the graph heading's list of other folders carrying the same notes
+    'copies_label':     'Same chart in:',
+    'copies_tip':       'The same notes in another folder. Opens that copy\u2019s graph.',
+
+    # the graph itself, drawn on a canvas from graph/<code>.json; the first
+    # five mirror literals in functions/plot.py, which is upstream's
+    'graph_d':          '~D',
+    'graph_nps':        'Notes',
+    'graph_vps':        'Variability',
+    'graph_y':          'per second',
+    'graph_x':          'Time (m:ss)',
+    'graph_source':     '.{source} file',
+    'graph_readout':    '{t}  ~D {d}  notes/s {nps}  changes/s {vps}',
+    'graph_readout_part': '{letter} {d}',
+    'graph_readout_many': '{t}  {parts}',
+    'graph_legend':     '{title} - {artist}, {level} {type}',
+    'graph_hint':       'Hover or use the arrow keys to read values',
+    'graph_alt':        'Difficulty graph of {song}: notes per second, fret changes per second and their geometric mean over time',
+    'compare':          'Compare',
+    'compare_search':   'Song, artist or code to compare with...',
+    'compare_same_song': 'Other charts of this song',
+    'compare_loading':  'Loading charts...',
+    'compare_none':     'No matching chart',
+    'compare_pick':     'Pick from the table',
+    'compare_picking':  'Choosing a chart to compare with {song}. Click a row, or press Esc to go back.',
+    'compare_cancel':   'Back to the graph',
+    'compare_full':     'Three charts is the most the graph will hold',
+    'compare_dup':      'That chart is already on the graph',
+    'compare_remove':   'Remove {code} from the graph',
+    'compare_missing':  'No graph for {code}',
+    'song_compare':     'Compare all levels',
+
+    # the per-song panel (?song=<key>)
+    'song_view':        'All charts of this song',
+    'song_label':       'Song',
+    'song_grid_label':  'Charts by instrument and level',
+    'song_loading':     'Loading every sheet...',
+    'song_not_found':   'No song has that key.',
+    'song_tier':        'Tier {n}',
+    'song_also_in':     'Also in',
+    'song_no_level':    'No {level} chart',
+    'save_png':         'Save as PNG',
+
+    # where a chart is published and where its scores are, resolved offline
+    'enchor':           'On Chorus Encore',
+    'enchor_tip':       'This chart\u2019s page on Chorus Encore, where it is published',
+    'enchor_url':       f'{ENCHOR}/chart/{{md5}}',
+    'leaderboard':      'Leaderboard',
+    'leaderboard_tip':  'Scores for this song on the Clone Hero leaderboards',
+    'leaderboard_url':  f'{LEADERBOARDS}/scores/{{hash}}',
 
     # the page CloudFront serves for a path that is not in the bucket
     'not_found_title':  'Page not found',
@@ -359,6 +469,10 @@ UI = {
 
     # row / graph interaction
     'row_tip':          'Click for the difficulty graph',
+    'pct_of':           'At or above {pct}% of {level} {sheet} charts',
+    'loading':          'Loading {n} charts...',
+    'load_failed':      'The chart data did not load.',
+    'reload':           'Reload',
     'graph_label':      'Difficulty graph',
     'grid_label':       'Charts, sortable and filterable by column',
     'copy_code_tip':    'Copy this code',

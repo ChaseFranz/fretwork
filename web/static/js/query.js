@@ -1,10 +1,11 @@
 // Selecting and ordering rows: what the active filters and sort resolve to.
-import { RANGE_MIN_DISTINCT, VALUE_ORDER } from "./boot.js";
+import { MISS_TEXT, RANGE_MIN_DISTINCT, VALUE_ORDER } from "./boot.js";
 import { el } from "./dom.js";
 import { isMissing, key } from "./format.js";
 import { state, cols, idx, rowsAll } from "./state.js";
 
-const SEARCH_COLS = ["Song Title", "Artist", "Charter", "Release", "Code"];
+// Genre stays out: "rock" alone would match a third of the library through it.
+const SEARCH_COLS = ["Song Title", "Artist", "Album", "Charter", "Release", "Code"];
 
 function isNumeric(col) {
   const i = idx(col);
@@ -26,10 +27,16 @@ export function distinct(col) {
   const order = VALUE_ORDER[col];
   if (order)
     return values.sort((a, b) => rank(order, a) - rank(order, b) || a.localeCompare(b));
-  return values.sort((a, b) => {
-    const x = parseFloat(a), y = parseFloat(b);
-    return !isNaN(x) && !isNaN(y) ? x - y : a.localeCompare(b);
-  });
+  // Decided once per column, so the comparator is transitive: a list is numeric
+  // only when every value is (the dash for a missing value aside), else it is
+  // text in localeCompare order. Number(), not parseFloat(): a date like
+  // 2026-09-07 or a code like 12345678XG is text, and parseFloat would read a
+  // number off its front; and mixing the two rules per pair would put 999
+  // before 1000 before "18 And Life" before 999.
+  const isNum = v => v !== "" && !isNaN(Number(v));
+  if (values.every(v => v === MISS_TEXT || isNum(v)))
+    return values.sort((a, b) => (a === MISS_TEXT) - (b === MISS_TEXT) || Number(a) - Number(b));
+  return values.sort((a, b) => a.localeCompare(b));
 }
 
 // A min/max box suits a numeric column with too many values to list.
@@ -48,7 +55,7 @@ function matchesFilter(row, columns, col, filter) {
   if (i < 0) return true;
   const v = row[i];
   if (filter.type === "set") return filter.sel.has(key(v));
-  if (typeof v !== "number") return false;
+  if (typeof v !== "number" || isMissing(col, v)) return false;   // a sentinel is not in any range
   return (filter.lo === null || v >= filter.lo) &&
          (filter.hi === null || v <= filter.hi);
 }

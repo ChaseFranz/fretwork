@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<link rel="icon" href="__FAVICON__" type="image/svg+xml">
+__META__
+<!-- The one template for the site's document pages (about, changelog, methodology).
+     Self-contained on purpose: these pages answer "is this the official site?",
+     "can I download songs here?" and "what is in it?", so they should still
+     render if the app's stylesheet, its scripts or its data are broken or missing. -->
+<style>
+  :root { color-scheme: dark; --dim:#9ba3ab; --accent:#e879e8; }
+  body { margin:0; background:#212529; color:#dee2e6; padding:40px 20px 60px;
+         font:15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:64ch; margin:0 auto; }
+  h1 { font-size:1.15rem; font-weight:600; margin:0 0 .35rem; }
+  .back { font-size:13px; color:var(--accent); }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.6px;
+       color:var(--accent); margin:2rem 0 .4rem; }
+  p { margin:0; }
+  p.totals { color:var(--dim); font-size:13px; margin-bottom:.5rem; }
+  p.item { margin:0 0 .5rem; }
+  h2 a { color:inherit; text-decoration:none; }
+  h2 a:hover { text-decoration:underline; }
+  hr { border:0; border-top:1px solid #343a40; margin:2.5rem 0 1.25rem; }
+  ul { margin:0; padding:0; list-style:none; font-size:13px; }
+  li { margin:.35rem 0; }
+  a { color:var(--accent); }
+  footer { margin-top:1.5rem; font-size:12px; color:var(--dim); }
+  /* The rendered methodology (web/markdown.py), scoped so the other document
+     pages do not change: its own title is the first h2 and must read larger
+     than the sections under it, which the uppercase h2 rule above would invert. */
+  .source { font-size:13px; color:var(--dim); margin:0 0 1.5rem; }
+  .md h2 { font-size:1.05rem; font-weight:600; text-transform:none; letter-spacing:0;
+           color:inherit; margin:2rem 0 .5rem; }
+  .md h3 { font-size:.95rem; font-weight:600; margin:1.5rem 0 .4rem; }
+  .md h4 { font-size:.9rem; font-weight:600; margin:1.2rem 0 .3rem; }
+  .md h5 { font-size:.85rem; font-weight:600; color:var(--dim); margin:1rem 0 .3rem; }
+  .md p { margin:0 0 .8rem; }
+  .md blockquote { margin:.8rem 0; padding:0 0 0 1rem; border-left:3px solid var(--dim);
+                   color:var(--dim); }
+  .md .tbl, .md .eq { overflow-x:auto; margin:.8rem 0; }
+  .md table { border-collapse:collapse; font-size:14px; }
+  .md th, .md td { padding:.2rem .7rem .2rem 0; border-bottom:1px solid #343a40; }
+  .md th { text-align:left; color:var(--dim); font-size:13px; }
+  .md .r { text-align:right; }
+  .md .c { text-align:center; }
+  .md code { font-size:.9em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>__BRAND__</h1>
+  <p class="back"><a href="./">__BACK__</a></p>
+  __BODY__
+  <hr>
+  <ul>__LINKS__</ul>
+  <footer>__COPYRIGHT__ <a href="__LICENSE_URL__">__LICENSE_LABEL__</a></footer>
+</main>
+</body>
+</html>

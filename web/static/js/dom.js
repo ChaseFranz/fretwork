@@ -10,6 +10,9 @@ export const esc = v => String(v)
 // character still goes through esc(); the only markup produced is an anchor this
 // function builds itself, so text that came from data could not inject any.
 const LINK = /\[([^\]]+)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g;
+// a same-site document page opens in this tab; the bare-name pattern keeps the
+// http(s) allow-list's property that data can never smuggle javascript: or a path
+const PAGE = /^[a-z0-9-]+\.html(#[a-z0-9-]+)?$/;
 
 export function rich(text) {
   let out = "", at = 0;
@@ -18,7 +21,9 @@ export function rich(text) {
     out += esc(text.slice(at, found.index)) + (safe
       ? '<a href="' + esc(found[2]) + '" target="_blank" rel="noopener">' +
         esc(found[1]) + "</a>"
-      : esc(found[1]));
+      : PAGE.test(found[2])
+        ? '<a href="' + esc(found[2]) + '">' + esc(found[1]) + "</a>"
+        : esc(found[1]));
     at = found.index + found[0].length;
   }
   return out + esc(text.slice(at));

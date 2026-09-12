@@ -1,11 +1,11 @@
 // One repaint: filter, sort, render, then refresh the footer and level chips.
-import { LEVELS, UI } from "./boot.js";
+import { LEVELS, SHEETS, UI } from "./boot.js";
 import { chips } from "./chips.js";
 import { el } from "./dom.js";
 import { t } from "./format.js";
-import { headerCell, bodyRow, emptyRow } from "./markup.js";
+import { headerCell, bodyRow, emptyRow, loadingRow } from "./markup.js";
 import { passing, compare } from "./query.js";
-import { state, cols, idx, rowsAll, visible } from "./state.js";
+import { state, cols, idx, rowsAll, visible, loaded } from "./state.js";
 import { refreshFades } from "./scroll.js";
 import { writeUrl } from "./url.js";
 import { applyWidths } from "./widths.js";
@@ -74,19 +74,28 @@ export function draw() {
     if (back) back.focus();
   }
 
-  const codeIdx = cols().indexOf("Code");
-  el("body").innerHTML = rows.length
-    ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], n + 1)).join("")
-    : emptyRow(vis.length);
+  // The hover text says where the chart sits before the click that opens it.
+  const codeIdx = cols().indexOf("Code"), keyIdx = cols().indexOf("SongKey");
+  const pctIdx = cols().indexOf("Pct"), levelIdx = cols().indexOf("Level");
+  const tipFor = r => pctIdx >= 0 && levelIdx >= 0 && typeof r[pctIdx] === "number"
+    ? t("pct_of", { pct: r[pctIdx], level: r[levelIdx], sheet: state.sheet }) + "\n" + UI.row_tip
+    : UI.row_tip;
+  const pending = !loaded(state.sheet);
+  el("body").innerHTML = pending
+    ? loadingRow(vis.length, state.loadError)
+    : rows.length
+      ? rows.map((r, n) => bodyRow(r, vis, r[codeIdx], n + 1, tipFor(r), keyIdx < 0 ? undefined : r[keyIdx])).join("")
+      : emptyRow(vis.length);
 
   // One tab stop for the whole table; the arrow keys move within it.
   const first = el("body").querySelector("tr[data-code]");
   if (first) first.tabIndex = 0;
 
   applyWidths();
-  refreshFades();
   writeUrl();
-  paintFooter(rows.length, rowsAll().length);
+  if (pending) el("count").textContent = state.loadError ? UI.load_failed : t("loading", { n: SHEETS[state.sheet].rows });
+  else paintFooter(rows.length, rowsAll().length);
   paintLevelChips();
   paintOfficialChips();
+  refreshFades();   // after the chips: they are what makes the control strip wide
 }

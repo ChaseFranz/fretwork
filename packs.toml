@@ -1,0 +1,197 @@
+# packs.toml - every pack in the song library and every change to the site.
+# One [[pack]] per top-level folder under the search path; counts are computed
+# from the cache at publish time and never written here. Dates are bare TOML
+# dates (no quotes, no time). tools/ingest_pack.py appends [[pack]] blocks
+# through functions/packs.py; [[change]] blocks are written by hand. Publish
+# refuses a cache folder this file does not name, and a folder named here that
+# the cache does not have.
+
+[[pack]]
+name = "Band Hero"
+folder = "Band Hero"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "CSC Quarterly Pack - 1st Quarter 2026"
+folder = "CSC Quarterly Pack - 1st Quarter 2026"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "CSC Quarterly Pack - 2nd Quarter 2026"
+folder = "CSC Quarterly Pack - 2nd Quarter 2026"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "CSC Quarterly Pack - 4th Quarter 2025"
+folder = "CSC Quarterly Pack - 4th Quarter 2025"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero"
+folder = "Guitar Hero"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero - Aerosmith"
+folder = "Guitar Hero - Aerosmith"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero - Metallica DLC"
+folder = "Guitar Hero - Metallica DLC"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero - Smash Hits"
+folder = "Guitar Hero - Smash Hits"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero - Warriors of Rock"
+folder = "Guitar Hero - Warriors of Rock"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero 5"
+folder = "Guitar Hero 5"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero Encore Rocks the 80s"
+folder = "Guitar Hero Encore Rocks the 80s"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero II"
+folder = "Guitar Hero II"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero II DLC"
+folder = "Guitar Hero II DLC"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero III (Individual Songs)"
+folder = "Guitar Hero III (Individual Songs)"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero III DLC"
+folder = "Guitar Hero III DLC"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero On Tour - Decades"
+folder = "Guitar Hero On Tour - Decades"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero On Tour - Modern Hits"
+folder = "Guitar Hero On Tour - Modern Hits"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero Van Halen"
+folder = "Guitar Hero Van Halen"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero World Tour"
+folder = "Guitar Hero World Tour"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Guitar Hero World Tour DLC"
+folder = "Guitar Hero World Tour DLC"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Rock Band 1"
+folder = "Rock Band 1"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Rock Band 2"
+folder = "Rock Band 2"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Rock Band 3"
+folder = "Rock Band 3"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "Rock Band 4"
+folder = "Rock Band 4"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "S Hero"
+folder = "S Hero"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[pack]]
+name = "practice"
+folder = "practice"
+source = ""
+added = 2026-09-07
+notes = ""
+
+[[change]]
+date = 2026-09-07
+text = "First publish: Guitar, Bass and Keys sheets, a graph for every chart, shareable views."
+
+[[change]]
+date = 2026-09-11
+text = "A Percentile column beside D, computed per sheet and level when the page is built. The graph heading and each row's hover text say where the chart sits."

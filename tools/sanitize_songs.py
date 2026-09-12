@@ -25,7 +25,7 @@ import argparse
 import csv
 import os
 import sys
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, namedtuple
 from pathlib import Path
 
 # The only files fretwork's parsers open (build.py / parsers/*.py rglob these).
@@ -81,18 +81,16 @@ def human(n: int) -> str:
         n /= 1024
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[1])
-    ap.add_argument('library', type=Path, help='song library root (e.g. songs/)')
-    ap.add_argument('--apply', action='store_true', help='actually delete; default is a dry run')
-    ap.add_argument('--log', type=Path, help='CSV of removed files (path, bytes, category)')
-    ap.add_argument('--show-unknown', action='store_true',
-                    help='list every unrecognised file left in song folders, not just a summary')
-    args = ap.parse_args()
+Report = namedtuple('Report', 'song_folders total_bytes removed_bytes removed_files failed unknown')
 
-    root = args.library.resolve()
+
+# The whole job as a call: report, and delete when apply is set. Raises
+# ValueError where the command line would exit, so a caller decides what a
+# refusal means for it. Prints the report exactly as the command does.
+def sanitize(root, apply=False, log=None, show_unknown=False):
+    root = Path(root).resolve()
     if not root.is_dir():
-        sys.exit(f'not a directory: {root}')
+        raise ValueError(f'not a directory: {root}')
 
     remove, unknown = [], []
     bytes_by_cat = Counter()
@@ -115,9 +113,9 @@ def main():
             unknown.append((p, size))
 
     if not song_folders:
-        sys.exit(f'no song.ini / notes files under {root} - refusing to run on something that is not a song library')
+        raise ValueError(f'no song.ini / notes files under {root} - refusing to run on something that is not a song library')
 
-    mode = 'APPLY' if args.apply else 'DRY RUN'
+    mode = 'APPLY' if apply else 'DRY RUN'
     print(f'\n{mode}: {root}')
     print(f'  song folders      {len(song_folders):>8,}')
     print(f'  library size      {human(total_bytes):>12}')
@@ -138,18 +136,18 @@ def main():
               f'{human(sum(s for _, s in unknown))}')
         for ext, n in exts.most_common():
             print(f'    {n:>6,}  {ext}')
-        if args.show_unknown:
+        if show_unknown:
             for p, s in unknown:
                 print(f'      {human(s):>10}  {p.relative_to(root)}')
 
-    if not args.apply:
+    if not apply:
         print('\n  Dry run - nothing deleted. Re-run with --apply to remove the files above.\n')
-        return
+        return Report(len(song_folders), total_bytes, sum(bytes_by_cat.values()), len(remove), 0, unknown)
 
-    log = None
-    if args.log:
-        log = open(args.log, 'w', newline='', encoding='utf-8')
-        writer = csv.writer(log)
+    writer = None
+    if log:
+        log_file = open(log, 'w', newline='', encoding='utf-8')
+        writer = csv.writer(log_file)
         writer.writerow(['path', 'bytes', 'category'])
 
     freed = 0
@@ -158,17 +156,32 @@ def main():
         try:
             p.unlink()
             freed += size
-            if log:
+            if writer:
                 writer.writerow([str(p), size, cat])
         except OSError as e:
             failed += 1
             print(f'  could not delete {p}: {e}')
-    if log:
-        log.close()
+    if writer:
+        log_file.close()
 
     print(f'\n  Deleted {len(remove) - failed:,} files, freed {human(freed)}'
           + (f', {failed} failed' if failed else '')
-          + (f', log at {args.log}' if args.log else '') + '\n')
+          + (f', log at {log}' if log else '') + '\n')
+    return Report(len(song_folders), total_bytes, freed, len(remove) - failed, failed, unknown)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[1])
+    ap.add_argument('library', type=Path, help='song library root (e.g. songs/)')
+    ap.add_argument('--apply', action='store_true', help='actually delete; default is a dry run')
+    ap.add_argument('--log', type=Path, help='CSV of removed files (path, bytes, category)')
+    ap.add_argument('--show-unknown', action='store_true',
+                    help='list every unrecognised file left in song folders, not just a summary')
+    args = ap.parse_args()
+    try:
+        sanitize(args.library, apply=args.apply, log=args.log, show_unknown=args.show_unknown)
+    except ValueError as e:
+        sys.exit(str(e))
 
 
 if __name__ == '__main__':

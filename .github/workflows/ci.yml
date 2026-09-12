@@ -1,0 +1,47 @@
+name: ci
+# Both triggers: a branch with an open PR runs twice per push, accepted so a
+# feature branch is checked before its PR exists.
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      # Into the runner's interpreter, not .venv/: the machine is disposable.
+      - run: pip install -r requirements.txt
+
+      # test_imports imports every top-level script and every module under
+      # web/, functions/ and parsers/, and proves serve's startup path has no
+      # matplotlib or openpyxl in it.
+      - name: unit tests
+        run: python -m unittest discover -s tests -t . -v
+
+      # The page suites measure Bootstrap's colours and geometry, so the
+      # pipeline publishes with the real stylesheet; publish would fetch it
+      # itself, but fetching here keeps the network step visible and cached.
+      - uses: actions/cache@v4
+        with:
+          path: caches/bootstrap-5.3.8.min.css
+          key: bootstrap-5.3.8
+      - name: bootstrap css
+        run: |
+          mkdir -p caches
+          test -s caches/bootstrap-5.3.8.min.css || \
+            curl -fsSL https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css \
+              -o caches/bootstrap-5.3.8.min.css
+
+      - name: pipeline
+        run: python tests/pipeline_test.py --keep ci-work --bootstrap-css caches/bootstrap-5.3.8.min.css
+
+      # ubuntu-latest ships Google Chrome stable as `google-chrome`. If that
+      # ever changes, add `- uses: browser-actions/setup-chrome@v1` above this
+      # step and set CHROME to its output path.
+      - name: page suites
+        env:
+          CHROME: google-chrome
+        run: python tests/page/run.py --site ci-work/site/Fixture

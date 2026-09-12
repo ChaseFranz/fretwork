@@ -43,6 +43,21 @@ DISPLAY_NAMES = {
     'drums':  'Drums',
 }
 
+# the instruments analyze scores today: the five 5-fret keys. Drums is cached
+# but skipped until its calcs land; anything that counts "charts on the site"
+# filters through this rather than spelling an instrument name.
+SCORED_INSTRUMENTS = ('guitar', 'coop', 'rhythm', 'bass', 'keys')
+
+# the streams a song's identity is hashed over (cache.song_key): the five 5-fret
+# keys, fixed forever, so the key does not move the day drums are scored
+SONG_KEY_INSTRUMENTS = ('guitar', 'coop', 'rhythm', 'bass', 'keys')
+
+# The Clone Hero leaderboards API's instrument vocabulary, for
+# tools/leaderboards_lookup.py. A superset of SONG_KEY_INSTRUMENTS; drums joins
+# when its literal is known.
+LEADERBOARD_INSTRUMENT = {'guitar': 'guitar', 'coop': 'guitarcoop', 'rhythm': 'rhythm', 'bass': 'bass', 'keys': 'keys'}
+assert set(SONG_KEY_INSTRUMENTS) <= set(LEADERBOARD_INSTRUMENT)
+
 # canonical level keys, in a stable display/iteration order
 LEVEL_KEYS = ['easy', 'medium', 'hard', 'expert']
 

@@ -2,13 +2,20 @@
 // Re-exported under the names the rest of the page uses.
 const BOOT = JSON.parse(document.getElementById("fw-boot").textContent);
 
-export const DATA = BOOT.data;
+// The sheet manifest: {sheet: {file, rows, columns}}. The rows themselves are
+// fetched on demand from `file` (load.js) into state.data.
+export const SHEETS = BOOT.data;
+export const SHEET_OF_CODE = BOOT.sheetOfCode || {};   // instrument letter -> sheet
+export const PREFS_VERSION = BOOT.prefsVersion || 0;
+export const RENDER = BOOT.render;      // the graph palette, plot.resolve_profile()'s canvas keys
+export const LINKS_FILE = BOOT.links || null;   // data/links.<hash8>.json, or null when no song has a link
 export const LABELS = BOOT.labels;
 export const ORDER = BOOT.order;
 export const HIDDEN_DEFAULT = BOOT.hiddenDefault;
 export const VALUE_ORDER = BOOT.valueOrder;
 export const VALUE_LABELS = BOOT.valueLabels;
 export const FOOTER = BOOT.footer;
+export const DOC_PAGES = BOOT.docPages || [];   // [[file, ui key], ...] the footer lists
 export const HELP = BOOT.help;
 export const EXPLAINER = BOOT.explainer;
 export const UI = BOOT.ui;

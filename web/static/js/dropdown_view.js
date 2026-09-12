@@ -1,7 +1,7 @@
 // The two bodies the filter panel can show: a min/max box, or a value list.
 import { UI, MISSING, MISS_TEXT, TIMECOLS, VALUE_LABELS } from "./boot.js";
 import { esc } from "./dom.js";
-import { lab, t, mmss, key } from "./format.js";
+import { lab, t, mmss, key, decimals, isMissing } from "./format.js";
 import { distinct, passing } from "./query.js";
 import { state, idx, rowsAll } from "./state.js";
 
@@ -14,9 +14,9 @@ const shown = (col, k) =>
 
 export function rangeBody(col) {
   const f = state.filters[col], i = idx(col);
-  const vals = rowsAll().map(r => r[i]).filter(v => typeof v === "number");
+  const vals = rowsAll().map(r => r[i]).filter(v => typeof v === "number" && !isMissing(col, v));
   const lo = Math.min(...vals), hi = Math.max(...vals);
-  const asText = v => TIMECOLS.has(col) ? mmss(v) : v.toFixed(2);
+  const asText = v => TIMECOLS.has(col) ? mmss(v) : v.toFixed(decimals(col));
   const value = k => f && f[k] !== null && f[k] !== undefined ? f[k] : "";
   return '<div class="input-group input-group-sm">' +
     '<input type="number" class="form-control" id="ddLo" placeholder="' +

@@ -12,8 +12,11 @@ Shape:
         'songs': {
             song_path: {
                 'song_path':     str,
-                'meta':          {...},   # trimmed ini row, incl. per-instrument Level dict (Expert-referenced)
+                'song_key':      str | None,   # 12 hex digits over every 5-fret stream; same charts, same key, whatever folder
+                'meta':          {...},   # Name, Artist, Charter, Release, Official, Genre, Year (int, -1 sentinel),
+                                          # Album, and the per-instrument Difficulty dict (Expert-referenced)
                 'source_format': 'chart' | 'mid',
+                'chart_md5':     str,   # MD5 of the raw notes file that produced source_format; never in meta
                 'codes':         {instrument_key: {level_key: code, ...}, ...},
                 'instruments': {
                     instrument_key: {
@@ -22,6 +25,7 @@ Shape:
                                 'time_ms': ndarray,   # sorted
                                 'lanes':   ndarray uint8,  # bitmask, bit N = lane N
                             },
+                            'notes_hash': str,   # 12 hex digits: sha1(stream_bytes(notes))[:12]; same notes, same hash
                         },
                         ...  # only levels actually charted for this instrument
                     },
@@ -63,6 +67,42 @@ def _hash_code(song_path, digits):
     return int(digest, 16) % (10 ** digits)
 
 # assigns the numeric 8-digit code per song
+# A song's identity that survives a re-download: SHA-1 over every 5-fret
+# stream, sorted by (instrument, level), as the bytes of the note arrays. Two
+# folders holding the same charts share a key; a pack moved to a new folder
+# keeps its keys while every path-hashed code changes. None when the song has
+# no stream in SONG_KEY_INSTRUMENTS. A parser change moves every key.
+# The bytes a chart's notes hash over: the two arrays back to back for a flat
+# stream (equal length and fixed widths, so no separator is needed), and the
+# two labelled streams for a drums pair. bundle.fingerprint keeps its own
+# two-element form of the same bytes; routing it through here would change
+# every stored fingerprint and re-render every graph.
+def stream_bytes(notes):
+    if 'time_ms' in notes:
+        return notes['time_ms'].tobytes() + notes['lanes'].tobytes()
+    return b'hand' + stream_bytes(notes['hand_mask']) + b'kick' + stream_bytes(notes['kick_mask'])
+
+
+# A chart's identity: the same notes in another folder hash the same, whatever
+# the song is called. Per (song, instrument, level), where song_key is per song.
+def notes_hash(notes):
+    return hashlib.sha1(stream_bytes(notes)).hexdigest()[:12]
+
+
+def song_key(song_instruments):
+    parts = sorted(
+        (inst, level, notes['notes']['time_ms'].tobytes(), notes['notes']['lanes'].tobytes())
+        for inst in instruments.SONG_KEY_INSTRUMENTS
+        for level, notes in song_instruments.get(inst, {}).items())
+    if not parts:
+        return None
+    h = hashlib.sha1()
+    for inst, level, times, lanes in parts:
+        h.update(inst.encode()); h.update(b'\0'); h.update(level.encode()); h.update(b'\0')
+        h.update(times); h.update(lanes)
+    return h.hexdigest()[:12]
+
+
 def assign_song_codes(song_paths, digits=None):
     digits = digits or CODE_LEN
     span = 10 ** digits

@@ -38,6 +38,10 @@
   #src2 { display:none; }
   /* an underlined text link, not another chip: it opens an explanation, it does
      not change what the table shows */
+  /* the strapline links to the changelog; the dotted underline is what says so,
+     in the header and in the footer copy a phone shows (.fw-foot a drops underlines) */
+  .fw-head #src a, #src2 a { color:inherit; text-decoration:underline dotted; text-underline-offset:2px; }
+  .fw-head #src a:hover, #src2 a:hover { color:var(--bs-body-color); text-decoration:underline dotted; }
   .fw-head .info { background:none; border:0; padding:0; font-size:12px; cursor:pointer;
     color:var(--fw-accent-text); text-decoration:underline; text-underline-offset:2px; }
   .fw-head .info:hover { color:var(--bs-body-color); }
@@ -75,6 +79,7 @@
   td.title { max-width:300px; white-space:normal; overflow-wrap:break-word; }
   td.song { min-width:150px; }
   td.artist { max-width:220px; }
+  td.album { max-width:220px; }
   /* The four level colours still come from xlsx_format.py, so the site and the
      spreadsheet agree on which colour means which level - but they are worn as
      an outline rather than as a filled block, which stops four saturated
@@ -106,10 +111,49 @@
   #cd .cc .grip { cursor:grab; opacity:.6; padding:0 2px; user-select:none; }
   #cd .cc .grip:active { cursor:grabbing; }
   #cd .form-check { flex:1; margin-bottom:0; padding:2px 4px 2px 1.5rem; }
-  #modal, #about { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
+  #modal, #about, #song { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
            align-items:center; justify-content:center; z-index:1060; padding:24px; }
-  #modal.on, #about.on { display:flex; }
-  #modal .mcard, #about .mcard { max-width:100%; max-height:92vh; overflow:auto; }
+  #modal.on, #about.on, #song.on { display:flex; }
+  #modal .mcard, #about .mcard, #song .mcard { max-width:100%; max-height:92vh; overflow:auto; }
+  /* the song panel sits under the graph, so a graph opened from a cell draws over it */
+  #song { z-index:1055; }
+  #song:focus-visible { outline:none; }
+  #song .mcard { position:relative; width:min(680px, 100%); background:var(--bs-body-bg);
+    border:1px solid var(--bs-border-color); border-radius:8px; padding:20px 22px; }
+  #song .x { position:absolute; top:8px; right:8px; background:none; border:0; color:var(--fw-dim);
+    font-size:22px; line-height:1; padding:0 2px; cursor:pointer; }
+  #song .x:hover { color:var(--bs-body-color); }
+  #song .mhead { padding-right:28px; }
+  #song p.meta, #song p.also { margin:0 0 6px; font-size:12px; color:var(--fw-dim); }
+  #song p.meta a { color:var(--fw-accent-text); }
+  #song p.also { color:var(--bs-body-color); }
+  .sgrid { display:grid; grid-template-columns:auto repeat(4, 1fr); gap:4px; margin-top:10px; font-size:12px; }
+  .sgrid .lvlh { text-align:center; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.4px;
+    padding:2px 0; }
+  .sgrid .inst { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding:0 8px 0 0; font-weight:600; }
+  .sgrid .tier { font-weight:400; color:var(--fw-dim); }
+  .sgrid .cmp { background:none; border:1px solid #495057; border-radius:4px; color:var(--fw-dim); font-size:11px;
+    padding:1px 6px; cursor:pointer; }
+  .sgrid .cmp:hover { color:#fff; border-color:var(--fw-dim); }
+  .sgrid .cell { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:44px;
+    border:1px solid var(--bs-border-color); border-radius:6px; background:none; color:var(--bs-body-color);
+    font-variant-numeric:tabular-nums; padding:4px 2px; }
+  .sgrid button.cell { cursor:pointer; }
+  .sgrid button.cell:hover { background:rgba(255,255,255,.06); }
+  .sgrid .cell b { font-weight:600; }
+  .sgrid .cell small { color:var(--fw-dim); font-size:11px; }
+  .sgrid .cell.here { border-color:var(--fw-accent-text); box-shadow:inset 0 0 0 1px var(--fw-accent-text); }
+  .sgrid .cell.none { color:var(--fw-dim); border-style:dashed; }
+  .mhead .lnk { display:flex; flex-wrap:wrap; align-items:baseline; gap:0; font-size:11px; }
+  .mhead .lnk a { white-space:nowrap; }
+  .mhead .lnk a, .mhead .ext { color:var(--fw-accent-text); }
+  #song p.meta .lnk { margin-left:8px; }
+  /* the title cell's pip to the song panel: out of flow, revealed on hover like the code pip */
+  td.song { position:relative; padding-right:18px; }
+  td.song .sp { position:absolute; right:2px; top:5px; visibility:hidden; opacity:.7; cursor:pointer;
+    color:var(--fw-accent-text); font-size:13px; line-height:1; }
+  tr:hover td.song .sp { visibility:visible; }
+  td.song .sp:hover { opacity:1; }
   #about .mcard { max-width:min(680px, 100%); background:var(--bs-body-bg);
     border:1px solid var(--bs-border-color); border-radius:8px; padding:20px 22px; }
   /* the card is wide enough for the video; the prose is not, so it keeps a measure */
@@ -127,7 +171,40 @@
   #about p.more { margin-top:1.4rem; font-size:11px; }
   #about p.more a { color:var(--fw-accent-text); }
   .mhead .rpt { font-size:11px; white-space:nowrap; }
-  #modal img { max-width:100%; max-height:86vh; border-radius:8px; display:block; }
+  .mhead .copies { flex-basis:100%; font-size:11px; }
+  .mhead .copies a { color:var(--fw-accent-text); }
+  /* The graph card. Its background is set from RENDER.figure_bg by openGraph,
+     never here: the three series colours were measured against that colour
+     and it reaches the page only through boot. */
+  #modal .mcard { position:relative; width:min(100%, 1200px); border:1px solid var(--bs-border-color);
+    border-radius:8px; padding:20px 22px; }
+  #modal .x { position:absolute; top:8px; right:8px; background:none; border:0; color:var(--fw-dim);
+    font-size:22px; line-height:1; padding:0 2px; cursor:pointer; }
+  #modal .x:hover { color:var(--bs-body-color); }
+  #modal .mhead { padding-right:28px; }
+  #modal canvas { display:block; width:100%; touch-action:pan-y; border-radius:4px; }
+  .mmeta { display:flex; flex-wrap:wrap; gap:2px 0; font-size:11px; color:var(--fw-dim); margin-bottom:6px; }
+  .mmeta b { font-weight:600; color:var(--bs-body-color); }
+  .readout { margin:6px 0 2px; font-size:12px; font-variant-numeric:tabular-nums; white-space:pre-wrap;
+    min-height:1.2em; }
+  .legend { list-style:none; margin:0 0 6px; padding:0; display:flex; flex-wrap:wrap; gap:4px 18px; font-size:11px; }
+  .legend li { display:flex; align-items:center; gap:6px; }
+  .legend .sw { display:inline-block; width:22px; border-top:2px solid; }
+  .legend .sw.dot { border-top-style:dotted; }
+  .legend .rm { background:none; border:0; color:var(--fw-dim); font-size:16px; line-height:1; padding:0 4px; cursor:pointer; }
+  .legend .rm:hover { color:var(--bs-body-color); }
+  .gtools { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .picker { margin-top:8px; }
+  .picker ul { list-style:none; margin:6px 0 0; padding:0; max-height:40vh; overflow:auto; }
+  .picker li { margin:0; }
+  .picker li.note { font-size:11px; color:var(--fw-dim); padding:4px 2px; }
+  .picker button { display:flex; flex-wrap:wrap; align-items:center; gap:6px; width:100%; text-align:left;
+    background:none; border:0; border-radius:4px; padding:4px 6px; font-size:12px; color:var(--bs-body-color); cursor:pointer; }
+  .picker button:hover, .picker button:focus-visible { background:rgba(255,255,255,.08); }
+  .picker .dv { margin-left:auto; font-variant-numeric:tabular-nums; }
+  /* the bar above the table while a chart to compare with is being chosen */
+  .fw-pick { flex:0 0 auto; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 16px;
+    font-size:12px; background:var(--bs-tertiary-bg); border-bottom:1px solid var(--bs-border-color); }
   /* both overlays use this header, so it is not scoped to either one */
   .mhead { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
   /* narrow screens: tighten everything so the difficulty column is on screen
@@ -164,10 +241,19 @@
     .fw-wrap thead th, .fw-wrap thead th .lbl { white-space:normal; }
     td.title { max-width:128px; }
     td.artist { max-width:100px; }
+    td.album { max-width:100px; }
     td.song { min-width:120px; }
     td.num { font-size:12px; }
     /* a 7px drag target is not a touch target, and it would fight the scroll */
     .fw-wrap thead th .rz { display:none; }
+    /* the graph takes the whole width of a phone: 8px of padding and no card border */
+    #modal { padding:8px; }
+    #modal .mcard { padding:8px; border:0; border-radius:0; }
+    /* the song grid: the instrument heading on its own line, four cells across the card */
+    #song { padding:8px; }
+    .sgrid { grid-template-columns:repeat(4, 1fr); }
+    .sgrid .corner { display:none; }
+    .sgrid .inst { grid-column:1 / -1; margin-top:6px; }
   }
   #hint { position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
           z-index:1070; opacity:0; transition:opacity .18s; pointer-events:none; }

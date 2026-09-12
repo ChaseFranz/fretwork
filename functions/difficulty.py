@@ -9,6 +9,15 @@ from functions import density, formula
 
 SCORED_KEYS = ('time_ms', 'lanes')
 
+# The meta keys the graph header prints: the title row (Name, Artist),
+# plot.meta_header (Charter, Release, Official, the instrument's Difficulty) and
+# plot.output_filename (Artist, Name). bundle.fingerprint hashes only these, so
+# a meta key the PNG never shows (Genre, Year, Album) re-renders nothing. It
+# mirrors upstream's functions/plot.py from here because that file is not the
+# fork's to edit; tests/test_bundle.py checks the mirror against plot.py's
+# source, and adding a printed key here means a full re-render.
+HEADER_META_KEYS = ('Name', 'Artist', 'Charter', 'Release', 'Official', 'Difficulty')
+
 
 # True for the five-fret stream shape every metric understands; a drums entry
 # carries {'hand_mask', 'kick_mask'} and is not scored yet.

@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+# pipeline_test.py rewrites the line above to "#!" + sys.executable when it copies
+# this file into <work>/bin, so the stub runs in the venv, never the system python.
+"""A stand-in for the AWS CLI: records what deploy.py asked for, changes nothing.
+
+Refuses to run without AWS_STUB_LOG so it can never be mistaken for the real
+thing. Answers `s3api head-object` from a fixed table of what a correct upload
+gives each extension, and the cache class from the key's directory (the same
+rule as web.assets.cache_class); it never asks mimetypes, whose answer is the
+OS's. `create-invalidation --output json` answers with an id so deploy's wait
+has something to wait on; the wait itself returns at once.
+"""
+import json
+import os
+import shlex
+import sys
+
+TYPES = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+         '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json',
+         '.txt': 'text/plain'}
+
+
+def cache_class(key):
+    if key.startswith(('static/', 'data/')):
+        return 'public, max-age=31536000, immutable'
+    if key.startswith('graph/'):
+        return 'public, max-age=604800'
+    return 'no-cache'
+
+
+log = os.environ.get("AWS_STUB_LOG")
+if not log:
+    print("aws stub: AWS_STUB_LOG is not set", file=sys.stderr)
+    sys.exit(2)
+args = sys.argv[1:]
+with open(log, "a", encoding="utf-8") as f:
+    f.write(shlex.join(args) + "\n")
+if args[:2] == ["s3api", "head-object"]:
+    key = args[args.index("--key") + 1]
+    ctype = TYPES.get(os.path.splitext(key)[1], "binary/octet-stream")
+    if "--query" in args and "CacheControl" in args[args.index("--query") + 1]:
+        print(ctype + "\t" + cache_class(key))
+    else:
+        print(ctype)
+elif args[:2] == ["cloudfront", "create-invalidation"] and "--output" in args:
+    print(json.dumps({"Invalidation": {"Id": "I1FIXTURE0000", "Status": "InProgress"}}))

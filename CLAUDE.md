@@ -8,7 +8,7 @@ Fretwork computes difficulty scores for 5-fret rhythm-game charts (Guitar/Co-op/
 
 ## Commands
 
-Plain Python 3 scripts, no packaging config, no test suite, no linter. Always work inside the project virtualenv at `.venv/` (gitignored); never install into or run against the system interpreter.
+Plain Python 3 scripts, no packaging config, no linter. Tests are stdlib `unittest` plus two scripts under `tests/` (see below); `.github/workflows/ci.yml` runs them on every push. Always work inside the project virtualenv at `.venv/` (gitignored); never install into or run against the system interpreter.
 
 ```
 python3 -m venv .venv
@@ -33,37 +33,45 @@ python analyze.py [--header NAME] [--cache FILE.pkl] [--diff-mode CalcTier|Remap
 python render.py CODE [CODE ...] [--codes-file FILE] [--header NAME] [--cache FILE.pkl] [--out-dir DIR]
 ```
 
-`serve.py` is an optional fourth entry point that browses an existing metrics `.xlsx` in a browser instead of Excel. Clicking a row renders that chart's graph on demand; columns have Excel-style filter dropdowns, can be hidden individually, dragged into any order in the column chooser, and resized by dragging the right edge of a header. All three preferences are remembered per browser in `localStorage` (`fw.hidden`, `fw.order`, `fw.widths`) and "Reset columns" clears all three. It reads the spreadsheet, not the cache, so `analyze.py` must have run first; the cache is loaded lazily only when a graph is clicked. A synthetic `Rank` column leads the table, numbering rows in the current view; it has no slot in the row arrays, so `state.visible()` pairs it with index -1. Long titles wrap rather than truncate, and a footer carries attribution and the licence. The level chips are a multi-select shortcut into the `Level` filter: a lit chip is a level on screen, so with no filter all four are lit, and clicking one adds or removes just that level. The Official/Custom pair beside them stays single-select, since its two values are complements and lighting both would mean the same thing as lighting neither. Stdlib `http.server` plus pandas, binds `127.0.0.1` only, nothing added to `requirements.txt`:
+`serve.py` is an optional fourth entry point that browses an existing metrics `.xlsx` in a browser instead of Excel. Clicking a row opens that chart's graph, drawn on a canvas by `static/js/graph.js` from `graph/<code>.json` (the raw window counts, smoothed in the browser with the same EMA as `functions/curves.py`; the palette is `boot.render`, the canvas keys of `plot.resolve_profile()`, and `tests/test_graph_json.py` pins both the profile and the smoothing against the Python side), with a readout under the cursor, up to three charts overlaid (`state.compare`, `?vs=`), a picker, pick-from-the-table (`state.picking`, the `#pick` bar) and a PNG export named by a twin of `plot.output_filename`; a per-song panel (`static/js/song.js`, `#song`, `?song=<SongKey>`, `state.song`) lists every chart of a song as instruments by levels from the rows already loaded (`loadAll()` first), keyed on the content hash so the link survives a re-download, with the folder the reader came from heading it and the others under "Also in"; it sits at z 1055 under the graph at 1060, so a cell opens the graph over it, `router.js` handles the dialogs topmost first (graph, then song, then explainer), Escape closes one layer, and `trapTab` keeps Tab in the topmost; `song.js` never imports `overlay.js` (the heading's `[data-song]` link is markup the router routes), which is what keeps the bundle acyclic; columns have Excel-style filter dropdowns, can be hidden individually, dragged into any order in the column chooser, and resized by dragging the right edge of a header. All three preferences are remembered per browser in `localStorage` (`fw.hidden`, `fw.order`, `fw.widths`) and "Reset columns" clears all three. It reads the spreadsheet, not the cache, for the table, so `analyze.py` must have run first; the cache is loaded at startup when present, for the pack join (the `Added` column and the changelog), and a graph click reuses it. Without a cache the page serves with neither. It serves exactly the four pages publish writes (`page.site_pages`: `index.html`, `about.html`, `404.html`, `robots.txt`) and answers an unknown path with the 404 page, so the footer's About link works locally; a drums code (`...XD`) answers 404 rather than crashing, because `GraphRenderer.lookup` returns `None` for a stream shape `difficulty.scorable` rejects. A synthetic `Rank` column leads the table, numbering rows in the current view; it has no slot in the row arrays, so `state.visible()` pairs it with index -1. Long titles wrap rather than truncate, and a footer carries attribution and the licence. The level chips are a multi-select shortcut into the `Level` filter: a lit chip is a level on screen, so with no filter all four are lit, and clicking one adds or removes just that level. The Official/Custom pair beside them stays single-select, since its two values are complements and lighting both would mean the same thing as lighting neither. Stdlib `http.server` plus pandas, binds `127.0.0.1` only, nothing added to `requirements.txt`:
 
 ```
-python serve.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--port 8000] [--no-bootstrap]
+python serve.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--port 8000] [--packs FILE] [--no-bootstrap]
 ```
 
-`publish.py` is the fifth entry point: the same page, written to `SITE_DIR/<header>/` as a static site (`index.html` with the data baked in, the assets, Bootstrap, and every chart pre-rendered to `graph/<code>.png`) so it can be hosted with no server-side code. The page's URLs are relative, so the bundle works at a domain root or under a sub-path. Re-publishing is incremental: files are rewritten only when their bytes change (so `aws s3 sync` uploads only what moved), and `graph/manifest.json` holds a fingerprint of each chart's render inputs - notes, Expert anchor, the difficulty numbers the header prints, metadata, `source_format`, the curve constants and the render theme - so unchanged charts skip the render. Safety rules in `web/bundle.py`: a chart that cannot be rendered keeps its previous PNG, only graphs a previous publish recorded are ever pruned, nothing is pruned when no code resolves (a cache/xlsx mismatch), and the manifest is saved every 200 charts so an interrupted run keeps its work. `--force` re-renders everything, which a change to `functions/plot.py` or a matplotlib upgrade requires since the fingerprint cannot see code. Measured at ~0.12 s per chart. `site/` is gitignored:
+`publish.py` is the fifth entry point: the same page, written to `SITE_DIR/<header>/` as a static site so it can be hosted with no server-side code. The bundle is three cache classes: the entry pages (`index.html`, about, changelog, 404, robots.txt), rewritten in place and deployed `no-cache`; `static/` and `data/`, every file named by the first eight hex of the SHA-1 of its bytes (`static/app.<h>.js` is the 17 ES modules concatenated by `web/bundler.py`, plus `app.<h>.css`, `favicon.<h>.svg`, `bootstrap.<h>.css`; `data/<sheet>.<h>.json` is each sheet's rows, which the page fetches on demand, so `index.html` is about 14 KB and carries only a manifest `{sheet: {file, rows, columns}}`), deployed immutable for a year; and `graph/`, a week, holding `<code>.json` (the raw window counts and the header numbers, which the page smooths and draws itself) and one `<code>.png`, the social preview `page.OG_IMAGE`, the only PNG publish renders since section 06 (`publish.py` passes `png_codes=[page.OG_CODE]` to `bundle.render_graphs`; a library without that chart publishes no PNG, prunes none, and says so). `web/assets.cache_class` is the one place that rule lives. The page's URLs are relative, so the bundle works at a domain root or under a sub-path. Re-publishing is incremental: files are rewritten only when their bytes change (so `aws s3 sync` uploads only what moved), and `graph/manifest.json` holds a fingerprint of each chart's render inputs - notes, Expert anchor, the difficulty numbers the header prints, the metadata the header prints (`difficulty.HEADER_META_KEYS`), `source_format`, the curve constants and the render theme - so unchanged charts skip the render; `graph/curves-manifest.json` does the same for the JSON, fingerprinted on the notes, the difficulty block and the constants alone, so a theme edit rewrites no JSON. Safety rules in `web/bundle.py`: a chart that cannot be rendered keeps its previous PNG, only graphs a previous publish recorded are ever pruned, nothing is pruned when no code resolves (a cache/xlsx mismatch), and the manifest is saved every 200 charts so an interrupted run keeps its work. `--force` rewrites everything (the one PNG and every curve file), which a change to `functions/density.py`'s windowing requires since the fingerprint cannot see code; a change to `functions/plot.py` or the theme now changes nothing the site serves, because the page draws. `caches/Local_manifest_pre06.json` is the PNG manifest from before the prune, kept for a rollback to the PNG page (README section 7). Publish refuses a spreadsheet and cache from different builds (`check_pair` raises `SystemExit`) unless `--allow-mismatch`, a flag `deploy.py` deliberately does not take, and warns when the newest file by mtime is not the newest by name. `site/` is gitignored:
 
 ```
-python publish.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--out-dir DIR] [--no-bootstrap] [--force]
+python publish.py [--header NAME] [--xlsx FILE.xlsx] [--cache FILE.pkl] [--out-dir DIR] [--packs FILE] [--no-bootstrap] [--force] [--allow-mismatch]
 ```
 
-The full rescan-to-published sequence, as numbered steps with the checks worth
-making at each one, is section 7 of `README.md`; keep it in step with these
-scripts when their flags change.
+The full pack-to-published sequence is section 7 of `README.md`: three commands,
+`tools/ingest_pack.py` (stage a pack chart-only under `songs/<name>/`, record it in
+`packs.toml`, run build and analyze, print the diff against the previous cache),
+`publish.py`, `deploy.py`. Keep it in step with these scripts when their flags
+change. `tools/` holds operator scripts, not entry points: `sanitize_songs.py`
+(also callable as `sanitize()`), `check_site.py` and `ingest_pack.py`, which is run
+from the directory where `caches/` and `metrics/` should land, refuses everything it
+can before touching a byte, and makes the rename into the library its one commit
+point so a crash never leaves audio or a half-extracted pack there.
 
 `deploy.py` ends every real run by asking S3 what Content-Type it will serve for
-one object of each kind, and exits non-zero if any is wrong. That check exists
+one object of each kind, and exits non-zero if any is wrong; `tools/check_site.py
+--site site/Local` is the post-deploy check from the visitor's side (ten GETs
+through CloudFront, the live strapline matched against the bundle just written). That check exists
 because `aws s3 cp --metadata-directive REPLACE` (what `--set-headers` uses)
 replaces *all* metadata and does **not** re-derive the content type the way an
 upload does - so a headers pass that does not name `--content-type` writes
 `binary/octet-stream` over every object, and the browser then refuses to run the
 page's ES modules. The bucket looks fine from the AWS side when this happens.
 
-`deploy.py` is the sixth entry point and the only one that talks to AWS: it calls `publish()` and then shells out to the AWS CLI (`aws s3 sync ... --delete`, then a CloudFront invalidation of `/*`). No boto3, nothing added to `requirements.txt`. Settings come from a gitignored `.env` in the repo root read by `functions/envfile.py` (a ten-line KEY=VALUE reader; `.env.example` is committed). Only `FRETWORK_*` keys and `AWS_PROFILE`/`AWS_REGION`/`AWS_DEFAULT_REGION` are read (the `.env` value overrides the shell for those); **credentials never go in `.env`** and a file containing any is refused - the AWS CLI's own profile/SSO chain supplies them. Because the sync uses `--delete`, two guards protect the bucket: the site folder may hold only what publish writes (`deploy.BUNDLE_TOP`: `index.html`, `404.html`, `about.html`, `robots.txt`, `bootstrap.css`, `static/`, `graph/`; a new page must be added there and to `bundle.prune_page` in the same change), so `FRETWORK_SITE_DIR=.` is refused instead of uploading the repo, and it must contain a publish output before anything is sent. `--dry-run` publishes nothing and sends nothing:
+`deploy.py` is the sixth entry point and the only one that talks to AWS: it calls `publish()` and then shells out to the AWS CLI, eight commands in an order that keeps a page in flight consistent (`deploy.plan()`: graphs; `static/` and `data/` without `--delete`; the entry pages with `--delete`, excluding the three directories; the CloudFront invalidation and a wait for it to complete; then `static/` and `data/` again with `--delete`, so the previous generation goes only once no edge can serve the page that named it). Never sync `static/` while it holds unhashed names: the immutable header cannot be undone from the server side. No boto3, nothing added to `requirements.txt`. Settings come from a gitignored `.env` in the repo root read by `functions/envfile.py` (a ten-line KEY=VALUE reader; `.env.example` is committed). Only `FRETWORK_*` keys and `AWS_PROFILE`/`AWS_REGION`/`AWS_DEFAULT_REGION` are read (the `.env` value overrides the shell for those); **credentials never go in `.env`** and a file containing any is refused - the AWS CLI's own profile/SSO chain supplies them. Because the sync uses `--delete`, two guards protect the bucket: the site folder may hold only what publish writes (`deploy.BUNDLE_TOP`: `index.html`, `404.html`, `about.html`, `robots.txt`, `bootstrap.css`, `static/`, `graph/`; a new page must be added there and to `bundle.prune_page` in the same change), so `FRETWORK_SITE_DIR=.` is refused instead of uploading the repo, and it must contain a publish output before anything is sent. `--dry-run` publishes nothing and sends nothing:
 
 ```
 python deploy.py [--env FILE] [--no-publish] [--dry-run]
 ```
 
-Bootstrap 5.3 supplies the base CSS. It is downloaded once into `OUTPUT_DIRS['cache']` as `bootstrap-<version>.min.css` (gitignored with the rest of `caches/`) and served same-origin from `/bootstrap.css`, so the page never contacts a CDN at view time and works offline after the first run. If the fetch fails or `--no-bootstrap` is passed, the page inlines `FALLBACK_CSS` instead, which covers layout plus the `d-none` / `dropdown-menu.show` state classes the page's JS toggles. There is no JS framework and no Bootstrap JS; interaction is plain DOM code that toggles Bootstrap's own classes.
+Bootstrap 5.3 supplies the base CSS. It is downloaded once into `OUTPUT_DIRS['cache']` as `bootstrap-<version>.min.css` (gitignored with the rest of `caches/`) and served same-origin as `static/bootstrap.<hash>.css`, so the page never contacts a CDN at view time and works offline after the first run. If the fetch fails or `--no-bootstrap` is passed, the page inlines `FALLBACK_CSS` instead, which covers layout plus the `d-none` / `dropdown-menu.show` state classes the page's JS toggles. There is no JS framework and no Bootstrap JS; interaction is plain DOM code that toggles Bootstrap's own classes.
 
 ### The public site is `fretladder`
 
@@ -76,7 +84,21 @@ timestamp), and it emits Open Graph / Twitter tags, which need `SITE_URL` becaus
 social preview cannot use a relative image. `page.OG_IMAGE` picks the chart that serves
 as that preview.
 
-Two explanatory surfaces, and the split is deliberate. The "How it works" panel
+A graph's heading links out to where the chart is published, when that is known:
+`tools/enchor_lookup.py` resolves each song against Chorus Encore offline (exact
+title and artist, then the Expert guitar note count, then the charter; the probe in
+`tools/enchor_probe.py` showed Enchor's hash filter is not the notes file's MD5) into
+`caches/<header>_links.json`, keyed by `SongKey`, and `web/links.py` publishes the sure
+answers as `data/links.<hash8>.json` (immutable class, `boot['links']`, `state.links`
+after `load.js`'s `loadLinks()`). The page never contacts either service: the anchors
+(`static/js/links.js`, `linkAnchors()`) are built from that file, each value checked
+against its character class before it enters a URL template, so a hand-edited
+registry can cost a link and never point at another host. The leaderboard half
+(`tools/leaderboards_lookup.py`, `lb` in the file, `LEADERBOARD_INSTRUMENT` in
+`instruments.py`) waits on the leaderboards maintainer's answer about batch reads of
+api.clonehero.net; `web/links.py` and the page already handle an `lb` value.
+
+Three explanatory surfaces, and the split is deliberate. The "How it works" panel
 on the charts page is `labels.EXPLAINER` - what D measures, how the tiers read,
 what the formula cannot see, where the numbers come from - led by the engine
 author's explainer video. `about.html` is `labels.ABOUT`, a page of its own
@@ -84,6 +106,14 @@ because the people who need it are not the people asking what D means: they want
 to know whether this is the official site, whether songs can be downloaded here,
 and who to complain to, and all three answers deserve a URL to point at. Keep its
 independence wording accurate if the relationship to upstream ever changes.
+`methodology.html` is upstream's `Methodology.md` itself, rendered at publish (and
+at serve start) by `web/markdown.py`, a stdlib subset renderer that supports
+exactly the constructs the file uses and raises `MarkdownError` naming the line
+on anything else (a list, a link, fenced code, an unknown LaTeX command), so an
+upstream edit fails publish loudly rather than shipping literal asterisks; the
+seven display formulas become MathML Core through its own typesetter, no CDN. The
+page names the upstream file as the source of truth (`labels.METHODOLOGY_SOURCE`)
+and this fork never edits `Methodology.md`; a correction goes upstream.
 
 The video iframe is built on first open and never before, so a visitor who does
 not open the panel makes no request to YouTube; it is the no-cookie host, with no
@@ -95,9 +125,11 @@ Every mention of fretwork or its author in the prose is a link, to the engine's
 repository or to the channel. Those strings carry a minimal `[text](url)` markup
 rather than HTML: `rich()` in `static/js/dom.js` and `rich_text()` in
 `web/page.py` are the two renderers, they escape every character, they build the
-anchors themselves, and they emit an anchor only for an `http(s)` target. Keep
-them in step - the same strings go through both, one for the panel and one for
-`about.html`. The four URLs are named once at the top of `labels.py`
+anchors themselves, and they emit an anchor only for an `http(s)` target (a new
+tab) or a bare same-site page name such as `methodology.html#calctier-calibration`
+(the same tab; never a path or a query, so data could not smuggle `javascript:`).
+Keep them in step - the same strings go through both, one for the panel and one
+for `about.html`. The four URLs are named once at the top of `labels.py`
 (`ENGINE_REPO`, `CHANNEL`, `FORK_REPO`, `VIDEO`).
 
 The footer is assembled in `static/js/main.js` from `labels.FOOTER_LINKS` plus the
@@ -145,24 +177,45 @@ blue. Everything the page renders as text now measures 5.2:1 or better against
 its own background - keep it there: AA wants 4.5:1 for text and 3:1 for anything
 clickable.
 
+### `packs.toml` is the registry of what is on the site
+
+Every top-level folder under the library is a pack, and `packs.toml` at the repo
+root names each one (`name`, `folder`, `source`, `added`, `notes`) and carries the
+site's own dated `[[change]]` entries. `functions/packs.py` (stdlib only) loads and
+validates it, joins it to the cache by folder (`resolve()`: the first path
+component of each `song_path` under the library root, recovered from the songs
+when the stored `search_path` is relative), counts songs and charts from the cache
+(never stored in the file), and is the one writer (`append_pack`, which proves the
+result with a re-read before renaming it into place). Publish refuses a folder
+the registry does not name or a registered folder the cache does not have; serve
+only warns, since it is for looking at any header's library. The join produces
+the page-built `Added` column (`frames.with_added`, appended before `Pct`) and
+`changelog.html` (`page.render_changelog`), and links the strapline to it.
+`instruments.SCORED_INSTRUMENTS` is what "charts on the site" counts through; no
+instrument name is spelled outside `instruments.py`.
+
 ### `web/` is the viewer, and only the viewer
 
 Root `serve.py` and `publish.py` are thin entry points in the same shape as the other three: docstring, one orchestration function, `main()`. They share everything below; publish writes what serve serves. Everything else lives in `web/`, a namespace package (no `__init__.py`, matching `functions/` and `parsers/`). It is named `web/` rather than `serve/` because a `serve/` directory beside `serve.py` loses to the module in Python's import resolution and would be silently unimportable.
 
 | Module | Responsibility |
 |---|---|
-| `web/frames.py` | Reads the metrics `.xlsx` into JSON-safe rows, and lists its codes. The only pandas importer. |
-| `web/boot.py` | Builds the JSON payload the page reads, and escapes `</` in it. |
-| `web/page.py` | `build()` composes a header's page; substitutes `index.html`'s placeholders in one regex pass. |
+| `web/frames.py` | Reads the metrics `.xlsx` into JSON-safe rows, and lists its codes. Adds the page-built `Pct` column (a per-sheet, per-level percentile of `D`, `rank(method='max')` floored to 0-100, `Int64`), which exists on the site and in serve and never in the spreadsheet. The only pandas importer. |
+| `web/boot.py` | Builds the JSON payload the page reads (the sheet manifest, never the rows), and escapes `</` in it. |
+| `web/page.py` | `build()` composes a header's page; substitutes `index.html`'s placeholders in one regex pass. `render_doc()` fills `doc.html` for the document pages (`about.html`, `changelog.html`, `methodology.html`); `site_pages()` is the dict of files a site is. |
+| `web/markdown.py` | The markdown subset renderer behind `methodology.html`: block and inline allow-lists, the LaTeX-to-MathML typesetter, `MarkdownError` on anything else. `python -m web.markdown FILE`. |
+| `web/methodology.py` | `load()` parses `Methodology.md` and `check_tables()` compares its calibration tables to `formula.py`, raising `MethodologyDrift`. `python -m web.methodology` for CI and after an upstream merge. |
+| `web/links.py` | The offline link registry's published form: `data/links.<hash8>.json` with each song's Enchor md5 and sure leaderboard hash, values filtered by character class; `None` when nothing is known. |
 | `web/bootstrap.py` | Bootstrap fetch/cache plus `FALLBACK_CSS`, its own fallback branch. |
-| `web/assets.py` | Locates `static/` relative to `__file__` and loads it at startup. |
-| `web/graph.py` | `GraphRenderer`: lazy cache load, `lookup`/`render` per code, memoised `png` for serve. |
-| `web/bundle.py` | Publish only: write-if-changed, the render-input manifest, and the never-delete-what-we-did-not-write rules. |
+| `web/assets.py` | `load_assets()`: the bundle, stylesheet, favicon and Bootstrap under hashed names; the content-type table and `cache_class()`. |
+| `web/bundler.py` | Concatenates the ES modules into one file, refusing any import or export form outside its whitelist. |
+| `web/graph.py` | `GraphRenderer`: lazy cache load, `lookup`/`render` per code, memoised `png` and `curves` for serve; `curves_bytes()` is the curve JSON. |
+| `web/bundle.py` | Publish only: write-if-changed, the two products per chart (PNG and curve JSON) with their manifests, and the never-delete-what-we-did-not-write rules. |
 | `web/handler.py` | `MetricsHandler`: routing and response writing only. |
 | `web/server.py` | `MetricsServer`: carries the handler's dependencies. |
 | `web/banner.py` | The terminal output: serve's startup/shutdown, publish's summary. |
 
-The page's markup, CSS and 17 ES modules live under `web/static/`, served from an in-memory dict built by globbing at startup. Keys never derive from a request path, so traversal is impossible by construction rather than by guard. Server data reaches the JS through a `<script type="application/json" id="fw-boot">` island that `boot.js` parses once and re-exports; `boot.py` escapes `</` so spreadsheet text can never close the tag. All mutable page state lives in one exported `state` object because ES module imports are read-only bindings.
+The page's markup, CSS and 19 ES modules live under `web/static/`; `page.build()` returns `Built.files`, `{relative name: bytes}` for every file the site is (graphs excepted), which publish writes and serve serves from memory at `'/' + name`, so the two answer the same bytes with the same cache headers. Keys never derive from a request path, so traversal is impossible by construction rather than by guard. Server data reaches the JS through a `<script type="application/json" id="fw-boot">` island that `boot.js` parses once and re-exports; `boot.py` escapes `</` so spreadsheet text can never close the tag. The rows are not in it: `state.data` fills from `load.js` (`loadSheet`, one in-flight promise per sheet, a `fw:sheet` event on arrival, an idle prefetch of the other sheets, none under Save-Data), `cols()` reads the manifest so the header and chooser paint before any row, and `draw()` shows a loading row (class `empty loading`, so the widths stylesheet skips it) until then. `readUrl()` picks a shared `?code=`'s sheet from its instrument letter (`sheetOfCode`). All mutable page state lives in one exported `state` object because ES module imports are read-only bindings. `labels.PREFS_VERSION` is stamped into `localStorage` as `fw.v`; bump it when `DEFAULT_HIDDEN` changes and a returning visitor's saved column set is replaced by the new default once (order and widths are kept).
 
 Two things must stay off the server's startup import path: matplotlib (via `functions/plot.py`) and openpyxl (via `functions/xlsx_format.py`). `GraphRenderer` imports plot inside its method bodies, and nothing in `web/` imports `xlsx_format`.
 
@@ -170,7 +223,17 @@ Before running Build, `config.SEARCH_PATH` must point at a real song library (th
 
 `--diff-mode CalcTier|RemapDiff` and `config.DIFF_WRITE_MODE` **write to the user's `song.ini` files**. `Restore` rewrites them from the backup CSV and skips analysis entirely. Treat these as destructive to user data.
 
-There are no automated tests. To sanity-check a change to parsing or metrics, build, analyze, and inspect the terminal summary / xlsx / error CSV against a small local library. The convention is a gitignored `songs/` folder at the repo root holding song folders copied from a real library, then stripped to chart-only with `tools/sanitize_songs.py` (it deletes audio, art, video and editor scratch from song folders and leaves `song.ini`, `notes.chart`, `notes.mid` and anything it does not recognise; dry run by default, `--apply` to delete). So do not expect audio in `songs/`, and the pipeline does not need it, since build, analyze and render only ever open those three files. It still must never be committed:
+Three test commands, all stdlib plus the venv, mirrored in `.github/workflows/ci.yml`:
+
+```
+python -m unittest discover -s tests -t . -v
+python tests/pipeline_test.py --keep /tmp/fw-ci --bootstrap-css caches/bootstrap-5.3.8.min.css
+python tests/page/run.py --site /tmp/fw-ci/site/Fixture
+```
+
+`tests/fixture.py` generates a synthetic 15-song library (nothing real, never committed; its `SONGS` table is the interface every count derives from). `tests/pipeline_test.py` runs build, analyze, publish and deploy against it as subprocesses from a temporary directory with a stub `aws` on `PATH`. `tests/page/run.py` stages a published bundle, injects one suite module per page, and drives it in headless Chrome (Windows Chrome from WSL), reading results out of a `<pre id="results">` block; every suite reads its expectations from the boot payload, so `--site site/Local` runs the same twelve suites against the real library. The 390 px layout is measured inside an iframe (`tests/page/narrow.js`) because headless Chrome floors its viewport at 500 px; the spec calls that measurement `frame.html`. `tests/README.md` lists the harness gotchas.
+
+The fixture does not exercise real-library shapes, so a change to parsing or metrics is still checked by building, analyzing and inspecting the terminal summary / xlsx / error CSV against a small local library. The convention is a gitignored `songs/` folder at the repo root holding song folders copied from a real library, then stripped to chart-only with `tools/sanitize_songs.py` (it deletes audio, art, video and editor scratch from song folders and leaves `song.ini`, `notes.chart`, `notes.mid` and anything it does not recognise; dry run by default, `--apply` to delete). So do not expect audio in `songs/`, and the pipeline does not need it, since build, analyze and render only ever open those three files; `tools/ingest_pack.py` runs the sanitizer on every pack before it lands there. It still must never be committed:
 
 ```
 python build.py --search-path songs --header Local
@@ -187,11 +250,11 @@ All of these outputs are gitignored (`*.pkl`, `*.csv`, `*.xlsx`, `*.png`, `cache
 
 ### The cache is the data contract
 
-The pickled cache shape is documented at the top of `functions/cache.py`. Everything downstream (analyze, render, curves, density) consumes `notes = {'time_ms': ndarray, 'lanes': ndarray uint8}` per (song, instrument, level); drums entries instead carry `notes = {'hand_mask': {...}, 'kick_mask': {...}}`, two streams of that same shape, which nothing downstream reads yet. Star-power and solo spans are no longer parsed or cached (upstream dropped them in the 2026-09-10 merge; the publish fingerprint stopped reading them at the same time). Both parsers must emit exactly that shape.
+The pickled cache shape is documented at the top of `functions/cache.py`. Everything downstream (analyze, render, curves, density) consumes `notes = {'time_ms': ndarray, 'lanes': ndarray uint8}` per (song, instrument, level); drums entries instead carry `notes = {'hand_mask': {...}, 'kick_mask': {...}}`, two streams of that same shape, which nothing downstream reads yet. Star-power and solo spans are no longer parsed or cached (upstream dropped them in the 2026-09-10 merge; the publish fingerprint stopped reading them at the same time). Both parsers must emit exactly that shape. Each song's `meta` holds nine keys from `song.ini` (`build.META_KEYS`): `Name`, `Artist`, `Charter`, `Release`, `Official`, `Genre`, `Year`, `Album`, plus `Difficulty`; only the six `difficulty.HEADER_META_KEYS` reach the graph header and its fingerprint, so a cache rebuilt for the other three re-renders nothing.
 
 **Lane encoding**: one `uint8` bitmask per note timestamp. Bits 0-4 are GRBYO frets, bit 7 is open. Bits 5-6 are reserved (chart tap/force modifiers) and unused. Strum/HOPO/tap state is deliberately discarded by both parsers.
 
-**Retrieval codes** (`04821993XG`): 8 digits from a SHA1 of the resolved song folder path (with linear probing on collision), then a level letter (E/M/H/X) and an instrument letter (G/C/R/B/K). Assigned in `cache.assign_codes` at build time and stored in `cache['codes']`. Render accepts codes without leading zeros.
+**Retrieval codes** (`04821993XG`): 8 digits from a SHA1 of the resolved song folder path (with linear probing on collision), then a level letter (E/M/H/X) and an instrument letter (G/C/R/B/K). Assigned in `cache.assign_codes` at build time and stored in `cache['codes']`. Render accepts codes without leading zeros. A code moves when its folder does; `song_key` (`cache.song_key`, 12 hex over every 5-fret stream, `SongKey` in the xlsx, hidden) does not: it is the identity that survives a re-download, and two folders holding the same charts share one. Each level entry also carries `notes_hash` (`cache.notes_hash`, 12 hex over `cache.stream_bytes(notes)`, `NotesHash` in the xlsx, hidden): the identity of one chart, which is what the page's `Copies` column and the distinct-chart percentile group on, keyed with `Type` and `Level` because a song's Hard often equals its Expert byte for byte and a Lead its own Rhythm. `bundle.fingerprint` deliberately hashes the two arrays as separate tuple elements rather than through `stream_bytes`; routing it through there would change every stored fingerprint and re-render every graph. Neither hash survives a change to `parsers/timing.py`, so never persist them across builds.
 
 ### Parsers (`parsers/`)
 
@@ -211,7 +274,7 @@ Every instrument/level table lives there: canonical keys and iteration order, `.
 
 ### `functions/labels.py` holds every human-facing string
 
-The abbreviated keys (`pNPS`, `medVPS`, `COV`, `DurationS`) are the data contract: they come out of `density.calc_metrics` and `formula.calc_nvcov`, flow through the dataframes in `analyze.py`, and become the xlsx headers. Nothing keyed off a column name should change. `labels.py` maps those keys to readable text at display time only, via `COLUMN_LABELS`, `COLUMN_HELP` (tooltips), `TIME_COLUMNS` (seconds shown as m:ss), `DISPLAY_ORDER` (left-to-right column order on the page, which is deliberately not `analyze.COLUMN_ORDER`, so the site can lead with `D` without touching the spreadsheet), `DEFAULT_HIDDEN` (the columns a first visit does not show; search still looks inside a hidden column, and a filter set on one still applies, so hiding is display-only), `VALUE_ORDER` (columns whose values are neither numeric nor alphabetical - `Level` and `Type`, both derived from `instruments.py` rather than respelled, and used for the filter list and the column's sort alike), `VALUE_LABELS` (display text for a stored value, currently Official/Custom for the `Official` booleans; the filter still matches the stored key), `FOOTER_LINKS` (the attribution links), and `UI` (interface wording, including the copyright and licence lines). `label()` falls back to the raw key, so a new metric column degrades gracefully instead of raising.
+The abbreviated keys (`pNPS`, `medVPS`, `COV`, `DurationS`) are the data contract: they come out of `density.calc_metrics` and `formula.calc_nvcov`, flow through the dataframes in `analyze.py`, and become the xlsx headers. Nothing keyed off a column name should change. `labels.py` maps those keys to readable text at display time only, via `COLUMN_LABELS`, `COLUMN_HELP` (tooltips), `TIME_COLUMNS` (seconds shown as m:ss), `DISPLAY_ORDER` (left-to-right column order on the page, which is deliberately not `analyze.COLUMN_ORDER`, so the site can lead with `D` and seat the page-built `Pct` beside it without touching the spreadsheet), `DEFAULT_HIDDEN` (the columns a first visit does not show; search still looks inside a hidden column, and a filter set on one still applies, so hiding is display-only; `PREFS_VERSION` moves by one whenever this tuple changes, or a returning visitor never sees the new default), `VALUE_ORDER` (columns whose values are neither numeric nor alphabetical - `Level` and `Type`, both derived from `instruments.py` rather than respelled, and used for the filter list and the column's sort alike), `VALUE_LABELS` (display text for a stored value, currently Official/Custom for the `Official` booleans; the filter still matches the stored key), `FOOTER_LINKS` (the attribution links), and `UI` (interface wording, including the copyright and licence lines). `label()` falls back to the raw key, so a new metric column degrades gracefully instead of raising.
 
 `serve.py` and `publish.py` consume it through `web/boot.py`; the pipeline itself does not. The xlsx headers and the render header are deliberately still raw keys, since changing them would alter committed example outputs and anything downstream that reads the spreadsheet by column name. Wiring either one up is a display-layer change through this module, not a rename in the pipeline.
 
@@ -221,21 +284,21 @@ The abbreviated keys (`pNPS`, `medVPS`, `COV`, `DurationS`) are the data contrac
 
 **Expert anchoring**: `D` is computed per level, but `RemapDiff` (0-6 bins, per calibration group) and `CalcTier` (uncapped log tier) are computed once per (song, instrument) from the **Expert** level's D via `formula.anchor_remap_tier`, and that pair is shown on every E/M/H/X row. If an instrument has no Expert chart, both are `None`/NaN. This is because `song.ini` only has one `diff_*` tag per instrument. Guitar, Co-op, and Rhythm share the `guitar` calibration group.
 
-The bin edges and CalcTier constants in `formula.py` are mirrored as tables in `Methodology.md`; update both together.
+The bin edges and CalcTier constants in `formula.py` are mirrored as tables in `Methodology.md`; update both together. `web/methodology.check_tables` enforces it with exact equality on every publish and serve start (`python -m web.methodology` runs it alone), and `labels.py` prints the CalcTier constants from `formula.BASE_D` and `formula.LN_INC` rather than as literals, so the page and the explainer cannot drift from the code either.
 
 ### Render path (`functions/curves.py` -> `functions/plot.py`)
 
-Render recomputes from the cache rather than reading stored metrics. `curves.calc_curves` reuses `density.window_arrays`, converts to rates, and applies a zero-phase EMA (`TAU_MS = 2000`). The plotted "D" line is `sqrt(nps * vps)`, an approximation for display that omits COV, while the header's `D` value comes from the real formula. Appearance comes entirely from `config.RENDER_DEFAULT` + `config.RENDER_THEMES`; `plot.py` uses the Agg backend and never opens a window.
+Render recomputes from the cache rather than reading stored metrics. `curves.calc_curves` reuses `density.window_arrays`, converts to rates, and applies a zero-phase EMA (`TAU_MS = 2000`). The plotted "D" line is `sqrt(nps * vps)`, an approximation for display that omits COV, while the header's `D` value comes from the real formula. Appearance comes entirely from `config.RENDER_DEFAULT` + `config.RENDER_THEMES`; `plot.py` uses the Agg backend and never opens a window. The site's page draws the same picture itself (`web/static/js/graph.js`, `smooth()` is the EMA in doubles, byte-for-byte equal to the Python loop) from the curve JSON `web/graph.py` writes, so a change to `curves.py` or to the profile must keep the two in step: `tests/test_graph_json.py` and `tests/page/graph.js` share one pinned vector. Never use `color_d` or `color_nps` as text: they are 3.09:1 and 3.67:1 on the figure background, enough for a line and a swatch, not for words.
 
 ### `song.ini` backup and write-back (`functions/ini_updater.py`)
 
-Build **always** appends new songs to `caches/{header}_BackupData.csv` (append-only, deduplicated by `song_path`, one column per `diff_*` tag) regardless of config. It never writes to `song.ini`. Analyze's write modes and Restore both go through `update_ini_values`, which patches matching `key = value` lines inside the `[song]` section in place, appends missing keys at the end of the section, and preserves the file's original encoding (utf-8 / utf-8-sig / utf-16 / cp1252) and newline style. Don't replace it with `configparser`; `song.ini` files routinely contain `%` and other characters that break it, which is also why `ini_parser.parse_ini` is hand-rolled.
+Build **always** appends new songs to `caches/{header}_BackupData.csv` (append-only, deduplicated by `song_path`, one column per `diff_*` tag) regardless of config. It never writes to `song.ini`. When an instrument joins `DIFF_TAGS` after the file was written, `migrate_backup_header` rewrites the header once (run from `backup_data`, `restore_from_backup` and the top of `build_cache`), keeps every row, recovers a row already appended with the longer shape by position, leaves a longer header alone and refuses one it does not recognise; it is upstream's file, offered upstream as PR #9. Analyze's write modes and Restore both go through `update_ini_values`, which patches matching `key = value` lines inside the `[song]` section in place, appends missing keys at the end of the section, and preserves the file's original encoding (utf-8 / utf-8-sig / utf-16 / cp1252) and newline style. Don't replace it with `configparser`; `song.ini` files routinely contain `%` and other characters that break it, which is also why `ini_parser.parse_ini` is hand-rolled.
 
 ## Conventions worth knowing
 
 - `config.py` is user-edited configuration (paths, header, theme), not library code. The committed `SEARCH_PATH`/`HEADER` values are placeholders. `instrument_scan.py` is gitignored local scratch.
-- `Difficulty` of `'-1'` (string in cache, int in xlsx) is the sentinel for "no `diff_*` tag in song.ini". `xlsx_format.BLANK_PREDICATES` keeps sentinels out of the color scales.
-- `analyze.COLUMN_ORDER` defines xlsx column order; `xlsx_format.DEFAULT_HIDDEN_COLS` lists the diagnostic columns that are dropped unless `config.EXTRA_METRICS` is True. Excel sheet names are truncated to 31 chars.
+- `Difficulty` of `'-1'` (string in cache, int in xlsx) is the sentinel for "no `diff_*` tag in song.ini", and `Year` of `-1` (int in both) is the same sentinel for no four-digit year in the `year` tag; `labels.MISSING_VALUES` is where the page learns both, so a sentinel prints as a dash, sorts last and is in no range. `xlsx_format.BLANK_PREDICATES` keeps sentinels out of the color scales.
+- `analyze.COLUMN_ORDER` defines xlsx column order; `xlsx_format.DEFAULT_HIDDEN_COLS` lists the diagnostic columns that are dropped unless `config.EXTRA_METRICS` is True, and `xlsx_format.HIDDEN_COLS` the identity columns (`SongKey`, `NotesHash`) that are always written but hidden in Excel. Excel sheet names are truncated to 31 chars. The page-build columns come after the xlsx ones in a fixed order, `Added`, `Copies`, `Pct` (`web/page.build`), and `frames.load_frames` reads the two hash columns as text so a one-row sheet whose hash is all digits keeps its leading zeros.
 - Song identity everywhere is the resolved absolute folder path (`song_path`), which is also the join key between the ini table, note streams, backup CSV, and codes.
 - Terminal progress uses `tqdm`; keep long loops wrapped so multi-minute builds stay observable.
 
@@ -248,7 +311,9 @@ no branch protection), and the source of parser, instrument and difficulty-formu
 improvements. The viewer was offered upstream as PR #6 and closed unmerged on
 2026-09-07; it is this fork's project now. Releases of the hosted site are tagged
 `fretladder-vX.Y.Z` - a separate namespace from upstream's `vX.Y` tags, which
-arrive with every fetch and must not be reused.
+arrive with every fetch and must not be reused. A deploy is tagged at the commit
+whose sources produced the live bundle, with the chart count and the bundle's
+publish time in the message.
 
 - **`main` on the fork is `upstream/main` plus the viewer.** Feature work branches
   from `main`, is named for the feature (`rank-column`), and merges back with a merge
@@ -265,19 +330,29 @@ arrive with every fetch and must not be reused.
   footer links to. The form asks for a link to where a pack is already published
   and refuses attachments: no audio or chart files are ever accepted through it,
   which is the same rule the hosting design runs on.
-- **Never open pull requests against `upstream` for viewer, scores or rating work.**
-  A genuine fix to the shared tooling (parsers, formula) can still go upstream as a
-  fork PR, from a branch cut off `upstream/main` rather than off `main`.
+- **Never open a pull request against any repository without the maintainer's
+  explicit approval for that specific PR.** A blanket "go ahead and implement" does
+  not cover it: opening a PR publishes work under the maintainer's name to someone
+  else's tracker, so ask, name the target repo, branch and what the PR would carry,
+  and wait for a yes. Never open pull requests against `upstream` for viewer, scores
+  or rating work at all. A genuine fix to the shared tooling (parsers, formula) can
+  go upstream as a fork PR once approved, from a branch cut off `upstream/main`
+  rather than off `main`.
 - **`elo` is the rating branch**, secondary to the viewer: `ScoreData.md` and
   `SkillRating.md` so far. Merge `main` into it periodically; it merges to `main`
   only when there is code worth shipping. The rating never touches `web/`.
+  `screenshots` is an orphan branch holding the four PNGs upstream PR #6 embeds
+  by URL and is kept for that reason; `hosting` was merged in `5e9f6b7` and
+  deleted. `backup-header` is the branch behind upstream PR #9 and goes when
+  that PR is merged or closed.
 - **Merge commits only, short informal one-line messages**, matching upstream.
   Example outputs under `metrics/` and `renders/` are force-added; if you regenerate
   them, `git add -f` the new files and remove the stale ones in the same commit.
   Never commit caches, backup CSVs, `songs/`, or a real library's metrics.
-- **No tests, no CI.** After merging parser or metrics changes from upstream, run
-  build, analyze and render against `songs/` and compare the terminal summary and
-  error CSV with the previous run, since nothing else will catch a regression.
+- **CI runs the tests on every push**, but the fixture is synthetic. After merging
+  parser or metrics changes from upstream, still run build, analyze and render
+  against `songs/` and compare the terminal summary and error CSV with the previous
+  run, since the fixture cannot see a real library's shapes.
 - **The plan for the site is `docs/spec/`**: fourteen numbered sections, one per
   piece of work, and a `README.md` index with the implementation order, the
   cross-section decisions and the follow-ups that wait on information we do not

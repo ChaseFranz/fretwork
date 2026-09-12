@@ -4,10 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__</title>
-<link rel="icon" href="static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="__FAVICON__" type="image/svg+xml">
 __META__
-__BOOTSTRAP__
-<link rel="stylesheet" href="static/css/app.css">
+__STYLES__
 </head>
 <body class="bg-body">
 <div class="fw-head bg-body border-bottom px-3 pt-3 pb-2">
@@ -31,6 +30,7 @@ __BOOTSTRAP__
   </div>
 </div>
 
+<div id="pick" class="fw-pick d-none" role="status"></div>
 <div class="fw-wrap">
   <table class="table table-sm table-hover align-middle" id="grid">
     <thead><tr id="head"></tr></thead>
@@ -42,11 +42,12 @@ __BOOTSTRAP__
 <div id="cd" class="dropdown-menu shadow p-2"></div>
 <div id="modal" role="dialog" aria-modal="true" tabindex="-1"><div class="mcard"></div></div>
 <div id="about" role="dialog" aria-modal="true" tabindex="-1"><div class="mcard"></div></div>
+<div id="song" role="dialog" aria-modal="true" tabindex="-1"><div class="mcard"></div></div>
 <footer class="fw-foot border-top px-3 py-2" id="foot"></footer>
 
 <div id="hint" aria-live="polite"><span class="badge text-bg-secondary rounded-pill px-3 py-2"></span></div>
 
 <script type="application/json" id="fw-boot">__BOOT__</script>
-<script type="module" src="static/js/main.js"></script>
+<script type="module" src="__SCRIPT__"></script>
 </body>
 </html>

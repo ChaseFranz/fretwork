@@ -35,15 +35,16 @@ from functions import cache as cache_mod
 from functions import density, formula, ini_updater, xlsx_format, timestamp
 
 COLUMN_ORDER = [
-    'Code', 'Song Title', 'Artist', 'Level', 'Type', 'Charter', 'Release', 'Official',
-    'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier',
+    'Code', 'Song Title', 'Artist', 'Level', 'Type', 'Charter', 'Release',
+    'Album', 'Year', 'Genre', 'Official',
+    'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier', 'SongKey', 'NotesHash',
     'pNPS', 'aNPS', 'medNPS', 'stdNPS', 'pVPS', 'aVPS', 'medVPS', 'stdVPS',
     'N', 'V', 'COV',
 ]
 
 # metrics: pre-computed density metrics for this level (expert)
 def song_row(code, meta, notes, instrument_key, level_key, anchor_remap, anchor_tier,
-             metrics=None):
+             metrics=None, song_key=None, notes_hash=None):
     if metrics is None:
         metrics = density.calc_metrics(notes)
     if metrics is None:
@@ -58,6 +59,9 @@ def song_row(code, meta, notes, instrument_key, level_key, anchor_remap, anchor_
         'Level': instruments.LEVEL_DISPLAY_NAMES[level_key],
         'Difficulty': (meta.get('Difficulty') or {}).get(instrument_key, '-1'),
         'Release': meta.get('Release'),
+        'Album': meta.get('Album', ''),
+        'Year': meta.get('Year', -1),
+        'Genre': meta.get('Genre', ''),
         'Official': meta.get('Official'),
     }
 
@@ -68,6 +72,8 @@ def song_row(code, meta, notes, instrument_key, level_key, anchor_remap, anchor_
         **nvcov,
         'RemapDiff': anchor_remap,
         'CalcTier': anchor_tier,
+        'SongKey': song_key,
+        'NotesHash': notes_hash,
     }
 
 #Save clock, since that's slower than most of the analysis...
@@ -152,7 +158,9 @@ def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=No
 
             row = song_row(code, song['meta'], inst_entry['notes'], instrument_key,
                             level_key, anchor_remap, anchor_tier,
-                            metrics=expert_metrics if level_key == 'expert' else None)
+                            metrics=expert_metrics if level_key == 'expert' else None,
+                            song_key=song.get('song_key'),
+                            notes_hash=inst_entry.get('notes_hash'))
             if row is None:
                 skipped += 1
                 continue
@@ -200,6 +208,9 @@ def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=No
 
                 # Difficulty comes from song.ini as a string, convert to numeric and fill missing with -1
                 df['Difficulty'] = pd.to_numeric(df['Difficulty'], errors='coerce').fillna(-1).astype(int)
+                # Year likewise: an int in the cache already, but an old cache has none
+                if 'Year' in df.columns:
+                    df['Year'] = pd.to_numeric(df['Year'], errors='coerce').fillna(-1).astype(int)
 
                 df = df[column_order]
                 float_cols = [c for c in df.columns if c in xlsx_format.FLOAT_COLS or c == 'D']
@@ -223,6 +234,10 @@ def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=No
     print(f"{total} Rows written:")
     active_levels = [level for level in instruments.LEVEL_KEYS if level in selected_levels]
     print(instruments.level_matrix(row_counts, active_levels, skip_empty=True))
+    # the same key the page's Copies column groups on; an old cache prints 0
+    written = pd.concat(frames.values()) if frames else pd.DataFrame(columns=['Type', 'Level', 'NotesHash'])
+    hashed = written[['Type', 'Level', 'NotesHash']].dropna().drop_duplicates()
+    print(f"Distinct charts   {len(hashed):,} of {len(written):,}")
 
     print(f"\nSpreadsheet written: {pathlib.Path(xlsx_out).resolve()}")
     print()

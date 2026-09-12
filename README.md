@@ -19,7 +19,7 @@ Optionally, applies calculated difficulty to `song.ini` files for use in-game, o
 5. **Publish** *(optional)* - Write the viewer as a static site to host anywhere
 6. **Deploy** *(optional)* - Push that site to S3 and refresh the CDN in front of it
 
-In a hurry? [7. Updating the live site, start to finish](#7-updating-the-live-site-start-to-finish) is the whole rescan-to-published sequence as numbered steps.
+Python 3.11 or newer (the pack registry is read with the standard library's `tomllib`). In a hurry? [7. Updating the live site, start to finish](#7-updating-the-live-site-start-to-finish) is the whole rescan-to-published sequence as numbered steps.
 
 ## Index <!-- omit in toc -->
 - [1. Setup your Config](#1-setup-your-config)
@@ -30,6 +30,7 @@ In a hurry? [7. Updating the live site, start to finish](#7-updating-the-live-si
 - [6. Publishing a static site](#6-publishing-a-static-site)
 - [7. Updating the live site, start to finish](#7-updating-the-live-site-start-to-finish)
 - [8. Fixes/Extension Ideas](#8-fixesextension-ideas)
+- [9. Tests](#9-tests)
 - [License](#license)
 
 ---
@@ -94,8 +95,9 @@ Optionally, `analyze.py` can also update each instrument's `song.ini` `diff_*` t
 An .xlsx spreadsheet named `{header}_metrics_{timestamp}.xlsx` with:
 - One tab per instrument group that has data in the cache (`Guitar` - combining Guitar/Co-op/Rhythm, `Bass`, `Keys`). Easy/Medium/Hard/Expert share the same tab in the `Level` column
 - **Retrieval codes** - an 8-digit song hash plus a level letter (`E`/`M`/`H`/`X`) and an instrument letter (`G`/`C`/`R`/`B`/`K`), e.g. `04821993XG` for an Expert Guitar song - used to render graphs
-- Metadata: Song Title, Artist, Level, Type (Lead/Co-op/Rhythm/Bass/Keys), Charter, Release/Source, Difficulty (song.ini diff tags)
+- Metadata: Song Title, Artist, Level, Type (Lead/Co-op/Rhythm/Bass/Keys), Charter, Release/Source, Album, Year, Genre, Difficulty (song.ini diff tags). Year is the four-digit year found in the `year` tag, `-1` when it holds none
 - The difficulty metrics & updated Remap/CalcTier numbers
+- Two hidden identity columns: `SongKey`, one hash over every chart in the song, and `NotesHash`, a 12-hex hash of one chart's notes. Two folders carrying the same chart share a `NotesHash` whatever they are called; the analyze summary's `Distinct charts` line counts (part, level, hash) once, and a `COUNTIFS` over those three columns is the spreadsheet's own copies count
 
 Each tab is formatted for browsing using `xlsx_format.py`
 
@@ -103,7 +105,7 @@ Using `XLSX_LEVELS` in the config you can adjust the mix of Easy/Medium/Hard/Exp
 
 The raw NPS/VPS details and N/V/COV formula components are dropped, but they can be included as hidden columns by using `EXTRA_METRICS = True` in the config for diagnostics/comparison.
 
-**Full D formula, Remap tables, & CalcTier detail in `Methodology.md`**
+**Full D formula, Remap tables, & CalcTier detail in `Methodology.md`** (also published as the site's methodology page, checked against `formula.py` at every publish)
 
 In the metrics spreadsheet / render header, you'll see D translated two ways:
 - **RemapDiff (0–6):** A manual grouping, calibrated to roughly match the percentage of official releases across the seven tiers. Roughly, how would this have been tiered in a Rock Band game (capped at 6). Guitar (plus Co-op/Rhythm), Bass, and Keys each have their own bin edges, fit against that instrument's own `diff_*` distribution.
@@ -159,18 +161,22 @@ Graphs are available in light or dark mode depending on the config.
 
 ## 5. Browsing in a browser
 
-`python serve.py`
+`python serve.py [--header NAME] [--xlsx FILE] [--cache FILE] [--port 8000] [--packs FILE] [--no-bootstrap]`
 
-`serve.py` serves the most recent metrics spreadsheet for your header as a local web page, so you can sort and filter without opening Excel. It reads the **spreadsheet**, so run Analyze first.
+`serve.py` serves the most recent metrics spreadsheet for your header as a local web page, so you can sort and filter without opening Excel. It reads the **spreadsheet**, so run Analyze first. It serves exactly what Publish writes: `index.html`, `about.html`, `404.html` and `robots.txt`, and an unknown path gets the 404 page.
 
 Open **http://localhost:8000** once it starts. It binds `127.0.0.1` only, so nothing outside your machine can reach it. On WSL the URL works in a Windows browser as-is.
 
 **What the page does:**
 
 - **Sort** by clicking a column header, click again to flip direction. Opens sorted by D, hardest first
+- **Added** (hidden by default) is the date the chart's pack was registered in `packs.toml`, joined when the page is built; the header's "Updated" line links to the "What's new" page, which lists every pack with its counts and the site's own changes
+- **Percentile**, beside D: where the chart sits among the charts on its sheet at the same level, officials and customs together, as a whole number (100 is the hardest). It is computed when the page is built, so it moves as the library grows and is not in the spreadsheet; the graph heading and each row's hover text spell it out. A chart counts once however many packs carry it
+- **Copies** (hidden by default) is how many charts on the sheet have exactly these notes at this level and part, this one included: 1 is unique, 2 means the same chart is in another folder, usually another pack. Rows are never merged, since each copy has its own code, graph and report link; the graph heading lists the other folders under "Same chart in", each a link that opens that copy's graph. `?f.Copies=2` is the view of every duplicated chart
 - **Filter** any column from the caret next to its name - a checkbox list for things like Part or Remap Tier, a min/max box for wide numeric columns like D or Length. Value counts reflect your other active filters
-- **Search** song, artist, charter or source from the box in the toolbar
-- **Click a row** to render that chart's graph and see it in a lightbox - the same PNG `render.py` produces, written to your render folder. The copy icon on a Code cell copies the retrieval code instead
+- **Search** song, artist, album, charter or source from the box in the toolbar
+- **Click a row** to open that chart's graph: the same three curves `render.py` draws, drawn in the browser from the chart's curve file, with the values under the cursor read out below (hover, or the arrow keys once the graph has focus; Shift with them jumps ten seconds). **Compare** overlays up to three charts' D curves, chosen from a search box, from the other charts of the same song, or by picking a row from the table; the link carries them as `?code=A&vs=B,C`. **Save as PNG** downloads the graph at the figure's own size, named the way `render.py` names its files. The copy icon on a Code cell copies the retrieval code instead
+- **Every chart of a song** in one panel: from the graph heading's "All charts of this song" link, or from the small mark that appears at the right of a title on hover. Instruments down, levels across, `D` and the percentile in each cell, the Expert-anchored tier beside each instrument, "Compare all levels" per instrument, and the other folders that carry the same charts under "Also in". A cell opens that chart's graph over the panel; Escape closes one layer at a time. The panel's link is `?song=<key>`, the song's content hash, which survives a re-download; `?code=<code>` still opens one chart, and the two combine
 - **Columns** button hides any column you do not want, remembered in your browser
 - Friendly column names throughout, with the metric definitions on hover. Unrated songs (`diff_*` of -1) show a dash rather than the raw number
 
@@ -191,21 +197,22 @@ Stop the server with Ctrl+C.
 
 `python publish.py`
 
-`publish.py` writes the same page `serve.py` serves into a folder - `site/<header>/` by default - as plain files: `index.html` with the table's data baked in, the scripts and styles, Bootstrap, and **every chart's graph pre-rendered** under `graph/<code>.png`. The result needs no server-side code, and its URLs are relative, so it works from a domain root, a sub-path like `user.github.io/fretwork/`, or any static file host. It reads the **spreadsheet** for the table and the **cache** for the graphs, so run Analyze first; it stops if the two are from different builds, unless you pass `--allow-mismatch` on purpose.
+`publish.py` writes the same page `serve.py` serves into a folder - `site/<header>/` by default - as plain files: `index.html` and the sheet files, the scripts and styles, Bootstrap, and **every chart's curve file** under `graph/<code>.json`, from which the page draws the graph itself; the one PNG it renders is the social-preview chart (`page.OG_IMAGE`) that link previews need. The result needs no server-side code, and its URLs are relative, so it works from a domain root, a sub-path like `user.github.io/fretwork/`, or any static file host. It reads the **spreadsheet** for the table and the **cache** for the graphs, so run Analyze first; it stops if the two are from different builds, unless you pass `--allow-mismatch` on purpose.
 
-The first publish of a large library takes a while - measured at about 0.12 seconds per chart, so around ten minutes for 4,600 charts. After that it is incremental:
+The first publish of a large library takes seconds (the curve files are about 4 KB each, 48 MB for 12,000 charts). After that it is incremental:
 
 - files whose bytes did not change are left alone, so a sync to your host uploads only what moved
-- a chart whose notes, header numbers, metadata, curve settings and render theme are unchanged skips its render, tracked in `graph/manifest.json`
-- a chart that cannot be rendered this time keeps the graph an earlier publish made
-- only graphs an earlier publish recorded are ever removed; nothing else in the folder is touched
+- a chart whose notes, Expert anchor and difficulty block are unchanged keeps its curve file, tracked in `graph/curves-manifest.json`; the preview PNG's own inputs (those plus the metadata the graph header prints, and the render theme) are tracked in `graph/manifest.json`
+- a chart that cannot be written this time keeps the file an earlier publish made
+- only files an earlier publish recorded are ever removed; nothing else in the folder is touched. A library without the preview chart publishes no PNG and removes none
 
 **Optional arguments:**
 - `--header` / `--xlsx`: pick which library's spreadsheet to publish
 - `--cache`: explicit cache path, used for the graphs
 - `--out-dir`: the folder to write (default `site/<header>/`, from `site_dir` in `config.py`)
 - `--no-bootstrap`: skip the Bootstrap download and inline the built-in styles instead
-- `--force`: re-render every graph. Needed after a change to `functions/plot.py` or a matplotlib upgrade, which the manifest cannot see
+- `--packs`: the pack registry to join and list (default `packs.toml` in the repo root)
+- `--force`: re-render the preview PNG and rewrite every curve file. Needed after a change to `functions/density.py`'s windowing, which the manifests cannot see; a change to the page's drawing or the theme needs nothing, since the page draws
 - `--allow-mismatch`: publish even though the spreadsheet and the cache carry different build timestamps. Without it the run stops, because a table computed from one build beside graphs rendered from another is not a site anyone meant to publish
 
 To check a bundle locally, serve the folder with any static server, for example `python -m http.server 8000 --directory site/Main`, and open **http://localhost:8000**. Opening `index.html` straight from the filesystem will not work: the page uses ES modules, which browsers refuse to load from `file://`.
@@ -218,15 +225,15 @@ The sync runs with `--delete`, mirroring publish's own pruning, so the bucket mu
 
 ## 7. Updating the live site, start to finish
 
-Everything between "I changed what is in the song library" and "the website shows it", in order. Run every command from the repo root with the virtualenv active:
+Everything between "there is a pack to add" and "the website shows it". Three commands: `tools/ingest_pack.py` puts the pack under `songs/<name>/` chart-only, records it in `packs.toml`, and runs build and analyze for you (the two commands from sections 2 and 3, printed as it runs them, so the manual route is still there when the library changed some other way); `publish.py` writes the site; `deploy.py` pushes it. The sanitise, build and analyze steps this section used to list are inside the first command, and the checks it asked you to make by hand are in its summary: the song count moved by the size of the pack, the errors CSV did not jump, every instrument gained what the pack charts, and the pack is registered.
+
+Run every command from the repo root with the virtualenv active:
 
 ```
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 ```
 
-The examples use `Local` as the header and `songs/` as the library. Substitute your own; the header is what ties a cache, a spreadsheet and a published site together, so **use the same one at every step**.
-
-The `songs/` library on the dev box is kept chart-only: `python tools/sanitize_songs.py songs --apply` strips audio, art, video and editor scratch out of every song folder and keeps only `song.ini`, `notes.chart` and `notes.mid` (plus anything it does not recognise). That is all the pipeline reads, so a library sanitized this way builds to the same cache as the full one; a dry run without `--apply` shows what would go.
+The examples use `Local` as the header and `songs/` as the library. Substitute your own; the header is what ties a cache, a spreadsheet and a published site together, so **use the same one at every step**, and `deploy.py` reads its header from `.env` (`FRETWORK_HEADER`) rather than a flag, so that must name the same one.
 
 ### Before the first run
 
@@ -236,30 +243,19 @@ Three things need to be right once, and then never again:
 2. `.env` in the repo root - copy `.env.example` and set `FRETWORK_BUCKET`, and `FRETWORK_DISTRIBUTION` if CloudFront is in front of it. **No credentials go in this file**; `deploy.py` refuses one that has any.
 3. An AWS login the CLI can find - `aws configure sso` then `aws sso login`, or a named profile. Name it in `.env` as `AWS_PROFILE` so the deploy always uses the same one. Check it works: `aws sts get-caller-identity`.
 
-### Step 1 - rescan the library
+### Step 1 - ingest the pack
 
 ```
-python build.py --search-path songs --header Local
+python tools/ingest_pack.py "~/Downloads/Some Pack.zip" --name "Some Pack" --source https://where.it/lives
 ```
 
-Walks every folder under the search path, parses each `notes.chart` / `notes.mid`, and writes a cache to `caches/Local_cache_<timestamp>.pkl`. It also appends any new songs to `caches/Local_BackupData.csv`, so the original `song.ini` difficulties are recoverable. Nothing is written back to the library.
+`SOURCE` is a `.zip`, `.rar` or `.7z`, a folder, or a direct download URL to one of those (a Google Drive, Mega or Discord link is a page, not a download: fetch it in a browser and pass the file). The tool refuses anything it can refuse before touching a byte, then extracts or copies the pack under `caches/ingest/`, lower-cases `Song.ini` and friends so the parsers find them, strips a wrapper folder that repeats the pack name, runs the sanitizer (audio, art, video and editor scratch go; `song.ini`, `notes.chart`, `notes.mid` and anything unrecognised stay), and only then renames the chart-only tree to `songs/<name>/`. That rename is the one commit point: a crash before it leaves nothing under `songs/`. A folder `SOURCE` is copied without its audio and never modified, so a pack in your Downloads or the read-only Clone Hero library is left as it was.
 
-Several minutes on a few thousand songs; MIDI parsing dominates. **Check before moving on:**
+It then appends the `[[pack]]` block to `packs.toml` (`name` and `folder` are `--name`, `source` is `--source` or the URL, `added` is today; `--notes` for free text), runs `build.py --search-path songs --header Local` and `analyze.py --header Local` exactly as sections 2 and 3 describe, and prints a summary against the previous cache: songs and charts before and after, Expert charts per instrument, and a block for this pack (song.ini found, cached, charts, no usable chart or mid, build errors in the pack, `.sng` files it cannot read, what the sanitizer removed). **Check before moving on:** the pack's `cached` equals its `song.ini found` unless you expected otherwise, `build errors in pack` is zero or explained, and the Expert rows moved by what the pack charts. `--dry-run` does everything up to the rename and then reports; `--replace` re-downloads a pack that is already there (the registry entry is kept, since it describes the same pack).
 
-- the song count in the summary is what you expect - if you added a pack and the number did not move, `--search-path` is pointing somewhere else
-- `caches/Local_errors_<timestamp>.csv` - one row per song that failed to parse. A handful is normal; a sudden jump means a bad download, not a bad build
+Site changes worth a line on the "What's new" page go in `packs.toml` as `[[change]]` blocks with a `date` and a `text`. One rule for a change to the parsers or `functions/timing.py`: the rebuild after it moves every song's key, so add a `[[change]]` saying so, because `?song=` links from before it stop resolving. If the library changed some other way (a pack removed, a folder renamed), register it by hand (copy the last `[[pack]]` block) and run the two commands from sections 2 and 3 yourself; `python -m functions.packs --header Local` then prints every pack's counts and names any folder publish would refuse.
 
-### Step 2 - recompute the metrics
-
-```
-python analyze.py --header Local
-```
-
-Reads the newest cache **for that header** and writes `metrics/Local_metrics_<timestamp>.xlsx`, reusing the cache's timestamp so the pair can be matched later. This is the step that computes D, RemapDiff and CalcTier.
-
-Run it with no `--diff-mode` unless you specifically want to write difficulties back into your `song.ini` files; those modes change your library.
-
-### Step 3 - look at the result before anyone else does *(optional)*
+### Step 2 - look at the result before anyone else does *(optional)*
 
 ```
 python serve.py --header Local
@@ -267,17 +263,29 @@ python serve.py --header Local
 
 Opens the same viewer the website runs, against your local spreadsheet, at http://127.0.0.1:8000. Worth a minute: sort by D and check the top of the list is plausible, and search for a song from whatever pack you just added to confirm it is there.
 
-### Step 4 - build the site
+### Step 2b - resolve where each chart is published *(optional)*
+
+```
+python tools/enchor_lookup.py --header Local
+```
+
+Asks Chorus Encore (api.enchor.us), once per song not yet answered, whether it publishes the chart, and records the answer in `caches/Local_links.json` keyed by the song's content hash: the chart page's id, or "asked, not found". The match is an exact title and artist search narrowed by the Expert guitar note count and the charter, because Enchor's hash filter is not the notes file's MD5 (`tools/enchor_probe.py` records the experiment); a chart that cannot be singled out gets no link, since a wrong link is worse than none. 48 requests a minute (the service allows 50), so a 1,800-song library takes about 40 minutes the first time and seconds afterwards: the registry persists across builds like the backup CSV, `--recheck` re-asks the misses, `--recheck-all` everything, `--limit N` stops after N. Publish then writes `data/links.<hash>.json` and every graph whose song is in it carries an "On Chorus Encore" link beside "Report this rating"; without the registry, publish writes no file and the page shows no link. The registry is not committed and lives in `caches/`, so copy it somewhere before clearing that folder (`--links FILE` points at a copy).
+
+The leaderboard half (`tools/leaderboards_lookup.py`, a "Leaderboard" link per song) is not built: api.clonehero.net has no documented public status, and the spec (section 13) waits on the maintainer's answer before any batch tool reads it. `web/links.py` already publishes an `lb` value when a registry carries a sure match, so the tool is the only missing piece.
+
+### Step 3 - build the site
 
 ```
 python publish.py --header Local
 ```
 
-Writes `site/Local/` - `index.html` with the table baked in, `404.html`, the assets, Bootstrap, and a PNG per chart under `graph/`. The first run on a large library takes around ten minutes; after that only charts whose inputs changed are re-rendered, so it is usually seconds. Add `--force` only after changing `functions/plot.py`, the render theme, or upgrading matplotlib - the manifest cannot see code changes.
+Writes `site/Local/` - `index.html` and the sheet files, `404.html`, `about.html`, `changelog.html`, `methodology.html` (the engine's `Methodology.md`, rendered), `robots.txt`, the assets, Bootstrap, a curve file per chart under `graph/` and the one preview PNG. Publish stops with `MethodologyDrift` if a calibration table in `Methodology.md` disagrees with `functions/formula.py`, and with `MarkdownError` naming the line if the file uses a markdown construct the renderer does not know; both are fixed in the source, never by loosening the check. Seconds, first run or not; only charts whose notes changed get a new curve file. The summary's `social preview <code>:` line says whether the PNG was rendered, unchanged or (for a library without that chart) not published.
+
+Publish stops if the spreadsheet and the cache carry different build timestamps (`spreadsheet is from X but the cache is from Y`), because that means Analyze has not run since the last Build; run it and publish again. `--allow-mismatch` exists for the deliberate exception, and `deploy.py` does not take it: a mismatched bundle is published by hand and then sent with `deploy.py --no-publish`, so the decision is taken twice. One more thing that looks like a fault and is not: a commit that changes what a manifest fingerprint is made of invalidates every stored hash, so the next publish rewrites every curve file once (seconds; the bytes are compared before writing, so the sync uploads only what changed).
 
 You can skip this step: `deploy.py` publishes first anyway. Run it separately when you want to look at the bundle before it goes anywhere.
 
-### Step 5 - preview the exact bundle *(optional)*
+### Step 4 - preview the exact bundle *(optional)*
 
 ```
 python -m http.server 8000 --directory site/Local
@@ -285,36 +293,78 @@ python -m http.server 8000 --directory site/Local
 
 Then open http://localhost:8000. Opening `index.html` from the filesystem will **not** work - the page uses ES modules, which browsers refuse to load over `file://`.
 
-### Step 6 - deploy
+### Step 5 - deploy
 
 ```
 python deploy.py --dry-run     # lists what would upload; sends nothing
 python deploy.py               # publish, sync, invalidate
 ```
 
-`--dry-run` first is a good habit when the library changed a lot: the upload list is the clearest confirmation that publish produced what you expected. The real run publishes again, syncs to S3 in two passes (graphs with a week of caching, the page and assets with `no-cache`), and invalidates CloudFront so the new page is live immediately.
+`--dry-run` first is a good habit when the library changed a lot (and `python tests/pipeline_test.py` before that, if code changed: it runs this whole sequence on a synthetic library in seconds, see [9. Tests](#9-tests)): the upload list is the clearest confirmation that publish produced what you expected. The real run publishes again, syncs to S3 in two passes (graphs with a week of caching, the page and assets with `no-cache`), and invalidates CloudFront so the new page is live immediately.
 
-### Step 7 - confirm it landed
+### Step 6 - confirm it landed
 
 ```
-curl -s -o /dev/null -w "%{http_code}\n" https://fretladder.com/
-curl -s https://fretladder.com/ | grep -o "Updated [^\"]*charts"
+python tools/check_site.py --site site/Local
 ```
 
-The second line should print the date of the build you just made. Then load the site and check the chart count in the header. CloudFront invalidation usually takes under a minute.
+Ten checks against the live site, one line each (add `curl -s https://fretladder.com/changelog.html | grep -c '<h2'` for the changelog, which should print at least 1), and `--site` makes the first of them insist that the live strapline is the one in the bundle you just published, so a deploy that did not actually land fails here rather than in a browser. It also checks compression, the about page, `robots.txt`, the social-preview image, that the module script and every stylesheet are served with the right content type, that an unknown path gets our 404 page, and that a `?code=` link answers. It exits with the number of failures. CloudFront invalidation usually takes under a minute; if only the strapline check fails right after a deploy, wait and run it again. The two curl lines it replaces still work on any machine: `curl -s -o /dev/null -w "%{http_code}\n" https://fretladder.com/` and `curl -s https://fretladder.com/ | grep -o "Updated [^\"]*charts"`.
 
 `deploy.py` ends by asking S3 what content type it will serve for one file of each kind, and refuses to call the deploy done if any is wrong. A file served as `binary/octet-stream` is not a cosmetic problem: browsers refuse to run an ES module with the wrong type, so the page loads and then does nothing.
+
+### After it is live
+
+Three things to look at, weekly, for the first couple of weeks after any announcement, and after every deploy. Everything here needs `aws sso login --profile <the AWS_PROFILE in .env>` first (the CLI's own message calls it `aws login`; same thing).
+
+```
+python tools/check_site.py --site site/Local          # the ten live checks; the live strapline must match the one just published
+gh issue list --repo ChaseFranz/fretwork --label "song pack"
+gh issue list --repo ChaseFranz/fretwork --label rating
+gh issue list --repo ChaseFranz/fretwork --label accessibility
+gh issue list --repo ChaseFranz/fretwork --search "no:label"
+D=$(python -c "from functions import envfile; print(envfile.load('.env')['FRETWORK_DISTRIBUTION'])")
+export AWS_PROFILE=$(python -c "from functions import envfile; print(envfile.load('.env').get('AWS_PROFILE', ''))")   # deploy.py reads it from .env; a bare aws does not
+aws cloudwatch get-metric-statistics --region us-east-1 --namespace AWS/CloudFront \
+  --metric-name Requests --statistics Sum --period 86400 \
+  --dimensions Name=DistributionId,Value=$D Name=Region,Value=Global \
+  --start-time $(date -u -d '30 days ago' +%FT%TZ) --end-time $(date -u +%FT%TZ) \
+  --query 'sort_by(Datapoints,&Timestamp)[].[Timestamp,Sum]' --output text
+```
+
+Run the same call with `--metric-name BytesDownloaded` for bytes. CloudFront's metrics live in `us-east-1` whatever the bucket's region, and the `Region=Global` dimension is required. The date arithmetic is GNU `date` (Linux and WSL); elsewhere type the two ISO timestamps by hand.
+
+**The allowance.** The distribution is on CloudFront's Free flat-rate plan: 1,000,000 requests and 100 GB a month, no overage billing, a short spike absorbed. A cold page view is six requests (the page, Bootstrap, the stylesheet, the favicon, the script bundle and the first sheet's rows) plus two idle prefetches and one per graph opened; everything but the page carries a year of caching, so a returning visitor costs one request. That is about 160,000 cold page views a month with no graphs opened, and requests bind long before bytes do. The plan's own usage view is CloudFront console > Pricing plans. Two thresholds mean it is time to think about the plan: 700,000 requests in any 30-day window, or one day over 35,000. The AWS Budget `fretladder-monthly` ($50 a month) e-mails at 50% and 100% actual and 80% forecast; the plan itself cannot bill, so a budget e-mail means S3 or Route 53, and Cost Explorer's breakdown is the first thing to read.
+
+**What each channel yields.** A `song pack` issue is an entry for the pack registry and a job for the ingest tool (sections 03 and 09 of the spec); until those exist, triage by hand: is the pack public, is it already in the Release column, how big is it. A `rating` issue is calibration evidence: if it describes flow (strumming, HOPOs, anchoring) it is the known gap the "How it works" panel names, and gets a link to that section; if it describes a density or length effect it goes to upstream's tracker with the code, because the formula is theirs. Either way it stays open on the fork until the number moves or the explainer covers it. A blank issue is a bug or an accessibility report; label it at triage, which is why the block above searches `no:label` too.
+
+**Browser checks**, which no script can make:
+
+- `https://fretladder.com/?code=10145439XG` opens with the graph of Through The Fire & Flames (Expert, Lead) and the dialog's `aria-label` ends with the code.
+- The graph's "Report this rating" link opens the rating form on GitHub with the code and the song already filled in (GitHub fills issue-form fields from the query string).
+- The footer's "Request a song pack" opens the pack form with the two acknowledgement boxes and no attachment control.
+- Paste `https://fretladder.com/` into a Discord message to yourself: the preview shows the title, description and the graph. Discord caches previews per URL, so a changed preview image needs a query string to re-check.
+- On the fork's GitHub page the Watch button reads "Unwatch" with "All activity", so new issues arrive by e-mail.
 
 ### When something is off
 
 | What you see | What it is | Fix |
 |---|---|---|
-| "spreadsheet is from X but the cache is from Y" | Analyze has not run since the last Build | `python analyze.py --header Local` |
+| Publish stops: "spreadsheet is from X but the cache is from Y" | Analyze has not run since the last Build | `python analyze.py --header Local`, then publish again (`--allow-mismatch` only if you mean it) |
+| Publish warns: "newest by mtime is A but newest by name is B" | An older cache or spreadsheet was copied or touched, so it looks newest | Delete or re-date the copy, or name the file you want with `--cache` / `--xlsx` |
+| Publish stops: "folder(s) not registered in packs.toml" | A pack folder under the library has no `[[pack]]` entry | Add the entry (step 0), then publish again |
+| Publish or serve stops: `MethodologyDrift: ... in Methodology.md but ... in formula.py` | An upstream merge changed the bins or constants in one file and not the other | Fix whichever is wrong (the code is usually right; the table then goes upstream as a fork PR), `python -m web.methodology` to confirm |
+| Publish or serve stops: `MarkdownError: Methodology.md: line N: ...` | Upstream used a markdown construct `web/markdown.py` does not render | Extend the renderer for that construct, deliberately, and add the case to `tests/test_methodology.py` |
+| Publish stops: "registered folder(s) with no songs in this cache" | A `folder` in `packs.toml` is misspelled, or the cache is another library's | Fix the spelling, or point `--packs` at that library's registry |
+| `refused: ... not a direct download` | The link is a Google Drive, Mega or Discord page, not an archive | Download it in a browser and pass the file to `ingest_pack.py` |
+| `refused: found 0 song folders and N .sng files` | Enchor serves `.sng`, a single-file format the parsers cannot read yet | Get the pack from its release thread as song folders, or convert it |
+| `refused: config.DIFF_WRITE_MODE is set` | A write-back mode was left on in `config.py` | Set it back to `None`; ingest never writes `song.ini` |
 | Site shows an old date | The invalidation has not finished, or the browser cached the page | Wait a minute, then hard-reload |
 | A graph looks stale after changing plotting code | The manifest fingerprints data, not code | `python publish.py --header Local --force` |
 | `deploy.py` refuses: "holds files publish did not write" | `FRETWORK_SITE_DIR` points at the wrong folder | Point it at `site/<header>` |
 | `deploy.py` refuses: a credential in `.env` | Keys were pasted into `.env` | Remove them; use an AWS profile or SSO |
 | Cache headers wrong on files already in the bucket | `sync` only sets headers on files it uploads | `python deploy.py --set-headers` |
+| A code rollback to before the `data/` split | The old `deploy.py` refuses `data/` as a stray and the old `prune_page` does not know the curve files | `rm -rf site/Local/data site/Local/graph/*.json site/Local/graph/curves-manifest.json`, then the old `publish.py` and `deploy.py` |
+| A code rollback to the PNG-per-chart page (before `fretladder-v1.6.0`) | `graph/manifest.json` records only the preview PNG now, so the old publish would render all 11,903 others (about 24 minutes, a 2.2 GB upload) | `cp caches/Local_manifest_pre06.json site/Local/graph/manifest.json` first (saved when the PNGs were pruned), so only files that are actually missing render |
 | Blank page, console says "Expected a JavaScript-or-Wasm module script" | Objects are served as `binary/octet-stream` | `python deploy.py --set-headers`, then hard-reload |
 
 **Rolling back:** every build's outputs are kept, so the previous site is one command away. Point publish at the older pair and deploy that:
@@ -351,6 +401,18 @@ The engine ideas below are upstream's list. The fork's own plan for the hosted s
 - DDR Groove Radar style scoring (probably tied to patterns)
 
 ---
+
+## 9. Tests
+
+Three commands, all stdlib plus the venv, and the same three run in GitHub Actions on every push:
+
+```
+python -m unittest discover -s tests -t . -v
+python tests/pipeline_test.py --keep /tmp/fw-ci --bootstrap-css caches/bootstrap-5.3.8.min.css
+python tests/page/run.py --site /tmp/fw-ci/site/Fixture
+```
+
+The first imports every module and checks the small pure functions. The second builds, analyzes, publishes and deploys a synthetic 15-song library from a temporary directory, with a stub `aws` on `PATH` so the deploy path runs without credentials, and asserts every count against the fixture's own table. The third drives the published page in headless Chrome: twelve suites read their expectations out of the page's data island, so `--site site/Local` runs the same checks against the real library. On WSL the runner uses Windows Chrome from `/mnt/c`. `tests/README.md` has the details and the harness gotchas.
 
 ## License
 **MIT** - see LICENSE for details.

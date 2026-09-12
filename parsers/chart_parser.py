@@ -46,6 +46,7 @@ NOTE STATE IS NOT PARSED - strum/tap/hopo are not used in the calcs and are disc
 DROPPED: star power ('S 2') and solo ('E solo') events are skipped
 """
 
+import hashlib
 import concurrent.futures as cf
 import os
 import pathlib
@@ -260,6 +261,8 @@ def chart_notes(chart_source):
         'source_format': 'chart',
         'resolution': tick_res,
         'instruments': instruments_out,
+        # the raw file's MD5 (BOM and all), the identity an external index would compute
+        'chart_md5': hashlib.md5(pathlib.Path(chart_source).read_bytes()).hexdigest(),
     }
 
 

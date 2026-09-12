@@ -24,7 +24,7 @@ from parsers import chart_parser, ini_parser, mid_parser
 from functions import cache as cache_mod
 
 # The ini columns that survive to the metrics spreadsheet, aside from per-instrument Difficulty
-META_KEYS = ('Name', 'Artist', 'Charter', 'Release', 'Official')
+META_KEYS = ('Name', 'Artist', 'Charter', 'Release', 'Official', 'Genre', 'Year', 'Album')
 
 # parse mid & chart files into per-instrument note streams keyed to song folder path
 # each stream contains every recognized instrument (at least 1 must be present)
@@ -94,6 +94,7 @@ def build_cache(search_path=None, header=None, out_dir=None):
                     ))
                     continue
 
+                level_stream['notes_hash'] = cache_mod.notes_hash(notes)
                 song_levels[level_key] = level_stream
                 instrument_counts[instrument_key][level_key] += 1
 
@@ -106,8 +107,10 @@ def build_cache(search_path=None, header=None, out_dir=None):
 
         songs[song_path] = {
             'song_path': song_path,
+            'song_key': cache_mod.song_key(song_instruments),
             'meta': {k: ini_row[k] for k in META_KEYS} | {'Difficulty': ini_row['Difficulty']},
             'source_format': stream['source_format'],
+            'chart_md5': stream.get('chart_md5'),   # never in meta: the graph fingerprint hashes meta
             'instruments': song_instruments,
         }
 
