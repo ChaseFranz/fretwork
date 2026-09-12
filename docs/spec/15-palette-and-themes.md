@@ -67,5 +67,5 @@ Rejected: "themes" plural (skins are maintenance with no reader benefit); a thir
 ## Out of scope and follow-ups
 
 - The social preview PNG in the page's dark palette: one more entry in `config.RENDER_THEMES` and `mode` set to it would do it, but that file is upstream's and `render.py`'s local renders would follow; left as it is.
-- The README screenshot on the `screenshots` branch shows v1.2.0's colours; retake after the deploy.
+- The README screenshots (`fretladder-pane.png`, `fretladder-pane-light.png` on the `screenshots` branch, de406c3) were retaken from `site/Local` at this commit, before the deploy; the live site catches up when the maintainer deploys.
 - A high-contrast or reduced-transparency variant: nothing on the page depends on transparency except the open row's wash and the fills under the curves.

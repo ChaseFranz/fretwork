@@ -4,6 +4,10 @@
 
 [![fretladder: the charts table with a chart's details pane open, three levels of one song compared](https://raw.githubusercontent.com/ChaseFranz/fretwork/screenshots/fretladder-pane.png)](https://fretladder.com)
 
+The page follows your system's theme, dark or light, and the button at the top right switches it:
+
+[![fretladder in the light theme: the same table and details pane](https://raw.githubusercontent.com/ChaseFranz/fretwork/screenshots/fretladder-pane-light.png)](https://fretladder.com)
+
 The rest of this file is the engine's own README, with sections 5 to 7 and 9 for what the fork adds.
 
 # Fretwork - 5-Fret Difficulty Analyzer <!-- omit in toc -->
