@@ -70,7 +70,7 @@ check("chooser grip", cd.querySelector(".grip"), true);
 check("chooser reset button", cd.querySelector("[data-act]"), true);
 
 // the details pane (sections 06, 07, 14): text on the figure background, the
-// picker, the song grid beside the graph, the link buttons and the link cells
+// song grid beside the graph, the link buttons and the link cells
 document.body.click();
 await wait(50);
 const firstRow = document.querySelector("#body tr[data-code]");
@@ -101,11 +101,6 @@ if (firstRow) {
   if (linkBtn) check("link button", linkBtn, true);
   const linkCell = document.querySelector("#body td.lnkc a.ext");
   if (linkCell) check("link column arrow", linkCell, true);
-  click(modal.querySelector('[data-act="compare"]'));
-  await wait(400);
-  check("picker box text", document.getElementById("cmpq"));
-  check("picker result", modal.querySelector("#cmpr [data-add] .tt") || modal.querySelector("#cmpr .note"));
-  check("picker note", modal.querySelector("#cmpr .note") || modal.querySelector("#cmpr [data-add] .tt"));
   // the three series swatches against the card: 3:1, the floor for non-text
   const cardBg = bgOf(modal.querySelector(".legend"));
   for (const [name, colour] of [["~D", BOOT.render.color_d], ["Notes", BOOT.render.color_nps], ["Variability", BOOT.render.color_vps]]) {

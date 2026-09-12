@@ -44,22 +44,40 @@ class PublishedTest(unittest.TestCase):
         self.assertIsNone(links.published({'v': 1, 'enchor': {'k': {'md5': None}}, 'leaderboard': {}}))
 
     def test_link_columns(self):
-        # section 14: one boolean column per link kind any song has, joined by SongKey after Pct
+        # section 14: Chart names the song's first host (null for none), Leaderboard is a bit; after Pct
+        import json
         import pandas as pd
         from web import frames
         songs = links.songs_with_links(registry())
         cols = links.link_columns(songs)
-        self.assertEqual(cols, {'Enchor': {'k1', 'k5'}, 'Leaderboard': {'k1', 'k5'}})
-        self.assertEqual(links.link_columns({'k': {'enchor': MD5_A}}), {'Enchor': {'k'}})
+        self.assertEqual(cols, {'Chart': {'k1': 'enchor', 'k5': 'enchor'}, 'Leaderboard': {'k1', 'k5'}})
+        self.assertEqual(links.link_columns({'k': {'enchor': MD5_A}}), {'Chart': {'k': 'enchor'}})
+        self.assertEqual(links.link_columns({'k': {'lb': HASH_A}}), {'Leaderboard': {'k'}})
         self.assertEqual(links.link_columns({}), {})
         df = pd.DataFrame({'Code': ['a', 'b', 'c'], 'SongKey': ['k1', 'k2', 'k5'], 'Pct': [1, 2, 3]})
         out = frames.with_links({'x': df, 'nokey': pd.DataFrame({'Code': ['z']})}, cols)
-        self.assertEqual(list(out['x'].columns), ['Code', 'SongKey', 'Pct', 'Enchor', 'Leaderboard'])
-        self.assertEqual(out['x']['Enchor'].tolist(), [True, False, True])
-        self.assertEqual(out['x']['Leaderboard'].tolist(), [True, False, True])
+        self.assertEqual(list(out['x'].columns), ['Code', 'SongKey', 'Pct', 'Chart', 'Leaderboard'])
+        rows = json.loads(out['x'].to_json(orient='values'))
+        self.assertEqual([r[3] for r in rows], ['enchor', None, 'enchor'])
+        self.assertEqual([r[4] for r in rows], [True, False, True])
         self.assertEqual(list(out['nokey'].columns), ['Code'])
         self.assertIs(frames.with_links({'x': df}, {})['x'], df)
-        self.assertNotIn('Enchor', df.columns)          # the input is not written to
+        self.assertNotIn('Chart', df.columns)          # the input is not written to
+
+    def test_host_table(self):
+        # every host names a label, a tip, a URL template with one {id} slot and an anchored id pattern
+        from functions import labels
+        for key, host in labels.CHART_HOSTS:
+            self.assertRegex(key, r'^[a-z][a-z0-9]*$')
+            self.assertTrue(host['label'] and host['tip'])
+            self.assertEqual(host['url'].count('{id}'), 1)
+            self.assertTrue(host['url'].startswith('https://'))
+            self.assertTrue(host['id'].startswith('^') and host['id'].endswith('$'))
+        self.assertEqual(labels.VALUE_LABELS['Chart'], {'enchor': 'Chorus Encore'})
+        # an id outside its host's class is dropped, so a hand-edited registry never points elsewhere
+        bad = {'v': 1, 'enchor': {'k': {'md5': '../../evil'}}, 'leaderboard': {}}
+        self.assertEqual(links.songs_with_links(bad), {})
+        self.assertEqual(links.songs_with_links({'v': 1, 'enchor': {'k': {'id': MD5_A}}}), {'k': {'enchor': MD5_A}})
 
     def test_a_sheet_named_links_is_refused(self):
         from web import frames

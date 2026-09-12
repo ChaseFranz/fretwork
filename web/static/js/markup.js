@@ -2,7 +2,7 @@
 import { SHEETS, TIMECOLS, HELP, UI, MISS_TEXT, MISS_HELP } from "./boot.js";
 import { esc } from "./dom.js";
 import { lab, t, mmss, isMissing, decimals } from "./format.js";
-import { LINK_COLS, linkCell } from "./links.js";
+import { CHART_COL, LB_COL, linkCell } from "./links.js";
 import { RANK_COL, state } from "./state.js";
 
 // Rank is a position in the current view, so there is nothing to sort or
@@ -58,7 +58,7 @@ function numberCell(col, v) {
 // A link column's arrow is the one anchor inside a row: the router lets the
 // browser follow it rather than opening the row.
 function bodyCell(col, v, songKey) {
-  if (col in LINK_COLS) return linkCell(col, v, songKey);
+  if (col === CHART_COL || col === LB_COL) return linkCell(col, v, songKey);
   if (col === "Code")
     return '<td class="code" title="' + esc(UI.copy_code_tip) + '">' + esc(v) +
       '<span class="cp" data-copy="' + esc(v) + '">&#128203;</span></td>';

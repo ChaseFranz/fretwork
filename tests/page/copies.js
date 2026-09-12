@@ -16,7 +16,7 @@ const cells = c => [...document.querySelectorAll("#body tr[data-code]")].map(tr 
 
 say("the sheet carries Copies and NotesHash", col("Copies") >= 0 && col("NotesHash") >= 0, seq(cols));
 // the link columns (section 14) come after these three when the registry has them
-const pageBuilt = cols.filter(c => ["Added", "Copies", "Pct", "Enchor", "Leaderboard"].includes(c));
+const pageBuilt = cols.filter(c => ["Added", "Copies", "Pct", "Chart", "Leaderboard"].includes(c));
 say("Copies sits right before Percentile, after Added", pageBuilt.slice(0, 3).join() === "Added,Copies,Pct" && cols.slice(-pageBuilt.length).join() === pageBuilt.join(), seq(cols.slice(-5)));
 say("every Copies value is a positive integer", rows.every(r => Number.isInteger(r[col("Copies")]) && r[col("Copies")] >= 1));
 say("both are hidden by default", HIDDEN_DEFAULT.includes("Copies") && HIDDEN_DEFAULT.includes("NotesHash"));

@@ -100,10 +100,11 @@ say("the export file name is render.py's", fw.outputFilename([row.dataset.code],
 const blob = await fw.exportPng(fw.charts, { title: "t", meta: "m" });
 say("exportPng gives a PNG blob", blob && blob.type === "image/png" && blob.size > 1000, blob && blob.size);
 
-// the heading, the pane's buttons, the meta line, the tools, the picker, then the body: graph beside the song grid
+// the heading, the pane's buttons, the meta line, the tools, then the body: graph beside the song grid
 const order = [...modal.querySelectorAll(".pcard > *")].map(e => e.className.split(" ")[0]);
-say("the card's order is heading, buttons, meta, tools, picker, body", order.join() === "mhead,pbtns,mmeta,gtools,picker,pbody", order.join());
-say("the tools are Compare, Pick and Save", [...modal.querySelectorAll(".gtools button")].map(b => b.textContent).join() === [UI.compare, UI.compare_pick, UI.save_png].join());
+say("the card's order is heading, buttons, meta, tools, body", order.join() === "mhead,pbtns,mmeta,gtools,pbody", order.join());
+say("the tools are Compare with a row and Save, no picker of the pane's own", [...modal.querySelectorAll(".gtools button")].map(b => b.textContent).join() === [UI.compare_pick, UI.save_png].join() &&
+    !modal.querySelector(".picker, #cmpq"));
 say("the body is the graph and the song section", modal.querySelector(".pbody > .gbody") && modal.querySelector(".pbody > .sbody"));
 
 key("Escape");

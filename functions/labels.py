@@ -47,7 +47,7 @@ COLUMN_LABELS = {
     'Copies':     'Copies',
     'Official':   'Official',
     # the link columns, page-built from the offline registry (web/links.py)
-    'Enchor':     'Chorus Encore',
+    'Chart':      'Chart page',
     'Leaderboard': 'Scores',
 
     # shape of the chart
@@ -96,8 +96,8 @@ COLUMN_HELP = {
     'NotesHash':  'Fingerprint of the notes. Two charts with the same hash play identically, whatever they are called.',
     'Copies':     'How many charts on this sheet have exactly these notes at this level and part, this one included. 1 is unique; 2 means the same chart is in another folder, usually another pack.',
     'Official':   'True when the source pack is an official Guitar Hero or Rock Band release.',
-    'Enchor':     'Published on Chorus Encore (enchor.us): the arrow opens the chart\u2019s page there. '
-                  'Filter on No for the charts the lookup did not find.',
+    'Chart':      'Where this chart is published: the arrow opens its page there. '
+                  'A dash means no host was found for it.',
     'Leaderboard': 'Has a Clone Hero leaderboard: the arrow opens the scores page.',
 
     'NoteCount':  'Total notes in this chart. Frets played together count as one note, same as the games score it.',
@@ -176,7 +176,6 @@ VALUE_ORDER = {
 # the filter still matches on the stored key underneath.
 VALUE_LABELS = {
     'Official': {'true': 'Official', 'false': 'Custom'},
-    'Enchor': {'true': 'Yes', 'false': 'No'},
     'Leaderboard': {'true': 'Yes', 'false': 'No'},
 }
 
@@ -187,10 +186,25 @@ ENGINE_REPO = 'https://github.com/Staycation44/fretwork'
 CHANNEL = 'https://www.youtube.com/@StaycationGH'
 FORK_REPO = 'https://github.com/ChaseFranz/fretwork'
 VIDEO = 'https://youtu.be/emoWMpDJ4ls'
-# The two destinations a chart's graph links out to, when the offline lookups
-# (tools/enchor_lookup.py, tools/leaderboards_lookup.py) found it there.
+# Where a chart can be published, in the order the Chart column prefers when a
+# chart is on more than one: each host's label, tip, URL template and the
+# character class its id must match. The page builds a link only from these
+# (`static/js/links.js` reads them from boot), so a registry value can cost a
+# link and never point at another host; the offline lookup that fills the
+# registry for a host is its own tool (tools/enchor_lookup.py for Enchor).
+# Adding a host is one entry here and that tool. The Chart column's value is
+# the host's key and its filter list shows the label.
 ENCHOR = 'https://enchor.us'
+CHART_HOSTS = (
+    ('enchor', {'label': 'Chorus Encore',
+                'tip': 'This chart\u2019s page on Chorus Encore, where it is published',
+                'url': f'{ENCHOR}/chart/{{id}}',
+                'id': '^[a-f0-9]{32}$'}),
+)
+# The scores are a different kind of link (where the chart is played, not where
+# it is), so the leaderboard is its own column and its own registry section.
 LEADERBOARDS = 'https://leaderboards.clonehero.net'
+VALUE_LABELS['Chart'] = {key: host['label'] for key, host in CHART_HOSTS}
 
 # The author is "Staycation44" everywhere in the prose, matching the GitHub
 # account and the video credit - except in the two copyright notices below, which
@@ -225,7 +239,7 @@ METHODOLOGY_SOURCE = (
 # the site is for, so it sits beside the song instead of past the right edge.
 # Anything missing from this list keeps its spreadsheet position, at the end.
 DISPLAY_ORDER = (
-    'Song Title', 'Artist', 'Enchor', 'Leaderboard', 'D', 'Pct', 'CalcTier', 'Level', 'Type',
+    'Song Title', 'Artist', 'Chart', 'Leaderboard', 'D', 'Pct', 'CalcTier', 'Level', 'Type',
     'DurationS', 'NoteCount', 'Charter', 'Release', 'Album', 'Year', 'Genre', 'Added', 'Copies',
     'Difficulty', 'RemapDiff', 'Official', 'Code', 'SongKey', 'NotesHash',
 )
@@ -434,12 +448,10 @@ UI = {
     'graph_legend_level': '{level}',          # ... and one part
     'graph_hint':       'Hover or use the arrow keys to read values',
     'graph_alt':        'Difficulty graph of {song}: notes per second, fret changes per second and their geometric mean over time',
-    'compare':          'Compare',
-    'compare_search':   'Song, artist or code to compare with...',
-    'compare_same_song': 'Other charts of this song',
-    'compare_loading':  'Loading charts...',
-    'compare_none':     'No matching chart',
-    'compare_pick':     'Pick from the table',
+    # compare is pick-from-the-table alone: the table's search and filters are
+    # the picker, and the song grid lists the song's other charts
+    'compare_pick':     'Compare with a row',
+    'compare_pick_tip': 'Overlay another chart\u2019s curve: click its row in the table (three charts at most)',
     'compare_picking':  'Choosing a chart to compare with {song}. Click a row, or press Esc to cancel.',
     'compare_cancel':   'Cancel',
     'compare_full':     'Three charts is the most the graph will hold',
@@ -461,11 +473,8 @@ UI = {
     'song_no_level':    'No {level} chart',
     'save_png':         'Save as PNG',
 
-    # where a chart is published and where its scores are, resolved offline
-    'enchor':           'Chorus Encore',
-    'enchor_tip':       'This chart\u2019s page on Chorus Encore, where it is published',
+    # where a chart's scores are, resolved offline; the chart hosts are CHART_HOSTS
     'links_pending':    'Loading links...',
-    'enchor_url':       f'{ENCHOR}/chart/{{md5}}',
     'leaderboard':      'Leaderboard',
     'leaderboard_tip':  'Scores for this song on the Clone Hero leaderboards',
     'leaderboard_url':  f'{LEADERBOARDS}/scores/{{hash}}',

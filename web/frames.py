@@ -115,9 +115,10 @@ def slug(name):
     return out
 
 
-# The link columns (section 14): True where the song has that link, joined by
-# SongKey at page-build time, after Pct. `link_columns` is links.link_columns()'s
-# answer, {column: set of keys}; a sheet without SongKey gets none.
+# The link columns (section 14), joined by SongKey at page-build time, after
+# Pct. `link_columns` is links.link_columns()'s answer: a dict of key to host
+# becomes a text column (null where the song has none, which the page keys as
+# the dash), a set of keys a boolean one. A sheet without SongKey gets none.
 def with_links(frames, link_columns):
     if not link_columns:
         return frames
@@ -126,7 +127,7 @@ def with_links(frames, link_columns):
         if 'SongKey' in df.columns:
             df = df.copy()
             for col, keys in link_columns.items():
-                df[col] = df['SongKey'].isin(keys).astype(bool)
+                df[col] = df['SongKey'].map(keys) if isinstance(keys, dict) else df['SongKey'].isin(keys).astype(bool)
         out[name] = df
     return out
 

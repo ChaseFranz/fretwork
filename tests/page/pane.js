@@ -11,6 +11,7 @@ const here = () => document.activeElement;
 const pane = document.getElementById("pane");
 const wrap = document.querySelector(".fw-wrap");
 const sel = () => document.querySelector("#body tr.sel");
+const state_picking = () => !document.getElementById("pick").classList.contains("d-none");
 const label = () => pane.getAttribute("aria-label") || "";
 
 say("the pane is a labelled region, closed to start", pane.getAttribute("role") === "region" && !pane.classList.contains("on"));
@@ -119,12 +120,12 @@ say("nor over the table's last rows", wrap.getBoundingClientRect().height >= 100
 try { localStorage.removeItem("fw.pane"); } catch (e) {}
 
 // --- Escape closes one thing at a time --------------------------------------------------------
-click(pane.querySelector('[data-act="compare"]'));
-await wait(300);
-say("Compare opens the picker with the box focused", here() && here().id === "cmpq");
+click(pane.querySelector('[data-act="pick"]'));
+await wait(100);
+say("Compare with a row starts the picking", state_picking());
 key("Escape");
 await wait(100);
-say("Escape closes the picker, not the pane", pane.classList.contains("on") && pane.querySelector(".picker").classList.contains("d-none") && here() && here().dataset.act === "compare");
+say("Escape cancels the picking, not the pane", pane.classList.contains("on") && !state_picking());
 click(document.querySelector('#head th[data-c="Level"] .flt'));
 await wait(100);
 key("Escape");

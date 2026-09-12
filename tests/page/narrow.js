@@ -88,7 +88,7 @@ if (canvas) {
   const pcard = modal.querySelector(".pcard");
   say("the canvas is the card's width less the padding", Math.round(cb.width) === pcard.clientWidth - 16 && cb.left >= 0 && cb.right <= 390 && pcard.clientWidth >= 359,
       Math.round(cb.left) + " -> " + Math.round(cb.right) + " = " + Math.round(cb.width) + " in " + pcard.clientWidth);
-  say("the link columns are off a phone's table", [...d.querySelectorAll("#head th")].filter(th => ["Enchor", "Leaderboard"].includes(th.dataset.c)).every(th => th.offsetParent === null));
+  say("the link columns are off a phone's table", [...d.querySelectorAll("#head th")].filter(th => ["Chart", "Leaderboard"].includes(th.dataset.c)).every(th => th.offsetParent === null));
   const on = el => { const b = el.getBoundingClientRect(); return b.left >= 0 && b.right <= 390 && b.width > 0; };
   say("the close button is on screen", on(modal.querySelector(".pbtns .x")));
   say("the collapse button is on screen", on(modal.querySelector(".pbtns .pmin")));

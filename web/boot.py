@@ -36,6 +36,7 @@ def boot_payload(manifest, sheet_of_code, links=None):
     return {
         'data': manifest,
         'links': links,            # data/links.<hash8>.json, or null when no song has one
+        'hosts': [[key, host] for key, host in labels_mod.CHART_HOSTS],   # where a chart can be published
         'render': render_profile(),
         'sheetOfCode': sheet_of_code,
         'prefsVersion': labels_mod.PREFS_VERSION,

@@ -1,19 +1,21 @@
 """
 LINKS - the published form of the offline link registry
 
-tools/enchor_lookup.py and tools/leaderboards_lookup.py write
-caches/<header>_links.json, keyed by SongKey, with everything they learned.
-Page-build turns it into one small immutable file, data/links.<hash8>.json,
-holding only what the page shows: per song, the Enchor folder md5 and, when
-the match was sure, the leaderboard songHash. Values outside their character
-class are dropped here, so a registry edited by hand costs a link and never a
-different host. No registry means no file and a null boot key.
+The offline lookups (tools/enchor_lookup.py, tools/leaderboards_lookup.py)
+write caches/<header>_links.json, keyed by SongKey, one section per host
+(labels.CHART_HOSTS: "enchor" today) plus "leaderboard", with everything they
+learned. Page-build turns it into one small immutable file,
+data/links.<hash8>.json, holding only what the page shows: per song, each
+host's chart id and, when the match was sure, the leaderboard songHash. A
+value outside its host's character class is dropped here, so a registry
+edited by hand costs a link and never a different host. No registry means no
+file and a null boot key.
 
-The same two links are page-built boolean columns (LINK_COLS: Enchor,
-Leaderboard), one bit per row rather than the hash, so the table can show and
-filter on whether a chart is published while the rows stay small; the page
-draws each arrow from the file. A column exists only when some song has that
-link, so a library with no leaderboard answers has no Scores column.
+The same links are two page-built columns: `Chart`, the key of the first host
+in CHART_HOSTS order that has the song (null when none), so the table shows
+where a chart is published and filters by host, and `Leaderboard`, a bit. The
+rows carry the host, never the id; the page draws each arrow from the file. A
+column exists only when some song has that kind of link.
 """
 
 import hashlib
@@ -22,12 +24,13 @@ import pathlib
 import re
 
 import config
+from functions import labels
 
 VERSION = 1
 SLUG = 'links'                      # reserved under data/; a sheet that slugs to it fails publish
-MD5 = re.compile(r'[a-f0-9]{32}')
 SONG_HASH = re.compile(r'[A-Za-z0-9_-]{40,50}')
-LINK_COLS = (('Enchor', 'enchor'), ('Leaderboard', 'lb'))   # (page column, key in the file)
+HOST_ID = {key: re.compile(host['id']) for key, host in labels.CHART_HOSTS}
+CHART_COL, LB_COL = 'Chart', 'Leaderboard'
 
 
 def registry_path(header):
@@ -46,12 +49,17 @@ def load_registry(header, path=None):
 
 
 def songs_with_links(registry):
-    """{song_key: {'enchor': md5, 'lb': songHash}} with only the keys that are known and sure."""
+    """{song_key: {<host>: id, 'lb': songHash}} with only the keys that are known and sure.
+
+    A host's registry entry carries the id under 'id', or under 'md5' for
+    Enchor, whose id is its folder md5 (the key of enchor.us/chart/<md5>).
+    """
     out = {}
-    for key, entry in (registry.get('enchor') or {}).items():
-        md5 = (entry or {}).get('md5')
-        if isinstance(md5, str) and MD5.fullmatch(md5):
-            out.setdefault(key, {})['enchor'] = md5
+    for host, pattern in HOST_ID.items():
+        for key, entry in (registry.get(host) or {}).items():
+            value = (entry or {}).get('id', (entry or {}).get('md5'))
+            if isinstance(value, str) and pattern.fullmatch(value):
+                out.setdefault(key, {})[host] = value
     for key, entry in (registry.get('leaderboard') or {}).items():
         entry = entry or {}
         song_hash = entry.get('songHash')
@@ -62,12 +70,19 @@ def songs_with_links(registry):
 
 
 def link_columns(songs):
-    """{column: set of song keys that have it}, for the LINK_COLS any song has."""
+    """The page-built link columns, for the kinds any song has.
+
+    {'Chart': {song_key: host}} with each song's first host in CHART_HOSTS
+    order, and {'Leaderboard': {song_key}}; a kind no song has is absent.
+    """
     out = {}
-    for col, key in LINK_COLS:
-        keys = {k for k, v in songs.items() if key in v}
-        if keys:
-            out[col] = keys
+    hosts = [key for key, _ in labels.CHART_HOSTS]
+    chart = {k: next(h for h in hosts if h in v) for k, v in songs.items() if any(h in v for h in hosts)}
+    if chart:
+        out[CHART_COL] = chart
+    lb = {k for k, v in songs.items() if 'lb' in v}
+    if lb:
+        out[LB_COL] = lb
     return out
 
 

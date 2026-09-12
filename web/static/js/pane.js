@@ -1,5 +1,5 @@
 // The details pane under the table (section 14): one chart's graph (the
-// canvas, readout, legend, compare and Save as PNG of graph.js) beside every
+// canvas, readout, legend, compare-with-a-row and Save as PNG of graph.js) beside every
 // chart of its song (song.js), with where it is published up front. The table
 // shrinks to make room and the open chart's row is highlighted; the pane is
 // keyed on state.graph, not on a row, so it survives a sort, a filter that
@@ -8,7 +8,7 @@
 // that opened it so the arrow keys keep moving (and the graph follows), and
 // Escape closes it and returns to the row. The height is dragged at the top
 // edge and remembered (fw.pane); the heading's caret collapses it.
-import { UI, VALUE_LABELS, MISS_TEXT, SHEET_OF_CODE, SHEETS, RENDER, LEVELS } from "./boot.js";
+import { UI, VALUE_LABELS, MISS_TEXT, SHEET_OF_CODE, SHEETS, RENDER } from "./boot.js";
 import { el, esc } from "./dom.js";
 import { t, lab, isMissing } from "./format.js";
 import { cols, state, findRow, savePane } from "./state.js";
@@ -134,18 +134,16 @@ const paneButtons = () =>
   '<button type="button" class="x" data-act="close" aria-label="' + esc(UI.close_tip) + '" title="' + esc(UI.close_tip) + '">&times;</button></div>';
 
 // Where the chart is published first, in the accent, then the graph's tools.
+// Compare is pick-from-the-table alone: the table's own search and filters
+// are the picker, and the song grid beside the graph lists the song's other
+// charts, so a search box of its own would only duplicate both.
 function toolRow(code) {
   const key = getter(code).get("SongKey");
   return '<div class="gtools">' + linkAnchors(key, "btn btn-sm btn-outline-primary ext") +
-    '<button type="button" class="btn btn-sm btn-outline-secondary" data-act="compare" aria-expanded="false">' + esc(UI.compare) + "</button>" +
-    '<button type="button" class="btn btn-sm btn-outline-secondary" data-act="pick">' + esc(UI.compare_pick) + "</button>" +
+    '<button type="button" class="btn btn-sm btn-outline-secondary" data-act="pick" title="' + esc(UI.compare_pick_tip) + '">' + esc(UI.compare_pick) + "</button>" +
     '<button type="button" class="btn btn-sm btn-outline-secondary" data-act="save">' + esc(UI.save_png) + "</button>" +
     "</div>";
 }
-
-const pickerBox = () =>
-  '<div class="picker d-none"><input type="search" class="form-control form-control-sm" id="cmpq" placeholder="' +
-  esc(UI.compare_search) + '" aria-label="' + esc(UI.compare_search) + '"><ul id="cmpr"></ul></div>';
 
 const codesOpen = () => [state.graph, ...state.compare];
 
@@ -196,7 +194,7 @@ export function openPane(code, vs = state.compare, opts = {}) {
   p.classList.add("on");
   applyHeight();
   c.style.background = RENDER.figure_bg;
-  c.innerHTML = heading(code) + paneButtons() + metaLine(code, null) + toolRow(code) + pickerBox() +
+  c.innerHTML = heading(code) + paneButtons() + metaLine(code, null) + toolRow(code) +
     '<div class="pbody"><div class="gbody"><div class="text-secondary py-4">' + esc(UI.rendering) + "</div></div>" +
     '<div class="sbody"></div></div>';
   const row = markRow();
@@ -287,81 +285,6 @@ export function removeCompare(code) {
   openPane(state.graph, state.compare.filter(c => c !== code), { follow: true });
 }
 
-// The picker: the other charts of this song with an empty box, a search over
-// title, artist and code across every loaded sheet otherwise, twelve at most.
-function pickerRows(query) {
-  const q = query.trim().toLowerCase();
-  const out = [];
-  const seen = new Set(codesOpen());
-  const sheets = Object.keys(SHEETS).filter(s => state.data[s]);
-  const rowsOf = sheet => {
-    const d = state.data[sheet];
-    const at = n => d.columns.indexOf(n);
-    return d.rows.map(r => ({ sheet, columns: d.columns, row: r, code: r[at("Code")],
-      title: String(r[at("Song Title")] ?? ""), artist: String(r[at("Artist")] ?? ""),
-      level: r[at("Level")], type: r[at("Type")], d: r[at("D")] }));
-  };
-  if (!q) {
-    const stem = String(state.graph).slice(0, 8);
-    for (const sheet of sheets)
-      for (const item of rowsOf(sheet)) if (item.code.slice(0, 8) === stem && !seen.has(item.code)) out.push(item);
-    out.sort((a, b) => LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level) || sheets.indexOf(a.sheet) - sheets.indexOf(b.sheet));
-    return out;
-  }
-  for (const sheet of sheets) {
-    for (const item of rowsOf(sheet)) {
-      if (seen.has(item.code)) continue;
-      if (item.title.toLowerCase().includes(q) || item.artist.toLowerCase().includes(q) || item.code.toLowerCase().includes(q)) {
-        out.push(item);
-        if (out.length >= 12) return out;
-      }
-    }
-  }
-  return out;
-}
-
-function paintPicker(loading) {
-  const list = el("cmpr"), box = el("cmpq");
-  if (!list) return;
-  if (codesOpen().length >= 3) {
-    box.disabled = true;
-    list.innerHTML = '<li class="note">' + esc(UI.compare_full) + "</li>";
-    return;
-  }
-  box.disabled = false;
-  const items = pickerRows(box.value);
-  if (!items.length) {
-    list.innerHTML = '<li class="note">' + esc(loading ? UI.compare_loading : UI.compare_none) + "</li>";
-    return;
-  }
-  const lead = box.value.trim() ? "" : '<li class="note">' + esc(UI.compare_same_song) + "</li>";
-  list.innerHTML = lead + items.map(i =>
-    '<li><button type="button" data-add="' + esc(i.code) + '"><span class="tt">' + esc(i.title) + " - " + esc(i.artist) +
-    '</span> <span class="badge rounded-pill lvl ' + esc(i.level) + '">' + esc(i.level) + "</span> " +
-    '<span class="text-secondary">' + esc(i.type) + "</span> " +
-    '<span class="dv">' + esc(typeof i.d === "number" ? i.d.toFixed(2) : "") + "</span></button></li>").join("");
-}
-
-function togglePicker(button) {
-  const picker = card().querySelector(".picker");
-  const open = picker.classList.toggle("d-none") === false;
-  button.setAttribute("aria-expanded", open ? "true" : "false");
-  if (!open) return;
-  paintPicker(true);
-  el("cmpq").focus();
-  loadAll().then(() => { if (paneIsOpen()) paintPicker(false); });
-}
-
-// Escape in the picker closes the picker, not the pane. True when it did.
-export function closePicker() {
-  const picker = paneIsOpen() && card().querySelector(".picker");
-  if (!picker || picker.classList.contains("d-none")) return false;
-  const button = card().querySelector('[data-act="compare"]');
-  togglePicker(button);
-  if (button) button.focus();
-  return true;
-}
-
 // --- pick from the table -------------------------------------------------------------
 
 // The table is right there, so choosing from it is a mode rather than a
@@ -444,23 +367,19 @@ function savePng() {
 }
 
 // The pane's own controls; the document router keeps the cells, the copies
-// links and the compare buttons, which route to a chart.
+// links and the grid's compare buttons, which route to a chart.
 export function initPane() {
   const p = pane();
   p.querySelector(".pgrip").title = UI.pane_resize_tip;
   p.querySelector(".pgrip").setAttribute("aria-label", UI.pane_resize_tip);
   p.addEventListener("click", e => {
-    const add = e.target.closest("[data-add]");
-    if (add) { addCompare(add.dataset.add); return; }
     const act = e.target.closest("[data-act]");
     if (!act) return;
-    if (act.dataset.act === "compare") togglePicker(act);
-    else if (act.dataset.act === "pick") startPicking();
+    if (act.dataset.act === "pick") startPicking();
     else if (act.dataset.act === "save") savePng();
     else if (act.dataset.act === "min") toggleMin();
     else if (act.dataset.act === "close") closePane();
   });
-  p.addEventListener("input", e => { if (e.target.id === "cmpq") paintPicker(false); });
   p.querySelector(".pgrip").addEventListener("pointerdown", gripDown);
   document.addEventListener("pointermove", gripMove);
   document.addEventListener("pointerup", gripUp);

@@ -1,52 +1,58 @@
-// The outbound links a song can carry: its page on Chorus Encore and its
-// Clone Hero leaderboard, from data/links.<hash>.json (state.links), resolved
-// offline by tools/enchor_lookup.py and tools/leaderboards_lookup.py. Each
-// value is accepted only in its own character class before it goes into a URL
-// template, so a registry edited by hand cannot point at another host. The
-// same two are page-built boolean columns (LINK_COLS): the row says whether
-// the link exists, so the table can show and filter on it before the file has
-// arrived, and the file says where it goes.
-import { UI } from "./boot.js";
+// The outbound links a song can carry: its page on each host it is published
+// on (HOSTS, labels.CHART_HOSTS: Chorus Encore today) and its Clone Hero
+// leaderboard, from data/links.<hash>.json (state.links), resolved offline by
+// the lookup tools. A link is built only from a host's own URL template, and
+// only when the value matches that host's character class, so a registry
+// edited by hand cannot point at another host. The same links are two
+// page-built columns: Chart carries the host key (the first in HOSTS order the
+// song is on; null when none), Leaderboard a bit; the row says where, the file
+// says the id, so the table shows and filters before the file has arrived.
+import { UI, HOSTS } from "./boot.js";
 import { esc } from "./dom.js";
 import { t } from "./format.js";
 import { state } from "./state.js";
 
-const LINK_RULES = {
-  enchor: [/^[a-f0-9]{32}$/, "enchor_url", "md5", "enchor", "enchor_tip"],
-  lb: [/^[A-Za-z0-9_-]{40,50}$/, "leaderboard_url", "hash", "leaderboard", "leaderboard_tip"],
-};
-export const LINK_COLS = { Enchor: "enchor", Leaderboard: "lb" };   // column -> key in the file
+export const CHART_COL = "Chart";
+export const LB_COL = "Leaderboard";
+const LB = "lb";
+
+// kind -> {ok, url(value), label, tip}: every host, then the leaderboard
+const RULES = Object.fromEntries(HOSTS.map(([key, host]) =>
+  [key, { ok: new RegExp(host.id), url: v => host.url.replace("{id}", v), label: host.label, tip: host.tip }]));
+RULES[LB] = { ok: /^[A-Za-z0-9_-]{40,50}$/, url: v => t("leaderboard_url", { hash: v }), label: UI.leaderboard, tip: UI.leaderboard_tip };
+const KINDS = [...HOSTS.map(([key]) => key), LB];
 const ARROW = '<span aria-hidden="true">&#8599;</span>';
 
 // {href, label, tip} for one kind, or null while the file has not arrived or
-// the song is not in it.
+// the song is not on it.
 export function linkFor(songKey, kind) {
   const song = state.links && typeof songKey === "string" ? state.links[songKey] : null;
-  const rule = LINK_RULES[kind];
+  const rule = RULES[kind];
   if (!song || !rule) return null;
-  const [ok, template, name, label, tip] = rule;
   const value = song[kind];
-  if (typeof value !== "string" || !ok.test(value)) return null;
-  return { href: t(template, { [name]: encodeURIComponent(value) }), label: UI[label], tip: UI[tip] };
+  if (typeof value !== "string" || !rule.ok.test(value)) return null;
+  return { href: rule.url(encodeURIComponent(value)), label: rule.label, tip: rule.tip };
 }
 
 const anchor = (link, cls, text) => '<a class="' + cls + '" target="_blank" rel="noopener" title="' +
   esc(link.tip) + '" href="' + esc(link.href) + '">' + text + "</a>";
 
-// The anchors a song has, named, for the pane's tool row; "" while the file
-// has not arrived or the song is not in it.
+// The anchors a song has, named, every host then the leaderboard, for the
+// pane's tool row; "" while the file has not arrived or the song has none.
 export function linkAnchors(songKey, cls = "ext") {
-  return Object.keys(LINK_RULES).map(kind => {
+  return KINDS.map(kind => {
     const link = linkFor(songKey, kind);
     return link ? anchor(link, cls, esc(link.label) + " " + ARROW) : "";
   }).join("");
 }
 
 // A link column's cell: the arrow as an anchor once the file is here, a dim
-// arrow until then (filled in by fillLinkCells), nothing for a row without it.
-export function linkCell(col, has, songKey) {
-  const kind = LINK_COLS[col];
-  if (has !== true) return '<td class="lnkc"></td>';
+// arrow until then (filled in by fillLinkCells), nothing for a row without
+// the link. The Chart cell's value is its host key; the Leaderboard cell's is
+// a boolean.
+export function linkCell(col, v, songKey) {
+  const kind = col === CHART_COL ? (typeof v === "string" && v in RULES ? v : null) : (v === true ? LB : null);
+  if (!kind) return '<td class="lnkc"></td>';
   const link = linkFor(songKey, kind);
   if (link) return '<td class="lnkc">' + anchor(link, "ext", ARROW) + "</td>";
   return '<td class="lnkc" data-k="' + esc(kind) + '"><span class="wait" title="' + esc(UI.links_pending) + '">' + ARROW + "</span></td>";

@@ -9,7 +9,7 @@ import { t } from "./format.js";
 import { openDD, closeDD } from "./dropdown.js";
 import { toggleCD, closeCD } from "./chooser.js";
 import { openAbout, closeAbout, aboutIsOpen, toast } from "./overlay.js";
-import { openPane, closePane, paneIsOpen, addCompare, stopPicking, closePicker } from "./pane.js";
+import { openPane, closePane, paneIsOpen, addCompare, stopPicking } from "./pane.js";
 import { state, idx } from "./state.js";
 import { draw, holdRow } from "./table.js";
 
@@ -133,8 +133,8 @@ function onGridKey(e) {
   return false;
 }
 
-// Escape closes one thing at a time: the explainer, a dropdown, the picker
-// mode, the compare picker, then the pane, which hands focus back to its row.
+// Escape closes one thing at a time: the explainer, a dropdown, the picking
+// mode, then the pane, which hands focus back to its row.
 function onKeydown(e) {
   if (e.key === "Tab" && aboutIsOpen()) { trapTab(el("about"), e); return; }
   if (e.key === "Escape") {
@@ -144,7 +144,6 @@ function onKeydown(e) {
     closeCD();
     if (had) return;
     if (state.picking) { stopPicking(); return; }
-    if (closePicker()) return;
     if (paneIsOpen()) closePane();
     return;
   }

@@ -142,7 +142,7 @@
     display:flex; flex-direction:column; padding:8px 16px 10px; }
   .fw-pane.min .pcard > :not(.mhead):not(.pbtns) { display:none; }
   .fw-pane .mhead { padding-right:56px; margin-bottom:4px; flex:0 0 auto; }
-  .fw-pane .mmeta, .fw-pane .gtools, .fw-pane .picker { flex:0 0 auto; }
+  .fw-pane .mmeta, .fw-pane .gtools { flex:0 0 auto; }
   .fw-pane .pbtns { position:absolute; top:4px; right:8px; display:flex; gap:2px; }
   .fw-pane .pbtns button { background:none; border:0; color:var(--fw-dim); line-height:1; padding:0 4px; cursor:pointer; }
   .fw-pane .pbtns .x { font-size:22px; }
@@ -208,14 +208,6 @@
   .legend .rm { background:none; border:0; color:var(--fw-dim); font-size:16px; line-height:1; padding:0 4px; cursor:pointer; }
   .legend .rm:hover { color:var(--bs-body-color); }
   .gtools { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
-  .picker { margin-top:8px; }
-  .picker ul { list-style:none; margin:6px 0 0; padding:0; max-height:40vh; overflow:auto; }
-  .picker li { margin:0; }
-  .picker li.note { font-size:11px; color:var(--fw-dim); padding:4px 2px; }
-  .picker button { display:flex; flex-wrap:wrap; align-items:center; gap:6px; width:100%; text-align:left;
-    background:none; border:0; border-radius:4px; padding:4px 6px; font-size:12px; color:var(--bs-body-color); cursor:pointer; }
-  .picker button:hover, .picker button:focus-visible { background:rgba(255,255,255,.08); }
-  .picker .dv { margin-left:auto; font-variant-numeric:tabular-nums; }
   /* the bar above the table while a chart to compare with is being chosen */
   .fw-pick { flex:0 0 auto; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 16px;
     font-size:12px; background:var(--bs-tertiary-bg); border-bottom:1px solid var(--bs-border-color); }
@@ -268,7 +260,7 @@
     .fw-wrap thead th .rz { display:none; }
     /* the link columns would push D off a phone screen; the pane's tool row
        carries the same links there */
-    .fw-wrap th[data-c="Enchor"], .fw-wrap th[data-c="Leaderboard"], .fw-wrap td.lnkc { display:none; }
+    .fw-wrap th[data-c="Chart"], .fw-wrap th[data-c="Leaderboard"], .fw-wrap td.lnkc { display:none; }
     /* the pane is a bottom sheet under the table, which keeps a few rows; the
        grip drags it taller and the card scrolls */
     .fw-pane { height:44vh; }

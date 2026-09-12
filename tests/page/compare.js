@@ -1,5 +1,5 @@
 // Compare (section 06): up to three charts on one graph, shareable as
-// ?code=A&vs=B,C, chosen from the picker or from the table. Opened by the
+// ?code=A&vs=B,C, chosen by picking a row from the table. Opened by the
 // runner with compare_query: an Expert chart and the same song's Hard.
 import { BOOT, rows as sheetRows, say, skip, done, wait, click, key, ready, params } from "./lib.js";
 await ready();
@@ -37,33 +37,43 @@ say("the readout carries a ~D per chart", many.test(readout()) && /A \S+\s+B \S+
 await wait(400);
 say("the URL carries vs", params().get("vs") === vs && params().get("code") === code, location.search);
 
-// --- the picker -------------------------------------------------------------------
-const cmp = modal.querySelector('[data-act="compare"]');
-click(cmp);
-await wait(400);
-const picker = modal.querySelector(".picker");
-say("Compare reveals the picker", !picker.classList.contains("d-none") && cmp.getAttribute("aria-expanded") === "true");
-say("focus moves to the search box", document.activeElement && document.activeElement.id === "cmpq", document.activeElement && document.activeElement.id);
-const listed = () => [...modal.querySelectorAll("#cmpr [data-add]")].map(b => b.dataset.add);
+// --- a third chart, picked from the table -------------------------------------------
+// there is no picker of the pane's own: the table's search is the search, so
+// a third chart is found by typing in the page's box and clicking its row
 const stem = code.slice(0, 8);
-const sameSong = rows.filter(r => String(r[col("Code")]).slice(0, 8) === stem && r[col("Code")] !== code && r[col("Code")] !== vs).map(r => r[col("Code")]);
-say("an empty box lists the same song's other charts", listed().length > 0 && listed().every(c => c.slice(0, 8) === stem) &&
-    sameSong.every(c => listed().includes(c)) && !listed().includes(code) && !listed().includes(vs), listed().join());
-// a chart from the sheet's top rows (the runner stages the curve files of the
-// first 40 rows of each sheet), found by typing part of its title
-const other = rows.slice(0, 40).find(r => String(r[col("Code")]).slice(0, 8) !== stem);
-const q = document.getElementById("cmpq");
+say("the tools are the links, Compare with a row, and Save", [...modal.querySelectorAll(".gtools button")].map(b => b.dataset.act).join() === "pick,save" &&
+    !modal.querySelector(".picker, #cmpq"), [...modal.querySelectorAll(".gtools button")].map(b => b.dataset.act).join());
+const pick = () => modal.querySelector('[data-act="pick"]');   // re-queried: every swap rebuilds the card
+say("the button says what it does", pick().textContent === UI.compare_pick && pick().title === UI.compare_pick_tip, pick().textContent);
+click(pick());
+await wait(100);
+const bar = document.getElementById("pick");
+say("picking keeps the pane and shows the bar", modal.classList.contains("on") && !bar.classList.contains("d-none") &&
+    bar.textContent.includes(UI.compare_cancel), bar.textContent);
+say("focus is on a table row, ready to choose", document.activeElement && document.activeElement.matches("#body tr[data-code]"), document.activeElement && document.activeElement.tagName);
+// a chart of another song that is on the opening view and in the sheet's top
+// rows (the runner stages the curve files of the first 40 rows of each sheet),
+// found by typing part of its title into the page's own search box
+const onScreen = new Set([...document.querySelectorAll("#body tr[data-code]")].map(tr => tr.dataset.code));
+const other = rows.slice(0, 40).find(r => String(r[col("Code")]).slice(0, 8) !== stem && onScreen.has(r[col("Code")]));
+const q = document.getElementById("q");
 q.value = String(other[col("Song Title")]).slice(0, 8); q.dispatchEvent(new Event("input", { bubbles: true }));
-await wait(50);
-const artistRows = rows.filter(r => String(r[col("Artist")]).toLowerCase().includes(q.value.toLowerCase()) ||
-  String(r[col("Song Title")]).toLowerCase().includes(q.value.toLowerCase()) || String(r[col("Code")]).toLowerCase().includes(q.value.toLowerCase()))
-  .map(r => r[col("Code")]).filter(c => c !== code && c !== vs);
-say("typing narrows the list to matching charts, twelve at most", listed().length > 0 && listed().length <= 12 &&
-    listed().every(c => artistRows.includes(c) || !rows.some(r => r[col("Code")] === c)), q.value + " -> " + listed().join());
-const third = listed().includes(other[col("Code")]) ? other[col("Code")] : listed()[0];
-click(modal.querySelector('#cmpr [data-add="' + third + '"]'));
-await wait(600);
-say("adding a third draws three charts", gbody().fw && gbody().fw.charts.length === 3 && legend().length === 3, gbody().fw && gbody().fw.charts.length);
+await wait(100);
+const searched = ["Song Title", "Artist", "Album", "Charter", "Release", "Code"].map(col);
+const matches = r => searched.some(i => String(r[i] ?? "").toLowerCase().includes(q.value.toLowerCase()));
+say("the table's search narrows the rows while picking", document.querySelectorAll("#body tr[data-code]").length > 0 &&
+    [...document.querySelectorAll("#body tr[data-code]")].every(tr => matches(rows.find(r => r[col("Code")] === tr.dataset.code))), q.value);
+say("the pane is still open on the primary through the repaint", modal.classList.contains("on") && modal.getAttribute("aria-label").endsWith(": " + code));
+const target = document.querySelector('#body tr[data-code="' + other[col("Code")] + '"]') || document.querySelector("#body tr[data-code]");
+const third = target.dataset.code;
+click(target);
+await wait(700);
+say("clicking a row adds it as the third chart and ends the picking", bar.classList.contains("d-none") && gbody().fw && gbody().fw.charts.length === 3 && legend().length === 3,
+    gbody().fw && gbody().fw.charts.map(c => c.code).join());
+say("the primary's row stays the selected one", !document.querySelector("#body tr.sel") || document.querySelector("#body tr.sel").dataset.code === code,
+    document.querySelector("#body tr.sel") && document.querySelector("#body tr.sel").dataset.code);
+q.value = ""; q.dispatchEvent(new Event("input", { bubbles: true }));
+await wait(100);
 // a different song on the graph: every entry names its song again
 const full = (li, r) => li.querySelector(".lt").textContent.trim().includes(String(r[col("Song Title")]));
 say("with another song on the graph the entries carry the titles", !rowOf(third) || (rowOf(third)[col("Song Title")] !== rowOf(code)[col("Song Title")]
@@ -71,10 +81,18 @@ say("with another song on the graph the entries carry the titles", !rowOf(third)
     legend().map(l => l.querySelector(".lt").textContent.trim()).join(" | "));
 await wait(400);
 say("the URL names both extras", params().get("vs") === vs + "," + third, params().get("vs"));
-click(modal.querySelector('[data-act="compare"]'));
-await wait(400);
-say("the picker is full at three", document.getElementById("cmpq").disabled && modal.querySelector("#cmpr").textContent.includes(UI.compare_full),
-    modal.querySelector("#cmpr").textContent);
+click(pick());
+await wait(100);
+const fourth = [...document.querySelectorAll("#body tr[data-code]")].find(tr => ![code, vs, third].includes(tr.dataset.code));
+if (fourth) {
+  click(fourth);
+  await wait(500);
+  say("a fourth is refused with a hint, and the picking ends", gbody().fw.charts.length === 3 && bar.classList.contains("d-none") &&
+      document.getElementById("hint").textContent === UI.compare_full, document.getElementById("hint").textContent);
+} else {
+  key("Escape");
+  await wait(100);
+}
 
 // --- remove: an extra, then the primary, which promotes ------------------------------
 click(modal.querySelector('.legend .rm[data-rm="' + third + '"]'));
@@ -87,33 +105,12 @@ say("removing the primary promotes the first extra", modal.getAttribute("aria-la
 await wait(400);
 say("and the URL follows", params().get("code") === vs && params().get("vs") === null, location.search);
 
-// --- pick from the table ----------------------------------------------------------------
-// the pane stays (section 14): the bar says a chart is being chosen, and the
-// next row click joins the graph rather than opening the pane on it
+// --- Escape cancels the picking ------------------------------------------------------------
 click(modal.querySelector('[data-act="pick"]'));
 await wait(100);
-const bar = document.getElementById("pick");
-say("picking keeps the pane and shows the bar", modal.classList.contains("on") && !bar.classList.contains("d-none") &&
-    bar.textContent.includes(UI.compare_cancel), bar.textContent);
-say("focus is on a table row, ready to choose", document.activeElement && document.activeElement.matches("#body tr[data-code]"), document.activeElement && document.activeElement.tagName);
-const target = [...document.querySelectorAll("#body tr[data-code]")].find(tr => tr.dataset.code !== vs);
-if (!target) {
-  skip("pick from the table", "only one row on screen");
-} else {
-  click(target);
-  await wait(700);
-  say("a row click adds it to the graph and ends the picking", modal.classList.contains("on") && bar.classList.contains("d-none") &&
-      gbody().fw && gbody().fw.charts.map(c => c.code).join() === vs + "," + target.dataset.code, gbody().fw && gbody().fw.charts.map(c => c.code).join());
-  say("the primary's row stays the selected one", document.querySelector("#body tr.sel") === null ||
-      document.querySelector("#body tr.sel").dataset.code === vs, document.querySelector("#body tr.sel") && document.querySelector("#body tr.sel").dataset.code);
-  click(modal.querySelector('[data-act="pick"]'));
-  await wait(100);
-  key("Escape");
-  await wait(600);
-  say("Escape while picking cancels it and leaves the graph unchanged", modal.classList.contains("on") && bar.classList.contains("d-none") &&
-      gbody().fw.charts.length === 2 && params().get("vs") === target.dataset.code, location.search);
-}
+say("picking again shows the bar", !bar.classList.contains("d-none"));
 key("Escape");
-await wait(400);
-say("closing clears the comparison", !modal.classList.contains("on") && params().get("code") === null && params().get("vs") === null, location.search);
+await wait(300);
+say("Escape while picking cancels it and leaves the graph unchanged", modal.classList.contains("on") && bar.classList.contains("d-none") &&
+    gbody().fw.charts.length === 1 && params().get("vs") === null, location.search);
 done();
