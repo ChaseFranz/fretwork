@@ -1,6 +1,6 @@
 # 21. Search: the site as a crawler sees it
 
-**Status:** Landed (2026-09-12, on `main`; awaiting the maintainer's deploy, and the maintainer's part in README's "After it is live"). Written 2026-09-12 against `main` at `52dc6d5`, from the live site fetched the way a crawler fetches it. As landed: the song page carries `<base href="../">` so `rich_text`'s bare page links and the favicon resolve from the root, and the forward is `location.replace(location.search)`; the percentile in a cell is the bare number under D; the pages are about 4 KB.
+**Status:** Landed (2026-09-12, e8ca2d6; awaiting the maintainer's deploy, and the maintainer's part in README's "After it is live"). Written 2026-09-12 against `main` at `52dc6d5`, from the live site fetched the way a crawler fetches it. As landed: the song page carries `<base href="../">` so `rich_text`'s bare page links and the favicon resolve from the root, and the forward is `location.replace(location.search)`; the percentile in a cell is the bare number under D; the pages are about 4 KB.
 
 **Effort:** M. One robots line, the song pages made pages, a songs index, titles, a `document.title` that follows the chart, a live check; and two things only the maintainer can do, written up in the README.
 
