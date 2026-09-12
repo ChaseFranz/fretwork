@@ -1,6 +1,6 @@
 # 20. The library overview page
 
-**Status:** Landed (2026-09-12, 0265e58; awaiting the maintainer's deploy). Written 2026-09-12 against `main` at `e23f592`, from the Local library's sheets. As landed: the distinct count sits under each count as the smaller number rather than a "distinct" word (the table has to fit `doc.html`'s 64ch column); pack dates are ISO in the packs table for the same reason; the footer lists only the document pages the site has (`boot['docPages']` filtered in `page.build`), which fixed the changelog's own case too; bars are a tenth of a percent wide at least so a tier of one chart is still a mark.
+**Status:** Landed (2026-09-11, 0265e58; live as fretladder-v1.3.0). Written 2026-09-12 against `main` at `e23f592`, from the Local library's sheets. As landed: the distinct count sits under each count as the smaller number rather than a "distinct" word (the table has to fit `doc.html`'s 64ch column); pack dates are ISO in the packs table for the same reason; the footer lists only the document pages the site has (`boot['docPages']` filtered in `page.build`), which fixed the changelog's own case too; bars are a tenth of a percent wide at least so a tier of one chart is still a mark.
 
 **Effort:** M. One document page rendered at publish from the frames, in `doc.html`, no script; a footer link; one label block; tests.
 
