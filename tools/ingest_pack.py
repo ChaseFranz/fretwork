@@ -11,7 +11,11 @@ prints at the end.
 
     python tools/ingest_pack.py SOURCE --name NAME [--source URL] [--header Local]
                                 [--library songs] [--packs packs.toml] [--notes TEXT]
-                                [--replace] [--dry-run] [--max-bytes N]
+                                [--replace] [--no-build] [--dry-run] [--max-bytes N]
+
+--no-build places and records the pack and stops before build.py, for several
+packs in a row: run build and analyze once after the last (the two commands it
+prints), since a build of the whole library per pack is the slow part.
 
 Every refusal that can be decided without touching anything is decided first,
 and the run stops with one line starting "refused:". Extraction and sanitising
@@ -462,6 +466,7 @@ def main():
     ap.add_argument('--packs', default=str(packs.PACKS_FILE))
     ap.add_argument('--notes', default='')
     ap.add_argument('--replace', action='store_true', help='replace an existing <library>/<name>/')
+    ap.add_argument('--no-build', action='store_true', help='place and record the pack, then stop: build and analyze once after several')
     ap.add_argument('--dry-run', action='store_true', help='fetch, extract, find and report; change nothing')
     ap.add_argument('--max-bytes', type=int, default=DEFAULT_MAX_BYTES)
     args = ap.parse_args()
@@ -509,6 +514,12 @@ def ingest(args):
         entry_line = 'appended'
     else:
         entry_line = 'entry kept (already registered)'
+    if args.no_build:
+        print(f'\n{found} song folders placed at {folder}/, packs.toml entry {entry_line}; not built (--no-build).\n'
+              f'After the last pack:\n'
+              f'  python build.py --search-path {library} --header {header}\n'
+              f'  python analyze.py --header {header}')
+        return 0
 
     t = time.monotonic()
     run_step('build.py', '--search-path', str(library), '--header', header)

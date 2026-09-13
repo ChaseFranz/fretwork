@@ -195,3 +195,59 @@ text = "First publish: Guitar, Bass and Keys sheets, a graph for every chart, sh
 [[change]]
 date = 2026-09-11
 text = "A Percentile column beside D, computed per sheet and level when the page is built. The graph heading and each row's hover text say where the chart sits."
+
+[[pack]]
+name = "BITCRUSHER"
+folder = "BITCRUSHER"
+source = "https://customsongscentral.com/bitcrusher/"
+added = 2026-09-13
+notes = "A chiptune and video-game-music setlist charted by 3-UP."
+
+[[pack]]
+name = "BITCRUSHER: The Lost Charts"
+folder = "BITCRUSHER The Lost Charts"
+source = "https://customsongscentral.com/bitcrusher-the-lost-charts/"
+added = 2026-09-13
+notes = "The first BITCRUSHER DLC, charted by 3-UP."
+
+[[pack]]
+name = "BITCRUSHER: Across Systems"
+folder = "BITCRUSHER Across Systems"
+source = "https://customsongscentral.com/bitcrusher-across-systems/"
+added = 2026-09-13
+notes = "The second BITCRUSHER DLC, charted by 3-UP."
+
+[[pack]]
+name = "CHARTS 2 DLC 1"
+folder = "CHARTS 2 DLC 1"
+source = "https://customsongscentral.com/charts-2-dlc/"
+added = 2026-09-13
+notes = "Chezy\u2019s CHARTS 2 DLC series, part 1."
+
+[[pack]]
+name = "CHARTS 2 DLC 2"
+folder = "CHARTS 2 DLC 2"
+source = "https://customsongscentral.com/charts-2-dlc-2/"
+added = 2026-09-13
+notes = "Chezy\u2019s CHARTS 2 DLC series, part 2."
+
+[[pack]]
+name = "CHARTS 2 DLC 3"
+folder = "CHARTS 2 DLC 3"
+source = "https://customsongscentral.com/charts-2-dlc-3/"
+added = 2026-09-13
+notes = "Chezy\u2019s CHARTS 2 DLC series, part 3."
+
+[[pack]]
+name = "CHARTS 2 DLC 4"
+folder = "CHARTS 2 DLC 4"
+source = "https://customsongscentral.com/charts-2-dlc-4/"
+added = 2026-09-13
+notes = "Chezy\u2019s CHARTS 2 DLC series, part 4."
+
+[[pack]]
+name = "CHARTS 2 DLC 5"
+folder = "CHARTS 2 DLC 5"
+source = "https://customsongscentral.com/charts-2-dlc-5/"
+added = 2026-09-13
+notes = "Chezy\u2019s CHARTS 2 DLC series, part 5."
