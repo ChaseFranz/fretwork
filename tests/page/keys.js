@@ -106,7 +106,9 @@ if (!dup) {
       sel && sel.dataset.code);
   key("Escape");
   await wait(300);
-  say("Escape still returns focus to the row you started from", !pane.classList.contains("on") && here() === row, here().tagName);
+  // by code, not node: the table's window may have repainted the row meanwhile (section 17)
+  say("Escape still returns focus to the row you started from", !pane.classList.contains("on") && rowOf(here()) && rowOf(here()).dataset.code === row.dataset.code && here().tabIndex === 0,
+      here().tagName + " " + (here().dataset && here().dataset.code) + " vs " + row.dataset.code);
 }
 
 // --- sorting from the keyboard keeps your place --------------------------------------

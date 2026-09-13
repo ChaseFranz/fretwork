@@ -54,11 +54,12 @@ const bar = document.getElementById("pick");
 say("picking keeps the pane and shows the bar", modal.classList.contains("on") && !bar.classList.contains("d-none") &&
     bar.textContent.includes(UI.compare_cancel), bar.textContent);
 say("focus is on a table row, ready to choose", document.activeElement && document.activeElement.matches("#body tr[data-code]"), document.activeElement && document.activeElement.tagName);
-// a chart of another song that is on the opening view and in the sheet's top
-// rows (the runner stages the curve files of the first 40 rows of each sheet),
-// found by typing part of its title into the page's own search box
-const onScreen = new Set([...document.querySelectorAll("#body tr[data-code]")].map(tr => tr.dataset.code));
-const other = rows.slice(0, 40).find(r => String(r[col("Code")]).slice(0, 8) !== stem && onScreen.has(r[col("Code")]));
+// a chart of another song that is on the opening view (a painted row, since
+// the DOM is a window of the view; every curve file is staged), found by
+// typing part of its title into the page's own search box
+const onScreen = [...document.querySelectorAll("#body tr[data-code]")].map(tr => tr.dataset.code);
+const otherCode = onScreen.find(c => c.slice(0, 8) !== stem);
+const other = rows.find(r => r[col("Code")] === otherCode);
 const q = document.getElementById("q");
 q.value = String(other[col("Song Title")]).slice(0, 8); q.dispatchEvent(new Event("input", { bubbles: true }));
 await wait(100);

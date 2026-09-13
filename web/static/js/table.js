@@ -142,9 +142,10 @@ export function compute() {
 
 // Where the window should be: the rows whose estimated top is within
 // OVERSCAN rows of the screen, for the scroller's position, or around a row
-// index that must be painted (revealIndex); avg is the estimate a row not in
-// the DOM stands at. The header is sticky inside the scroller, so the first
-// row's top is the header's height.
+// index that must be painted (revealIndex); avg is the estimate the current
+// spacers stand at, the only one that maps this scroll position to a row. The
+// header is sticky inside the scroller, so the first row's top is the header's
+// height.
 function wanted(avg, around) {
   const w = wrap(), n = state.view.length;
   const screen = Math.ceil(w.clientHeight / avg);
@@ -157,15 +158,18 @@ function wanted(avg, around) {
 }
 
 // The window: the rows from `from` to `to` between two spacers, the rank
-// numbers their place in the view. The spacers stand at the average row
-// height the previous paint measured (state.window.next), and the paint
-// records the average it built them with (state.window.avg), which is what
-// maps a scroll position back to a row index until the next paint. A paint
-// driven by the scroller keeps the row under the screen's top where it was,
-// so a changed estimate never moves the page under the visitor. Focus and the
-// tab stop survive when their row is still painted; the marks are redrawn,
-// since a marked row may have just entered.
-export function paint(around) {
+// numbers their place in the view. The scroll position is read against the
+// estimate the current spacers stand at (state.window.avg), the new spacers
+// are built at the one the previous paint measured (state.window.next), and
+// the paint records that as the new avg. The two differ, so the scroller is
+// put right afterwards: the row that was under the screen's top stays there
+// when it is still painted, and otherwise (a long jump, when nothing painted
+// before is painted now) the first row the scroll position asked for is put
+// at the top, so a changed estimate never moves the page under the visitor
+// and a jump to the end lands on the last rows. Focus and the tab stop
+// survive when their row is still painted; the marks are redrawn, since a
+// marked row may have just entered.
+export function paint(around, fromScroll = false) {
   const vis = visible();
   const body = el("body"), w = wrap();
   const pending = !loaded(state.sheet);
@@ -175,21 +179,24 @@ export function paint(around) {
     state.window = { from: 0, to: 0, avg: state.window.avg, next: state.window.next };
     return;
   }
-  const avg = state.window.next || state.window.avg || ROW_SEED;
-  const { from, to } = wanted(avg, around);
+  const mapAvg = state.window.avg || ROW_SEED;              // what the scroller's position means today
+  const avg = state.window.next || mapAvg;                  // what the new spacers stand at
+  const { from, to, first: asked } = wanted(mapAvg, around);
   const rowOf = code => code ? body.querySelector('tr[data-code="' + CSS.escape(code) + '"]') : null;
   const active = document.activeElement;
   const focused = active && active.closest && body.contains(active) ? active.closest("tr[data-code]") : null;
   const focusedCode = focused ? focused.dataset.code : null;
   const stop = body.querySelector('tr[tabindex="0"]');
   const stopCode = stop ? stop.dataset.code : null;
-  // the row under the screen's top, and where it sits, to put it back; at the
-  // very top of the scroller there is nothing to keep in place, and holding
-  // the first painted row where a spacer had put it would scroll the visitor
-  // off the first rows, so the top stays the top
+  // the row under the screen's top, and where it sits, to put it back after a
+  // scroll-driven paint; at the very top of the scroller there is nothing to
+  // keep in place, and holding the first painted row where a spacer had put it
+  // would scroll the visitor off the first rows, so the top stays the top. A
+  // sort or a filter keeps the pixel position instead: its rows are new, and
+  // following one that happens to be painted again would jump the page
   const screenTop = w.getBoundingClientRect().top + el("head").offsetHeight;
   let anchor = null;
-  if (around === undefined && w.scrollTop > el("head").offsetHeight) {
+  if (fromScroll && w.scrollTop > el("head").offsetHeight) {
     for (const tr of body.querySelectorAll("tr[data-code]")) {
       const box = tr.getBoundingClientRect();
       if (box.bottom > screenTop) { anchor = { code: tr.dataset.code, delta: box.top - screenTop }; break; }
@@ -217,9 +224,16 @@ export function paint(around) {
     const first = painted[0].getBoundingClientRect().top, last = painted[painted.length - 1].getBoundingClientRect().bottom;
     if (last > first) state.window.next = (last - first) / painted.length;
   }
-  if (anchor) {
-    const tr = rowOf(anchor.code);
-    if (tr) w.scrollTop += (tr.getBoundingClientRect().top - screenTop) - anchor.delta;
+  // the scroller put right for the new geometry (the browser's own scroll
+  // anchoring is off on .fw-wrap, so nothing else moves it): the held row
+  // back where it was, else the row the scroll position asked for at the top,
+  // which is what a long jump and a sort at a changed estimate both need, or
+  // the screen would sit over rows that are not painted
+  const held = anchor && rowOf(anchor.code);
+  if (held) w.scrollTop += (held.getBoundingClientRect().top - screenTop) - anchor.delta;
+  else if (around === undefined && w.scrollTop > el("head").offsetHeight) {
+    const top = rowOf(view[asked][codeIdx]);
+    if (top) w.scrollTop += top.getBoundingClientRect().top - screenTop;
   }
 
   // One tab stop for the whole table; the arrow keys move within it. The row
@@ -248,7 +262,7 @@ function windowStale() {
 // Synchronous: the browser already delivers scroll once a frame, a stale
 // check is arithmetic, and a paint is about a hundred rows.
 function onScroll() {
-  if (state.view.length && windowStale()) paint();
+  if (state.view.length && windowStale()) paint(undefined, true);
 }
 
 // The row at index i of the view, painted and on screen: when it is not in

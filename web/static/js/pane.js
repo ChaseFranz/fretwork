@@ -17,11 +17,11 @@ import { loadSheet, loadAll, loadLinks } from "./load.js";
 import { linkAnchors } from "./links.js";
 import { loadCurves, mountGraph, exportPng, outputFilename, G_MOST } from "./graph.js";
 import { songSection } from "./song.js";
-import { markRows, revealIndex, viewIndexOf } from "./table.js";
+import { markRows, revealIndex, viewIndexOf, holdRow } from "./table.js";
 import { toast } from "./overlay.js";
 
 let controller = null;  // the mounted graph, while one is open
-let paneOpener = null;  // the row that opened the pane, for Escape
+let paneOpener = null;  // what opened the pane, for Escape: a row's code (the DOM is a window, so never the node), else an element
 const BASE_TITLE = document.title;   // the tab reads as the open chart while one is up, and as the site again after
 const PANE_MIN = 140;                                   // px; the smallest the grip drags to
 const SIDE_BY_SIDE = "(min-width: 900px)";              // the graph beside the song grid, else stacked
@@ -235,7 +235,7 @@ export function openPane(code, vs = [], opts = {}) {
   // holds a window of the view (section 17), then marked
   const shown = opts.reveal ? revealIndex(viewIndexOf(code)) : null;
   const row = markRows();          // between repaints: a swap from a cell, a row, a copy's link
-  if (!wasOpen) paneOpener = row || document.activeElement;
+  if (!wasOpen) paneOpener = row ? { code: row.dataset.code } : document.activeElement;
   if (shown) shown.focus({ preventScroll: true });
   fillSong(code);
   // the tools are a function of state: when the links file lands after the
@@ -303,8 +303,13 @@ export function closePane() {
   if (!state.picking) state.compare = [];
   writeUrl();
   markRows();                      // nothing is on the graph: every mark goes
-  const back = paneOpener && paneOpener.isConnected && !pane().contains(paneOpener) ? paneOpener : el("body").querySelector('tr[tabindex="0"]');
-  if (back) back.focus();
+  // back to the row that opened the pane, painted again and scrolled to if the
+  // table's window has moved on since (section 17), else to the tab stop
+  let back = null;
+  if (paneOpener && paneOpener.code) back = revealIndex(viewIndexOf(paneOpener.code));
+  else if (paneOpener && paneOpener.isConnected && !pane().contains(paneOpener)) back = paneOpener;
+  if (!back) back = el("body").querySelector('tr[tabindex="0"]');
+  if (back) { if (back.matches("tr")) holdRow(back); back.focus({ preventScroll: true }); }
   paneOpener = null;
 }
 

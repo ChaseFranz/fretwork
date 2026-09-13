@@ -94,7 +94,9 @@ def compare_query(plain):
     for r in rows:
         if r[at("Level")] != "Expert":
             continue
-        hard = next((h for h in rows if h[at("Level")] == "Hard" and str(h[at("Code")])[:8] == str(r[at("Code")])[:8]), None)
+        # the same folder and the same part: the suite expects the legend to name the levels alone
+        hard = next((h for h in rows if h[at("Level")] == "Hard" and str(h[at("Code")])[:8] == str(r[at("Code")])[:8]
+                     and h[at("Type")] == r[at("Type")]), None)
         if hard:
             return "?" + urllib.parse.urlencode({"code": r[at("Code")], "vs": hard[at("Code")]})
     return "?" + urllib.parse.urlencode({"code": rows[0][at("Code")], "vs": rows[1][at("Code")]})

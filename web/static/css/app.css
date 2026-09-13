@@ -87,7 +87,9 @@
   #theme { padding:0 6px; line-height:1.4; font-size:13px; }
   html.theming *, html.theming *::before, html.theming *::after { transition:none!important; }
   .fw-head { flex:0 0 auto; z-index:1030; }
-  .fw-wrap { flex:1 1 auto; min-height:0; overflow:auto; }
+  /* the table's own paint puts the scroller right after every repaint (table.js);
+     the browser's scroll anchoring would add its own correction on top */
+  .fw-wrap { flex:1 1 auto; min-height:0; overflow:auto; overflow-anchor:none; }
   /* .more is set from scroll.js, only while something is past the right edge */
   .more { mask-image:linear-gradient(to right, #000 calc(100% - 40px), transparent);
     -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 40px), transparent); }

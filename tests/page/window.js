@@ -121,14 +121,16 @@ if (params().get("code")) {
     say("scrolling to the bottom paints the last row, with no spacer below it", rank(painted()[painted().length - 1]) === total && bottomPad() === 0,
         rank(painted()[painted().length - 1]) + " of " + total + ", pad below " + bottomPad());
 
-    // sorting keeps the scroll position and repaints the window there
+    // sorting keeps the place in the list (the row index under the screen's top,
+    // not the pixel: the estimate the spacers stand at can change) and paints the window there
     scrollTo(wrap.scrollHeight / 3);
     await wait(300);
-    const before = wrap.scrollTop;
+    const placeBefore = rank(painted().filter(inView)[0]);
     click(document.querySelector('#head th[data-c="Song Title"] .lbl'));
     await wait(300);
-    say("a sort keeps the scroll position and paints the window there", Math.abs(wrap.scrollTop - before) < 5 && pads().length === 2 && continuous(painted()),
-        before + " -> " + wrap.scrollTop);
+    const placeAfter = painted().filter(inView)[0] && rank(painted().filter(inView)[0]);
+    say("a sort keeps the place in the list and paints the window there", placeAfter && Math.abs(placeAfter - placeBefore) <= 5 && pads().length === 2 && continuous(painted()),
+        placeBefore + " -> " + placeAfter);
     say("the count is unchanged", shown() === total);
   }
   done();
