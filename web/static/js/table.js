@@ -152,7 +152,8 @@ function wanted(avg, around) {
   if (around === undefined) first = Math.floor(Math.max(0, w.scrollTop - el("head").offsetHeight) / avg);
   else first = around - Math.floor(screen / 2);
   first = Math.max(0, Math.min(first, n - screen));
-  return { from: Math.max(0, first - OVERSCAN), to: Math.max(0, Math.min(n, first + screen + OVERSCAN)) };
+  return { from: Math.max(0, first - OVERSCAN), to: Math.max(0, Math.min(n, first + screen + OVERSCAN)),
+           first, last: Math.min(n, first + screen) };
 }
 
 // The window: the rows from `from` to `to` between two spacers, the rank
@@ -182,10 +183,13 @@ export function paint(around) {
   const focusedCode = focused ? focused.dataset.code : null;
   const stop = body.querySelector('tr[tabindex="0"]');
   const stopCode = stop ? stop.dataset.code : null;
-  // the row under the screen's top, and where it sits, to put it back
+  // the row under the screen's top, and where it sits, to put it back; at the
+  // very top of the scroller there is nothing to keep in place, and holding
+  // the first painted row where a spacer had put it would scroll the visitor
+  // off the first rows, so the top stays the top
   const screenTop = w.getBoundingClientRect().top + el("head").offsetHeight;
   let anchor = null;
-  if (around === undefined) {
+  if (around === undefined && w.scrollTop > el("head").offsetHeight) {
     for (const tr of body.querySelectorAll("tr[data-code]")) {
       const box = tr.getBoundingClientRect();
       if (box.bottom > screenTop) { anchor = { code: tr.dataset.code, delta: box.top - screenTop }; break; }
@@ -228,13 +232,17 @@ export function paint(around) {
 }
 
 // True when the scroller has moved far enough that the window should follow:
-// the screen is within half the overscan of a painted edge that is not the
-// view's own edge, measured at the estimate the spacers stand at.
+// a row on screen is within half the overscan of a painted edge that is not
+// the view's own edge, measured at the estimate the spacers stand at. The
+// screen's rows, not the wanted window's: the window is clamped at the view's
+// ends, so at the top it always starts at 0 and would never look stale
+// against a painted window starting a few rows down, which left the first
+// rows a blank spacer after a fast scroll down and back.
 function windowStale() {
-  const { from, to } = wanted(state.window.avg || ROW_SEED);
+  const { first, last } = wanted(state.window.avg || ROW_SEED);
   const half = OVERSCAN / 2;
-  return (from + half < state.window.from && state.window.from > 0) ||
-         (to - half > state.window.to && state.window.to < state.view.length);
+  return (first - half < state.window.from && state.window.from > 0) ||
+         (last + half > state.window.to && state.window.to < state.view.length);
 }
 
 // Synchronous: the browser already delivers scroll once a frame, a stale

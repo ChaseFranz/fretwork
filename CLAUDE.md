@@ -184,8 +184,10 @@ to a row index (`wanted`); a scroll-driven paint keeps the row under the
 screen's top where it was (the anchor), so a changed estimate never moves the
 page under the visitor. `draw()` is both, and every caller that changes what
 the table shows still calls `draw()`. The scroll listener paints synchronously
-when the screen comes within half the overscan of a painted edge
-(`windowStale`). Anything that needs a row that may not be painted goes
+when a row on screen comes within half the overscan of a painted edge
+(`windowStale`: the screen's rows, unclamped, never the wanted window's,
+which is clamped at the view's ends and would leave the first rows a spacer
+after a fast scroll down and back). Anything that needs a row that may not be painted goes
 through the view: the arrow keys, PageUp/Down, Home and End walk `state.view`
 by index (`router.moveTo`, `table.viewIndexOf`) and `table.revealIndex(i)`
 paints the window around the row first and scrolls to it second, since a scroll

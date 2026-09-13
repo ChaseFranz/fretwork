@@ -65,6 +65,8 @@ Rejected: chunked painting on idle (the DOM still ends at 112,028 nodes and the 
 
 ## Risks and gotchas
 
+- Fixed 2026-09-13 (the maintainer saw it): after a fast scroll down and back, the first rows stayed a blank spacer. `windowStale` compared the *wanted* window's edge, clamped to 0 at the top, against the painted one, so a window starting at row 5 never looked stale at the top (`0 + 20 < 5` is false); it now compares the screen's own first and last rows, unclamped, and a scroll-driven paint at the very top no longer anchors the first painted row where a spacer had put it. `window.js` reproduces it (a scroll to the middle, then to about row 60, then to 0: the first row is painted with nothing above it; the mirror at the bottom).
+
 - The average row height is per sheet and per width; a column shown or hidden changes it. `paint()` re-measures after every paint, so it converges within a screen or two.
 - `find` in the browser (Ctrl+F) only sees painted rows. The search box is the search; this is the trade every windowed table makes.
 - `contrast.js` measured every level badge in the DOM; with a window it measures the badges on screen, which is every level once the Level filter is lifted at the top of the sort.

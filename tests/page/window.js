@@ -64,7 +64,9 @@ if (params().get("code")) {
     const onScreen = mid.filter(inView);
     say("the rows on screen are painted", onScreen.length >= 5, onScreen.length + " on screen");
     const perRow = (wrap.scrollHeight - document.getElementById("head").offsetHeight) / total;
-    say("and the row under the screen's top is where the scroll says", Math.abs((rank(onScreen[0]) - 1) - (wrap.scrollTop - document.getElementById("head").offsetHeight) / perRow) < 4,
+    // the spacers stand at an estimate and the painted rows at their real heights, so the
+    // row under the screen's top is within the overscan of the arithmetic, not exactly on it
+    say("and the row under the screen's top is near where the scroll says", Math.abs((rank(onScreen[0]) - 1) - (wrap.scrollTop - document.getElementById("head").offsetHeight) / perRow) < 20,
         rank(onScreen[0]) + " at " + Math.round(wrap.scrollTop) + ", " + perRow.toFixed(1) + "px a row");
 
     // the arrow keys and End reach rows that are not painted
@@ -94,6 +96,30 @@ if (params().get("code")) {
     await wait(300);
     say("a small scroll keeps the focused row", document.activeElement.closest && document.activeElement.closest("tr[data-code]") &&
         rank(document.activeElement.closest("tr[data-code]")) === rank(held), document.activeElement.tagName);
+
+    // a fast scroll down and back: the window must return to the first row (the
+    // bug: a painted window starting a few rows down never looked stale against
+    // the wanted window, clamped at 0, so rows 1 to 5 stayed a blank spacer)
+    scrollTo(wrap.scrollHeight / 2);
+    await wait(200);
+    // the screen's first row about 60 at the estimate the spacers now stand at: the window
+    // then starts between rows 1 and 39 whatever the next paint's estimate does (within 20%)
+    const perRow2 = (wrap.scrollHeight - document.getElementById("head").offsetHeight) / total;
+    scrollTo(document.getElementById("head").offsetHeight + 60 * perRow2);
+    await wait(200);
+    const topPad = () => body.firstElementChild && body.firstElementChild.classList.contains("pad") ? parseInt(body.firstElementChild.dataset.n, 10) : 0;
+    const nearTop = topPad();
+    say("a scroll near the top leaves a short spacer above the window", nearTop > 0 && nearTop < 40, nearTop + " rows above, pads " + pads().map(p => p.dataset.n).join(","));
+    scrollTo(0);
+    await wait(200);
+    say("scrolling back to the top paints the first row, with no spacer above it", rank(painted()[0]) === 1 && topPad() === 0,
+        rank(painted()[0]) + " first, " + topPad() + " above");
+    say("and the scroller is still at the top", wrap.scrollTop === 0, wrap.scrollTop);
+    const bottomPad = () => body.lastElementChild && body.lastElementChild.classList.contains("pad") ? parseInt(body.lastElementChild.dataset.n, 10) : 0;
+    scrollTo(wrap.scrollHeight);
+    await wait(200);
+    say("scrolling to the bottom paints the last row, with no spacer below it", rank(painted()[painted().length - 1]) === total && bottomPad() === 0,
+        rank(painted()[painted().length - 1]) + " of " + total + ", pad below " + bottomPad());
 
     // sorting keeps the scroll position and repaints the window there
     scrollTo(wrap.scrollHeight / 3);
