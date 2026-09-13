@@ -196,6 +196,14 @@ text = "First publish: Guitar, Bass and Keys sheets, a graph for every chart, sh
 date = 2026-09-11
 text = "A Percentile column beside D, computed per sheet and level when the page is built. The graph heading and each row's hover text say where the chart sits."
 
+[[change]]
+date = 2026-09-11
+text = "Clicking a row opens a details pane under the table: the chart's graph beside every chart of its song, up to three charts compared on one graph, a Chart page column linking each song to Chorus Encore, and a light theme that follows your system's setting or the button at the top right. Switching instrument keeps your filters. The library page in the footer says what the site holds."
+
+[[change]]
+date = 2026-09-12
+text = "Every song has a page of its own, with its graph and every level of every part, which is what a shared link previews as: Copy link in the details pane hands one out. Every game has a page with its setlist ranked by difficulty, the hardest and easiest lists per instrument link from the library page, and Songs in the footer lists them all. The table paints only the rows near the screen, so it scrolls the same however large the library grows."
+
 [[pack]]
 name = "BITCRUSHER"
 folder = "BITCRUSHER"
