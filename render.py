@@ -2,8 +2,7 @@
 RENDER - one PNG per retrieval code based on settings in config + plot
 
 Takes codes from the ANALYZE spreadsheet and writes an individual PNG for each.
-Codes are an 8-digit song hash plus a level letter (E/M/H/X) then a single-letter
-instrument suffix - G for guitar, B for bass, K for keys, etc (see instruments.py)
+Codes are an 8-digit has + level (E/M/H/X) + instrument (G/C/R/B/K/D/V)
 
     python render.py 04821993XG
     python render.py 04821993XG 71620045HB 09933120EK
@@ -15,8 +14,12 @@ With no --cache given, RENDER loads the most recently built cache for config.HEA
 Curves are recomputed here rather than read from the cache - doesn't take much processing time
 
 EMHX
-- Each code renders exactly one EMHX level's curves (D/NPS/VPS over time)
+- Each code renders exactly one EMHX level's curves (D/NPS/VPS, or D/HPS/TPS/KPS for drums) over time
 - Render recalcs expert metrics and uses them to anchor the difficulty remap/tier for every level
+
+Different instruments require different functions
+
+Drums renders 2x under 1x when both appear for a chart
 """
 
 import argparse
@@ -25,9 +28,63 @@ import pathlib
 import tqdm
 
 import config
-from functions import cache as cache_mod
+from functions import cache as cache_mod, drum_density, drum_formula, fret_density, fret_formula
 from functions import curves as curves_mod
-from functions import density, formula, ini_updater, plot, timestamp
+from functions import ini_updater, plot, timestamp
+
+
+# One guitar/bass/keys entry
+def _render_fret_entry(entry, out_dir, original_diffs):
+    song_curves = curves_mod.calc_curves(entry['notes'])
+    if song_curves is None:
+        return None, f"{entry['code']}: no curve data"
+
+    difficulty = None
+    metrics = fret_density.calc_metrics(entry['notes'])
+    if metrics is not None:
+        expert_notes = entry.get('expert_notes')
+        expert_metrics = fret_density.calc_metrics(expert_notes) if expert_notes is not None else None
+        anchor_remap, anchor_tier = fret_formula.anchor_remap_tier(expert_metrics, entry['instrument'])
+
+        difficulty = {
+            **fret_formula.calc_nvcov(metrics),
+            'RemapDiff': anchor_remap,
+            'CalcTier': anchor_tier,
+        }
+
+    original_diff = original_diffs.get(entry['song_path'], {}).get(entry['instrument'])
+    path = plot.render_song(entry, song_curves, difficulty, original_diff=original_diff, out_dir=out_dir)
+    return path, None
+
+
+# One drum entry
+def _render_drum_entry(entry, out_dir, original_diffs):
+    roll_spans = entry.get('roll_spans')
+    drum_curves = curves_mod.calc_drum_curves(entry['notes'], roll_spans=roll_spans)
+    if drum_curves is None:
+        return None, f"{entry['code']}: no curve data"
+
+    difficulty = None
+    metrics = drum_density.calc_drum_metrics(entry['notes'], roll_spans=roll_spans)
+    if metrics is not None:
+        expert_notes = entry.get('expert_notes')
+        expert_roll_spans = entry.get('expert_roll_spans')
+        expert_metrics = (drum_density.calc_drum_metrics(expert_notes, roll_spans=expert_roll_spans)
+                           if expert_notes is not None else None)
+        anchor_remap, anchor_tier = drum_formula.anchor_remap_tier(expert_metrics)
+
+        difficulty = {
+            'D_1x': drum_formula.calc_drum_d(metrics, '1x')['D'],
+            'RemapDiff': anchor_remap,
+            'CalcTier': anchor_tier,
+        }
+        # 2x is optional - only present, and only shown, when the song actually charts it
+        if metrics.get('2x') is not None:
+            difficulty['D_2x'] = drum_formula.calc_drum_d(metrics, '2x')['D']
+
+    original_diff = original_diffs.get(entry['song_path'], {}).get(entry['instrument'])
+    path = plot.render_drum_song(entry, drum_curves, difficulty, original_diff=original_diff, out_dir=out_dir)
+    return path, None
 
 
 def render_codes(codes, cache=None, cache_path=None, header=None, out_dir=None):
@@ -55,29 +112,16 @@ def render_codes(codes, cache=None, cache_path=None, header=None, out_dir=None):
     print(f"\nRendering {len(entries)} from {header} cache")
     written = []
     for entry in tqdm.tqdm(entries, desc="Rendering", unit="song"):
-        song_curves = curves_mod.calc_curves(entry['notes'])
-        if song_curves is None:
-            print(f"  [skip] {entry['code']}: no curve data")
+        if entry['instrument'] == 'drums':
+            path, skip_reason = _render_drum_entry(entry, out_dir, original_diffs)
+        else:
+            path, skip_reason = _render_fret_entry(entry, out_dir, original_diffs)
+
+        if skip_reason:
+            print(f"  [skip] {skip_reason}")
             continue
 
-        difficulty = None
-        metrics = density.calc_metrics(entry['notes'])
-        if metrics is not None:
-            expert_notes = entry.get('expert_notes')
-            expert_metrics = density.calc_metrics(expert_notes) if expert_notes is not None else None
-            anchor_remap, anchor_tier = formula.anchor_remap_tier(expert_metrics, entry['instrument'])
-
-            difficulty = {
-                **formula.calc_nvcov(metrics),
-                'RemapDiff': anchor_remap,
-                'CalcTier': anchor_tier,
-            }
-
-        original_diff = original_diffs.get(entry['song_path'], {}).get(entry['instrument'])
-
-        written.append(plot.render_song(entry, song_curves, difficulty,
-                                         original_diff=original_diff,
-                                         out_dir=out_dir))
+        written.append(path)
 
     print(f"\nGraphs rendered: {len(written)}")
     if written:

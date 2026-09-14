@@ -32,6 +32,8 @@ Shape:
                     #         'kick_mask': {'time_ms': ndarray, 'lanes': ndarray uint8},
                     #     }
                 },
+                'roll_spans': {'drums': {level_key: [(start_ms, end_ms, 'single'|'double'), ...], ...}},
+                # roll lanes available per level
             },
             ...
         },
@@ -43,9 +45,11 @@ Caches should be managed based on timestamp / generation time & date
 
 When generated with errors, a CSV is produced alongside the cache with details
 
-Retrieval codes are per the 8-digit song hash + a level (E/M/H/X) + instrument (G/C/R/B/K)
+Retrieval codes are per the 8-digit song hash + a level (E/M/H/X) + instrument (G/C/R/B/K/D/V)
 '04821993' + Expert + Bass -> '04821993XB'. 
 Render uses the code to define the instrument/level
+
+Drums requires roll spans to calculate correctly so those are paired to the code as well
 """
 
 import hashlib
@@ -154,10 +158,14 @@ def entries_by_code(cache, codes):
             missing.append(raw)
             continue
 
-        # Expert's own note stream, alongside the requested level 
+        # Expert's notes, alongside the requested level 
         # RemapDiff/CalcTier are anchored to Expert row's data
-        # None if this instrument has no Expert chart
         expert_notes = instrument_levels.get('expert', {}).get('notes')
+
+        # Roll spans - drums only to calc metrics correctly
+        instrument_roll_spans = song.get('roll_spans', {}).get(instrument_key, {})
+        roll_spans = instrument_roll_spans.get(level_key)
+        expert_roll_spans = instrument_roll_spans.get('expert')
 
         entries.append({
             **inst_entry,
@@ -168,6 +176,8 @@ def entries_by_code(cache, codes):
             'meta': song['meta'],
             'source_format': song['source_format'],
             'expert_notes': expert_notes,
+            'roll_spans': roll_spans,
+            'expert_roll_spans': expert_roll_spans,
         })
 
     return entries, missing

@@ -6,6 +6,8 @@ INSTRUMENTS - Central definition of every supported instrument:
     - which song.ini tag holds its (Expert-referenced) difficulty
     - the single-letter suffixes used in retrieval codes (level + instrument)
     - whether it supports open notes
+    - column details for xlsx generation
+    - terminal output block for inst/level for build/analyze
 
 Track/section names sourced from TheNathannator's GuitarGame_ChartFormats documentation
 
@@ -23,15 +25,14 @@ A given song may chart anywhere from 1 to all 4 levels for a given instrument
 Legacy GH1/2-style open note encoding in .mid assumed Expert-only
 
 DRUMS
-Drums shares a lot with the 5-fret instruments:
-- 'PART DRUMS' mid / [Level]'Drums' chart naming conventions
-- same per-level .mid pitch block bases) -
-Differences:
-- Note-number decoding
 - splitting note streams out to have hands and kick separated
+- 1x & 2x columns/suffix conventions to support both for one song row
+
 """
 
-# canonical instrument keys, in a stable display/iteration order
+from collections import namedtuple
+
+# instrument keys, display/iteration order
 INSTRUMENT_KEYS = ['guitar', 'coop', 'rhythm', 'bass', 'keys', 'drums']
 
 DISPLAY_NAMES = {
@@ -43,11 +44,11 @@ DISPLAY_NAMES = {
     'drums':  'Drums',
 }
 
-# canonical level keys, in a stable display/iteration order
+# level keys, display/iteration order
 LEVEL_KEYS = ['easy', 'medium', 'hard', 'expert']
 
-# full-word label per level - used for the xlsx 'Level' column and render headers
-# ("Expert Guitar", "Medium Bass", ...)
+# full-word label per level, used for xlsx & render headers
+# (Expert Guitar / Medium Bass)
 LEVEL_DISPLAY_NAMES = {
     'easy':   'Easy',
     'medium': 'Medium',
@@ -55,7 +56,7 @@ LEVEL_DISPLAY_NAMES = {
     'expert': 'Expert',
 }
 
-# .mid track name(s) per instrument - unaffected by level (pitch blocks)
+# .mid track name(s) per instrument, unaffected by level (pitch blocks)
 # Guitar carries the GH1-era 'T1 GEMS' legacy fallback
 MID_TRACK_NAMES = {
     'guitar': ['PART GUITAR', 'T1 GEMS'],
@@ -109,7 +110,7 @@ CHART_SECTIONS = {
     for instrument_key, bases in CHART_BASE_SECTIONS.items()
 }
 
-# song.ini Difficulty tag per instrument - Expert-referenced only. 
+# song.ini Difficulty tag per instrument - Expert-referenced only
 # song.ini has no level based tag so assuming the Expert tiering as canonical
 # RemapDiff/CalcTier reuse this against the Expert row's D for E/M/H tier display + write/restore
 DIFF_TAGS = {
@@ -159,6 +160,81 @@ SHEET_GROUPS = {
     'Bass':   ['bass'],
     'Keys':   ['keys'],
     'Drums':  ['drums'],
+}
+
+# must match the 'Drums' key in SHEET_GROUPS above
+DRUMS_SHEET_NAME = 'Drums'
+
+# --------------------------------------------------------------------------
+# Sheet profiles - one record per xlsx tab shape
+# Guitar/Bass/Keys are all fret-shaped (single D column, raw NPS/VPS diagnostics)
+# Drums is the only other shape (D_1x/D_2x, HPS/TPS/KPS diagnostics) so far
+# Vocals TBD
+# Band D???
+# used for analyze and xlsx formatting
+# --------------------------------------------------------------------------
+SheetProfile = namedtuple('SheetProfile', [
+    'column_order',  # full column set, in xlsx write order
+    'hidden_cols',   # subset of column_order dropped/hidden
+    'float_cols',    # numeric columns formatted X.XX
+    'scaled_cols',   # difficulty columns getting the green-yellow-red color scale
+    'sort_col',      # column the sheet is sorted by, descending
+])
+
+# 5 fret (Guitar/Bass/Keys)
+FRET_COLUMN_ORDER = [
+    'Code', 'Song Title', 'Artist', 'Level', 'Type', 'Charter', 'Release', 'Official',
+    'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier',
+    'pNPS', 'aNPS', 'medNPS', 'stdNPS', 'pVPS', 'aVPS', 'medVPS', 'stdVPS',
+    'N', 'V', 'COV', 'STAM',
+]
+FRET_HIDDEN_COLS = ['pNPS', 'aNPS', 'medNPS', 'stdNPS',
+                     'pVPS', 'aVPS', 'medVPS', 'stdVPS',
+                     'N', 'V', 'COV', 'STAM']
+FRET_FLOAT_COLS = {'aNPS', 'pNPS', 'stdNPS', 'medNPS', 'aVPS', 'pVPS', 'stdVPS', 'medVPS', 'N', 'V', 'COV', 'STAM', 'D'}
+FRET_SCALED_COLS = ['D', 'RemapDiff', 'CalcTier']
+
+# Drums: headline metadata + D_1x/D_2x, plus the diagnostic breakdown
+DRUM_HAND_DIAG_COLS = [
+    'pHPS', 'aHPS', 'medHPS', 'stdHPS',
+    'pTPS', 'aTPS', 'medTPS', 'stdTPS',
+    'H', 'T',
+    'STAM',
+]
+
+# unsuffixed field names, shared by both kick readings - _drum_kick_diag_cols
+# below suffixes these for the xlsx column list; analyze.py reads the same
+# list, unsuffixed, straight off {**reading, **r}.
+DRUM_KICK_DIAG_BASE = [
+    'pKPS', 'aKPS', 'medKPS', 'stdKPS',
+    'K', 'CoV', 'Base',
+]
+
+
+def _drum_kick_diag_cols(suffix):
+    return [f'{base}_{suffix}' for base in DRUM_KICK_DIAG_BASE]
+
+
+DRUM_KICK_DIAG_COLS_1X = _drum_kick_diag_cols('1x')
+DRUM_KICK_DIAG_COLS_2X = _drum_kick_diag_cols('2x')
+DRUM_DIAG_COLS = [*DRUM_HAND_DIAG_COLS, *DRUM_KICK_DIAG_COLS_1X, *DRUM_KICK_DIAG_COLS_2X]
+
+DRUM_COLUMN_ORDER = [
+    'Code', 'Song Title', 'Artist', 'Level', 'Type', 'Charter', 'Release', 'Official',
+    'NoteCount_1x', 'NoteCount_2x', 'DurationS', 'Difficulty', 'D_1x', 'D_2x', 'RemapDiff', 'CalcTier',
+    *DRUM_DIAG_COLS,
+]
+DRUM_FLOAT_COLS = {*DRUM_DIAG_COLS, 'D_1x', 'D_2x'}
+DRUM_HIDDEN_COLS = list(DRUM_DIAG_COLS)
+DRUM_SCALED_COLS = ['D_1x', 'D_2x', 'RemapDiff', 'CalcTier']
+
+_FRET_PROFILE = SheetProfile(FRET_COLUMN_ORDER, FRET_HIDDEN_COLS, FRET_FLOAT_COLS, FRET_SCALED_COLS, 'D')
+_DRUM_PROFILE = SheetProfile(DRUM_COLUMN_ORDER, DRUM_HIDDEN_COLS, DRUM_FLOAT_COLS, DRUM_SCALED_COLS, 'D_1x')
+
+# every sheet in SHEET_GROUPS gets a profile
+SHEET_PROFILES = {
+    sheet_name: _DRUM_PROFILE if sheet_name == DRUMS_SHEET_NAME else _FRET_PROFILE
+    for sheet_name in SHEET_GROUPS
 }
 
 # per-row label for 'Type' column

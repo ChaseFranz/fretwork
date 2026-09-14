@@ -88,7 +88,8 @@ RENDER_DEFAULT = {
  
     "color_d": "#B71FB7",
     "color_nps": "#127BC1",
-    "color_vps": "#DD6C1B",
+    "color_vps": "#DD6C1B", 
+    "color_tps": "#2E9E5B", # drums-only
 
     "linewidth": 1.5,
     "grid_alpha": 0.25,
