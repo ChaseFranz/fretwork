@@ -1,6 +1,6 @@
-# Fretwork - 5-Fret Difficulty Analyzer <!-- omit in toc -->
+# Fretwork - GH/RB/CH/YARG Difficulty Analyzer <!-- omit in toc -->
 
-Fretwork is an analysis tool to calculate difficulty values across Easy/Medium/Hard/Expert for Guitar/Bass/Keys from notes.chart & notes.mid files (Guitar Hero, Rock Band, Clone Hero, YARG) using Notes Per Second (note density) & Variability Per Second (fret change) metrics.
+Fretwork is an analysis tool to calculate difficulty values across Easy/Medium/Hard/Expert for Guitar/Bass/Keys/Drums songs from chart & midi files (Guitar Hero, Rock Band, Clone Hero, YARG) using metrics derived directly from the charted notes (See Methodology.md for details)
 
 [Explainer video with some historical context](https://youtu.be/emoWMpDJ4ls)
 
@@ -55,11 +55,13 @@ Under `RENDER_DEFAULT` and `RENDER_THEMES`, you can tweak how `render.py's` PNGs
 
 ## 2. Building a cache
 
-`build.py` walks `SEARCH_PATH`, finds every `song.ini`, `notes.chart`, and `notes.mid`, reads them, and writes one cache file containing every song's note timing and metadata. Note state (strum/hopo/tap), note length, and star power/solo phrases are not parsed. Every level (Easy/Medium/Hard/Expert) charted for each instrument is cached. Currently caches drum notes, but doesn't do anything with them downstream in Analyze/Render.
+`build.py` walks `SEARCH_PATH`, finds every `song.ini`, `notes.chart`, and `notes.mid`, reads them, and writes one cache file containing every song's note timing and metadata. Note state (strum/hopo/tap), note length, and star power/solo phrases are not parsed. Every level (Easy/Medium/Hard/Expert) charted for each instrument is cached. Much faster than earlier versions since adding parllel processing!
 
 By default this will run on the `SEARCH_PATH` & `HEADER` set in the config.
 
 Additionally, this always backs up your original difficulties as it scans - Build never writes to `song.ini` itself, it only records what's there so Analyze can restore it later if you want to.
+
+**Recommend rebuilding your cache with the addition of Drums / Vocals**
 
 **Outputs:**
 
@@ -85,7 +87,7 @@ Optionally, `analyze.py` can also update each instrument's `song.ini` `diff_*` t
 
 An .xlsx spreadsheet named `{header}_metrics_{timestamp}.xlsx` with:
 - One tab per instrument group that has data in the cache (`Guitar` - combining Guitar/Co-op/Rhythm, `Bass`, `Keys`). Easy/Medium/Hard/Expert share the same tab in the `Level` column
-- **Retrieval codes** - an 8-digit song hash plus a level letter (`E`/`M`/`H`/`X`) and an instrument letter (`G`/`C`/`R`/`B`/`K`), e.g. `04821993XG` for an Expert Guitar song - used to render graphs
+- **Retrieval codes** - an 8-digit song hash plus a level letter (`E`/`M`/`H`/`X`) and an instrument letter (`G`/`C`/`R`/`B`/`K`/`D`), e.g. `04821993XG` for an Expert Guitar song - used to render graphs
 - Metadata: Song Title, Artist, Level, Type (Lead/Co-op/Rhythm/Bass/Keys), Charter, Release/Source, Difficulty (song.ini diff tags)
 - The difficulty metrics & updated Remap/CalcTier numbers
 
@@ -107,11 +109,9 @@ In the metrics spreadsheet / render header, you'll see D translated two ways:
 
 - `--header`: analyze a different library's most recent cache
 - `--cache`: point at a specific cache file, instead of most recent for the header
-- `--diff-mode`: `CalcTier`, `RemapDiff`, or `Restore`.
+- `--diff-mode`: `CalcTier`, `RemapDiff`, or `Restore`. (`None` to leave `song.ini` alone)
   - `CalcTier`/`RemapDiff` writes selected value into every song's own `diff_*` tag, per instrument
   - `Restore` returns every instrument's `diff_*` values back to its `{header}_BackupData.csv` original, throws errors for songs moved/deleted
-  - If not supplied, falls back to `config.DIFF_WRITE_MODE` (default `None`, which leaves song.ini alone)
-- `--xlsx-levels`: which EMHX levels to write rows for. If not supplied, falls back to `config.XLSX_LEVELS`
 
 **Note: After updating `song.ini` data, you MUST SCAN SONGS for the new metadata to work.**
 
@@ -121,13 +121,13 @@ In the metrics spreadsheet / render header, you'll see D translated two ways:
 
 `python render.py [retrieval code]`
 
-`render.py` draws one PNG graph of difficulty over time for a specific song/instrument/level combo, using its retrieval code. A retrieval code is an 8-digit song hash plus a level letter (`E`/`M`/`H`/`X`) then an instrument letter (`G`, `C`, `R`, `B`, `K`) available on the metrics spreadsheet from Analyze. 
+`render.py` draws one PNG graph of difficulty over time for a specific song/instrument/level combo, using its retrieval code. A retrieval code is an 8-digit song hash plus a level letter (`E`/`M`/`H`/`X`) then an instrument letter (`G`, `C`, `R`, `B`, `K`, `D`) available on the metrics spreadsheet from Analyze. 
 
 **Make sure the header in config matches the spreadsheet/library you are rendering from.**
 
 **You can render several at once, any mix of instruments and levels:**
 
-`python render.py 04821993XG 71620045HB 09933120EK`
+`python render.py 04821993XG 71620045HB 09933120MD`
 
 **Or from a text file, one code per line:**
 
@@ -135,11 +135,19 @@ In the metrics spreadsheet / render header, you'll see D translated two ways:
 
 **Outputs:**
 
-One PNG per code, named `{code}_{Artist} - {Song}.png`, showing three lines:
+One PNG per code, named `{code}_{Artist} - {Song}.png`, showing:
 
-- **D** - overall difficulty over time (approx since it does not include CoV & has to be rescaled to fit on the same axis as N & V)
+**5 Fret**
+- **D** - overall difficulty over time
 - **Notes** - note density per second
 - **Variability** - how much the fret pattern is changing per second
+
+**Drums**
+- **D** - overall difficulty over time
+- **Hands** - Hand note density per second
+- **Travel** - how much movement across the pads is happening per second
+- **Kicks** - Kick note density per second
+
 
 Graphs are available in light or dark mode depending on the config.
 
