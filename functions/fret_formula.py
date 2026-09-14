@@ -16,7 +16,7 @@ D = N * V * COV * STAM
     V = ((medVPS + epsV) * aVPS * pVPS) ** (1 / 3)
     cvV = stdVPS / (medVPS + aVPS)
 
-    COV = 1 + c_scale * (cvN * cvV) ** 0.5
+    COV = 1 + (cvN * cvV) ** 0.5
 
     STAM = (DurationS / t_ref) ** s_stam
 
@@ -54,9 +54,9 @@ DIFF_LABELS = [0, 1, 2, 3, 4, 5, 6]   # shared label set
 
 # Bin edges calibrated so RemapDiff distribution roughly matches diff_* tag's official distribution in the reference library
 # Methodology.md has table data for these bins
-GUITAR_REMAP_BINS = [0, 15.5, 22.6, 32.6, 44.6, 61.3, 90.1, math.inf]
-BASS_REMAP_BINS   = [0, 5.3, 13.5, 20.6, 29.3, 39.8, 54.6, math.inf]
-KEYS_REMAP_BINS   = [0, 3.7, 11.2, 19.2, 30.1, 45.0, 58.0, math.inf]
+GUITAR_REMAP_BINS = [0, 11.3, 16.6, 24.5, 33.5, 44.5, 65.6, math.inf]
+BASS_REMAP_BINS   = [0, 3.7, 10.0, 15.2, 22.0, 29.7, 41.2, math.inf]
+KEYS_REMAP_BINS   = [0, 2.5, 7.8, 13.7, 21.5, 31.4, 42.4, math.inf]
 
 REMAP_BINS = {
     'guitar': GUITAR_REMAP_BINS,
@@ -69,8 +69,8 @@ REMAP_BINS = {
 # --------------------------------------------
 # ~One tier per LN_INC of log(D / BASE_D)
 # One shared pair for every group due to mechanical similarities
-BASE_D = 15.8
-LN_INC = 0.35
+BASE_D = 7.6
+LN_INC = 0.44
 
 
 # RB manual 0-6 fit
@@ -108,8 +108,7 @@ def calc_nvcov(metrics):
     cvV = stdVPS / (medVPS + aVPS)
 
     # CoV interaction across NPS & VPS
-    c_scale = 4 # tuneable scale value (impact of COV)
-    COV = 1 + c_scale * (cvN * cvV) ** 0.5
+    COV = 1 + (cvN * cvV) ** 0.5
 
     # STAMINA!!! sublinear by duration / slowly building boost for long songs, discounts short songs
     # ~66% @ 30s, ~75% @ 60s, 83% @ 90s, etc / 1x @ t_ref / 1.1x @ ~6 mins, 1.2x @ 9.5 mins, etc

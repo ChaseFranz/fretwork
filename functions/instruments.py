@@ -186,12 +186,12 @@ FRET_COLUMN_ORDER = [
     'Code', 'Song Title', 'Artist', 'Level', 'Type', 'Charter', 'Release', 'Official',
     'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier',
     'pNPS', 'aNPS', 'medNPS', 'stdNPS', 'pVPS', 'aVPS', 'medVPS', 'stdVPS',
-    'N', 'V', 'COV',
+    'N', 'V', 'COV', 'STAM',
 ]
 FRET_HIDDEN_COLS = ['pNPS', 'aNPS', 'medNPS', 'stdNPS',
                      'pVPS', 'aVPS', 'medVPS', 'stdVPS',
-                     'N', 'V', 'COV']
-FRET_FLOAT_COLS = {'aNPS', 'pNPS', 'stdNPS', 'medNPS', 'aVPS', 'pVPS', 'stdVPS', 'medVPS', 'N', 'V', 'COV', 'D'}
+                     'N', 'V', 'COV', 'STAM']
+FRET_FLOAT_COLS = {'aNPS', 'pNPS', 'stdNPS', 'medNPS', 'aVPS', 'pVPS', 'stdVPS', 'medVPS', 'N', 'V', 'COV', 'STAM', 'D'}
 FRET_SCALED_COLS = ['D', 'RemapDiff', 'CalcTier']
 
 # Drums: headline metadata + D_1x/D_2x, plus the diagnostic breakdown

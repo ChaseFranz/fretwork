@@ -188,81 +188,72 @@ Nothing here has any memory of what came before. Every axis is a per hit or per 
 
 Reference for the calibration tables behind `fret_formula.py` and `drum_formula.py`.
 
-> **Note: NEED TO FIX BIN EDGES FOR 5 FRET**
-
 ### RemapDiff (0-6) Calibration
 
-`RemapDiff` buckets a song's calculated `D` into a 0-6 label, calibrated per instrument group so that the *distribution* of RemapDiff labels across the reference official library roughly matches the distribution of that group's official `diff_*` tag values. Each row's `D range` is `(lower, upper]` against the **Expert-level D**
+`RemapDiff` buckets a song's calculated `D` into a 0-6 tiers, calibrated per instrument so that the distribution of remapped tiers roughly matches the distribution of that group's official `diff_*` tag values. Each row's `D range` is `(lower, upper]` against the **Expert-level D**
 
 #### Guitar (covers Co-op and Rhythm - `GUITAR_REMAP_BINS`)
 
 | Tier | D range        | Official | Remap |
 |------|----------------|---------:|------:|
-| 0    | (0, 8.0]       |    4.3%  |  4.3% |
-| 1    | (8.0, 13.7]    |   10.6%  | 10.5% |
-| 2    | (13.7, 21.2]   |   24.0%  | 24.2% |
-| 3    | (21.2, 29.0]   |   25.1%  | 25.2% |
-| 4    | (29.0, 38.2]   |   17.7%  | 17.6% |
-| 5    | (38.2, 55.2]   |   12.0%  | 12.0% |
-| 6    | (55.2, inf)    |    6.2%  |  6.3% |
+| 0    | (0, 9.1]       |    4.3%  |  4.3% |
+| 1    | (9.1, 13.6]    |   10.6%  | 10.7% |
+| 2    | (13.6, 20.3]   |   24.0%  | 23.9% |
+| 3    | (20.3, 28.0]   |   25.1%  | 25.2% |
+| 4    | (28.0, 36.9]   |   17.7%  | 17.7% |
+| 5    | (36.9, 53.5]   |   12.0%  | 11.9% |
+| 6    | (53.5, inf)    |    6.2%  |  6.3% |
 
 #### Bass (`BASS_REMAP_BINS`)
 
 | Tier | D range        | Official | Remap |
 |------|----------------|---------:|------:|
-| 0    | (0, 3.5]       |    6.7%  |  6.9% |
-| 1    | (3.5, 8.3]     |   22.8%  | 22.5% |
-| 2    | (8.3, 13.1]    |   27.6%  | 27.5% |
-| 3    | (13.1, 19.1]   |   23.9%  | 23.9% |
-| 4    | (19.1, 25.6]   |   10.9%  | 11.1% |
-| 5    | (25.6, 36.2]   |    5.8%  |  5.7% |
-| 6    | (36.2, inf)    |    2.4%  |  2.5% |
+| 0    | (0, 3.7]       |    6.7%  |  6.7% |
+| 1    | (3.7, 10.0]    |   22.8%  | 23.0% |
+| 2    | (10.0, 15.2]   |   27.6%  | 27.5% |
+| 3    | (15.2, 22.0]   |   23.9%  | 23.5% |
+| 4    | (22.0, 29.7]   |   10.9%  | 11.0% |
+| 5    | (29.7, 41.2]   |    5.8%  |  5.8% |
+| 6    | (41.2, inf)    |    2.4%  |  2.4% |
 
 #### Keys (`KEYS_REMAP_BINS`)
 
 | Tier | D range        | Official | Remap |
 |------|----------------|---------:|------:|
-| 0    | (0, 1.3]       |    8.7%  |  9.3% |
-| 1    | (1.3, 4.8]     |   19.5%  | 19.1% |
-| 2    | (4.8, 9.6]     |   18.3%  | 17.8% |
-| 3    | (9.6, 16.3]    |   22.4%  | 22.6% |
-| 4    | (16.3, 25.2]   |   14.9%  | 14.9% |
-| 5    | (25.2, 35.2]   |    8.3%  |  8.3% |
-| 6    | (35.2, inf)    |    7.9%  |  7.9% |
+| 0    | (0, 2.5]       |    8.7%  |  8.5% |
+| 1    | (2.5, 7.8]     |   19.5%  | 19.7% |
+| 2    | (7.8, 13.7]    |   18.3%  | 18.0% |
+| 3    | (13.7, 21.5]   |   22.4%  | 22.4% |
+| 4    | (21.5, 31.4]   |   14.9%  | 15.1% |
+| 5    | (31.4, 42.4]   |    8.3%  |  8.1% |
+| 6    | (42.4, inf)    |    7.9%  |  8.1% |
 
-#### Drums (`drum_formula.DRUM_REMAP_BINS`)
-
-Lives in `drum_formula.py`, not `fret_formula.py` - drums' D formula and its RemapDiff/CalcTier calibration are fully self-contained there rather than routed through fret_formula.py's guitar/bass/keys calibration-group machinery, since there's only one drum calibration group.
-
-Fit against a 2646-song real drum library's `diff_drums` distribution, using
-`D_1x` - same quantile-matching method as the three groups above.
+#### Drums (`DRUM_REMAP_BINS`)
 
 | Tier | D range        | Official | Remap |
 |------|----------------|---------:|------:|
 | 0    | (0, 10.3]      |    4.0%  |  4.2% |
 | 1    | (10.3, 12.3]   |    9.1%  |  8.9% |
 | 2    | (12.3, 14.0]   |   15.6%  | 15.8% |
-| 3    | (14.0, 16.2]   |   27.2%  | 27.6% |
-| 4    | (16.2, 19.2]   |   27.5%  | 27.0% |
-| 5    | (19.2, 22.8]   |   12.3%  | 12.3% |
+| 3    | (14.0, 16.2]   |   27.2%  | 27.5% |
+| 4    | (16.2, 19.2]   |   27.5%  | 27.1% |
+| 5    | (19.2, 22.8]   |   12.3%  | 12.2% |
 | 6    | (22.8, inf)    |    4.3%  |  4.3% |
 
 ### CalcTier Calibration
 
-`CalcTier` is a log-scaled tier (`floor(log(D / BASE_D) / LN_INC) + 1`, Tier 0 below `BASE_D`), uncapped, so very hard officials and many customs land at 7+.
+`CalcTier` is an uncapped log-scaled tier, so very hard officials and many customs land at 7+.
 
-`BASE_D` sits at each group's RemapDiff tier-0/1 boundary. `LN_INC` sets the step size.
+`BASE_D` sets the tier 0 into tier 1 boundary. `LN_INC` sets the step size. This fit is developed using a minimum step size to try to keep the vast majority of songs under tier 7 for a comparable feel.
 
-| Group  | BASE_D | LN_INC | D step per tier | Lives in |
+| Group  | BASE_D | LN_INC | D step per tier | Home |
 |--------|-------:|-------:|----------------:|----------|
-| Guitar |   15.8 |   0.35 |            +42% | `fret_formula.py` |
-| Bass   |   15.8 |   0.35 |            +42% | `fret_formula.py` |
-| Keys   |   15.8 |   0.35 |            +42% | `fret_formula.py` |
-| Drums  |   10.3 |   0.16 |            +17% | `drum_formula.py` |
+| G/B/K |   7.6 |  0.44 |            ~55% | `fret_formula.py` |
+| Drums  |   10.3 |  0.19 |           ~20% | `drum_formula.py` |
 
 Guitar/Bass/Keys share both constants despite different D scales since they're mechanically similar.
 
-Drums needs its own fit because D is constructed differently. 5 Fret is multiplicative while drums is additive, so drum D spreads about half as far in log terms over a similar range of real difficulty.
+Drums needs its own fit because D is constructed differently. 5 Fret is multiplicative while drums is additive, so drum D spreads less far in log terms over a similar range of real difficulty.
 
 ### EMHX note
 
