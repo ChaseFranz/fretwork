@@ -1,7 +1,7 @@
 
 # The Difficulty Formula
 
-## Definitions: NPS and VPS
+## 5 Fret Definitions: NPS and VPS
 
 Both families of metrics are derived from the song's chart or MIDI note events, each associated with a timestamp and a set of fret values, iterated over the duration of the song. Big thanks to TheNathannator for the extensive documentation on .ini, .chart, and .mid formats - would not have even started this project without that resource.
 
@@ -33,7 +33,7 @@ This is a unique metric (as far as I can tell). VPS calculates fret movement bet
 
 VPS adds value for calculating overall difficulty since it can differ so much from NPS. A fast picking section with an NPS of 12 could have low or almost no VPS if there aren't many fret changes, similarly, a complex solo with fast zigs and runs can have the same VPS & NPS. There are even rare cases where constant chord changes can push VPS over NPS. By using both NPS & VPS I think it's possible to get a better look into difficulty than either one alone.
 
-## The Math Part (D = N x V x CoV x STAM)
+## 5 Fret Math (D = N x V x CoV x STAM)
 
 Difficulty (D) is calculated by multiplying together N (using median, average, and peak NPS for a song), V (the same combination of VPS values), CoV (an interaction term that approximates how consistent through standard deviation, median, and average) and STAM (a gentle duration mod). The specific formula is described below.
 
@@ -41,11 +41,11 @@ $$
 D = N \cdot V \cdot CoV \cdot STAM
 $$
 
-Median and standard deviation are computed over **active windows only** - windows containing at least one note. Including silent windows dragged the median toward 0 on any song with an intro or long rests, which underrated the active sections. Peak and average still run over every window, so rests continue to count against the average the way they should.
+Median and standard deviation are computed overactive windows only (windows containing at least one note). Including silent windows dragged the median toward 0 on any song with an intro or long rests, which underrated the active sections. Peak and average still run over every window, so rests continue to count against the average the way they should.
 
 ### Epsilon terms
 
-These are used during N & V calculations to prevent 0 medians from collapsing the entire $D$ score, while being derived from the song's own average values for NPS & VPS.
+These are used during N & V calculations to prevent 0 medians from collapsing the entire D score, while being derived from the song's own average values for NPS & VPS.
 
 $$
 \varepsilon_N = 0.05\,a_{N}, \qquad \varepsilon_V = 0.05\,a_{V}
@@ -53,7 +53,7 @@ $$
 
 ### N & V
 
-Pseudo-geometric mean of the NPS & VPS metrics, they sit on similar scales and help to balance each other out. A slow/simple song with a tough solo will have a lower value than a fast/complex song with an unremarkable solo. Peak & average alone gave unsatisfactory results because peak can be an extreme single second, but instead of weighting values (endless tuning/optimization hell), adding modified median here as another way to account for the overall experience across the song's duration helped balance out the influence of peak.
+Pseudo-geometric mean of the NPS & VPS metrics, they sit on similar scales and help to balance each other out. A slow/simple song with a tough solo will have a lower value than a fast/complex song with an unremarkable solo. Peak & average alone gave unsatisfactory results because peak can be an extreme single second, but instead of weighting values (endless tuning/optimization hell), adding modified median here as another way to account for the overall experience across the song's duration.
 
 $$
 N = \Big[(\mathrm{med}_N + \varepsilon_N)\cdot a_N \cdot p_N\Big]^{1/3}
@@ -74,15 +74,15 @@ $$
 
 ### Interaction Term 
 
-CoV approximates how inconsistent the difficulty is and combines across NPS & VPS. CoV has a floor of 1 so worst case we get raw $N \cdot V$ for an extremely consistent song, while most songs will score above 1. In practice this mostly buffs songs that have a lot of rest between sections which tank the averages. $c_{scale}$ sets how much that inconsistency is worth - it's a tuning dial, currently 4.
+CoV approximates how inconsistent the difficulty is and combines across NPS & VPS. CoV has a floor of 1 so worst case we get raw $N \cdot V$ for an extremely consistent song, while most songs will score above 1. In practice this mostly buffs songs that have a lot of rest between sections which tank the averages.
 
 $$
-CoV = 1 + c_{scale}\sqrt{CV_N \cdot CV_V}, \qquad c_{scale} = 4
+CoV = 1 + sqrt{CV_N \cdot CV_V}
 $$
 
 ### STAM (stamina)
 
-A sub-linear duration modifier: short songs are discounted, long ones slowly build a bonus. The exponent is deliberately small, so this nudges rather than decides - roughly 66% at 30 seconds, 75% at 1 minute, 1x at the 230s reference (a typical 3-4 minute song), 1.1x at ~6 minutes and 1.2x at ~9.5 minutes.
+A sub-linear duration modifier: short songs are discounted, long ones slowly build a bonus. The exponent is deliberately small, giving roughly 66% at 30 seconds, 75% at 1 minute, 1x at the 230s reference (a typical 3-4 minute song), 1.1x at ~6 minutes and 1.2x at ~9.5 minutes.
 
 $$
 STAM = \left(\frac{\mathrm{Duration}}{t_{ref}}\right)^{s_{stam}}, \qquad t_{ref} = 230,\; s_{stam} = 0.20
@@ -98,14 +98,13 @@ $$
 
 ## Drum Definitions: HPS, TPS, & KPS
 
-Drums share the same windowing idea as the 5 Fret instruments (a 1-second window swept in 250ms steps, deliberately including rests), but hands and kick are tracked as separate streams, and a 5-lane hand kit needs a couple of ideas 5 Fret charts don't: which lanes are being hit, not just how many notes, and hands and kick tracked as separate streams that share one song duration, so their rates stay comparable.
+Drums share the same windowing idea as the 5 Fret instruments (a 1-second window swept in 250ms steps, deliberately including rests), but hands and kick are tracked as separate streams.
 
 **HPS (Hands Per Second)** is NPS for drums: For each window, the count of simultaneous lanes struck at each timestamp, summed (a 2-lane hit counts as 2, same as two separate hits). Roll-lane sections (charted rolls/alt crashes) are excluded from the literal count and instead capped at a flat rate, since a roll-lane marker represents "keep going fast," not a note-for-note performance.
 
-**TPS (Travel Per Second)** is drum's VPS equivalent, but two things are different from 5 Fret . Only lanes newly struck count, not lanes that stop being hit (no release equivalent). Second, lane position matters: a hand moving from the hi-hat to a far crash cymbal is a bigger physical reach than a hand moving to the adjacent snare, so each newly-struck lane is priced by its distance (in lane positions, left to right) to the nearest lane already being hit. That raw distance is compressed by a square root so one big cross-kit reach doesn't dominate a passage of many small movements the way an uncompressed distance would.
+**TPS (Travel Per Second)** is drum's VPS equivalent, but two things are different from 5 Fret. Only lanes newly struck count, not lanes that stop being hit (no release equivalent). Second, lane position matters: a hand moving from the hi-hat to a far crash cymbal is a bigger physical reach than a hand moving to the adjacent snare, so each newly-struck lane is scored by its distance (in lane positions, left to right) to the nearest lane already being hit. That raw distance is compressed by a square root so one big cross-kit reach doesn't dominate a passage of many small movements the way an uncompressed distance would.
 
-
->**Travel Examples** ($\gamma=0.5$, lanes numbered 0-4 left to right):
+>**Travel Examples** (lanes numbered 0-4 left to right):
 >
 >Hat → Hat - same lane, nothing new struck, $t = 0$
 >
@@ -117,12 +116,12 @@ Drums share the same windowing idea as the 5 Fret instruments (a 1-second window
 
 **KPS (Kicks Per Second)** is a straight note rate (like NPS), computed separately for single (1x) and double (2x) kick pedal charting, with the same windows as HPS/TPS.
 
-## The Drum Math Part (D = Base · CoV · STAM)
+## The Drum Math (D = Base · CoV · STAM)
 
-Three axes, one consistency term, one duration term. Same shape as the 5 Fret formula, with the axes summed rather than multiplied.
+Three axes, one interaction term, one duration term. Same rough shape as the 5 Fret formula, with the axes added rather than multiplied.
 
 $$
-D = (H + T + K)\cdot CoV_{overall}\cdot STAM
+D = (H + T + K)\cdot CoV\cdot STAM
 $$
 
 ### H, T, K
@@ -149,9 +148,9 @@ $$
 \mathrm{Base} = H + T + K
 $$
 
-### CoV (consistency)
+### CoV
 
-Same construction as 5 Fret's, taken across the two limb groups. A song has to be uneven in both hands and feet to earn the full bonus.
+Same construction as 5 Fret's, taken across the two limb groups. A song has to be uneven in both hands and feet to earn the full bonus. Scale value of 2 to boost its impact.
 
 $$
 CV_H = \frac{\sigma_H}{a_H + \mathrm{med}_H}, \qquad
@@ -164,7 +163,7 @@ $$
 
 ### STAM
 
-Identical to 5 Fret's stamina term: a slow, sub-linear discount for short songs and boost for long ones.
+Identical to 5 Fret's stamina term - a slow, sub-linear discount for short songs and boost for long ones.
 
 $$
 \mathrm{STAM} = \left(\frac{\mathrm{Duration}}{230}\right)^{0.20}
