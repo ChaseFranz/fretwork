@@ -249,7 +249,7 @@ Reference for the calibration tables behind `fret_formula.py` and `drum_formula.
 | Group  | BASE_D | LN_INC | D step per tier | Home |
 |--------|-------:|-------:|----------------:|----------|
 | G/B/K |   7.6 |  0.44 |            ~55% | `fret_formula.py` |
-| Drums  |   10.3 |  0.19 |           ~20% | `drum_formula.py` |
+| Drums  |   9.0 |  0.20 |           ~22% | `drum_formula.py` |
 
 Guitar/Bass/Keys share both constants despite different D scales since they're mechanically similar.
 
