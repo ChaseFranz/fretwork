@@ -30,7 +30,7 @@ def _ema_forward(samples, decay):
 
 # Single-pole low-pass the array, run forward then backward
 # so peaks don't lag by tau the way a single pass does
-def _ema_curve(samples, step_ms, tau_ms):
+def _ema_smooth(samples, step_ms, tau_ms):
     samples = np.asarray(samples, dtype=np.float64)
     if samples.size == 0:
         return samples
@@ -45,7 +45,7 @@ def _ema_curve(samples, step_ms, tau_ms):
 
 # Generic smoothing pass for all insts
 def smooth_series(raw_rates, step_ms, tau_ms=TAU_MS):
-    return {name: _ema_curve(values, step_ms, tau_ms) for name, values in raw_rates.items()}
+    return {name: _ema_smooth(values, step_ms, tau_ms) for name, values in raw_rates.items()}
 
 # Zero-pad to match hand and kick stream lengths
 def _pad_to_length(arr, n):
@@ -58,8 +58,8 @@ def _pad_to_length(arr, n):
 # 5 Fret curves
 # ---------------------------------------------------------
 
-# initial smoothing function
-def smooth_curves(windows, window_ms, step_ms, tau_ms=TAU_MS):
+# fret-only: builds raw rates from windows and assembles the final curve dict (incl. d_raw)
+def _calc_fret_curves(windows, window_ms, step_ms, tau_ms=TAU_MS):
 
     if windows is None or len(windows['time_ms']) == 0:
         return None
@@ -84,7 +84,7 @@ def calc_curves(notes,
                 step_ms=fret_density.STEP_MS, tau_ms=TAU_MS):
 
     windows = fret_density.window_arrays(notes, window_ms, step_ms)
-    return smooth_curves(windows, window_ms, step_ms, tau_ms)
+    return _calc_fret_curves(windows, window_ms, step_ms, tau_ms)
 
 # ---------------------------------------------------------
 # Drum curves
