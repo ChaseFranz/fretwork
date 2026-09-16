@@ -27,7 +27,7 @@ def tempo_map(tempos, tick_res):
     return ticks, cum, ms_per_beat
 
 
-# tick -> ms over whole array - tick_values already sorted
+# tick -> ms over whole array, tick_values already sorted
 def ticks_to_ms(tick_values, tick_res, ticks, cum, ms_per_beat):
     values = np.asarray(tick_values, dtype=np.int64)
     if values.size == 0:

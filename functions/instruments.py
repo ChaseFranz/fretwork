@@ -33,7 +33,7 @@ DRUMS
 from collections import namedtuple
 
 # instrument keys, display/iteration order
-INSTRUMENT_KEYS = ['guitar', 'coop', 'rhythm', 'bass', 'keys', 'drums']
+INSTRUMENT_KEYS = ['guitar', 'coop', 'rhythm', 'bass', 'keys', 'drums', 'vocals']
 
 DISPLAY_NAMES = {
     'guitar': 'Guitar',
@@ -42,6 +42,7 @@ DISPLAY_NAMES = {
     'bass':   'Bass',
     'keys':   'Keys',
     'drums':  'Drums',
+    'vocals': 'Vocals',
 }
 
 # level keys, display/iteration order
@@ -65,6 +66,7 @@ MID_TRACK_NAMES = {
     'bass':   ['PART BASS'],
     'keys':   ['PART KEYS'],
     'drums':  ['PART DRUMS'],
+    'vocals': ['PART VOCALS'],
 }
 
 # .mid pitch block base per level, per TheNathannator's 5-Fret Guitar mid docs:
@@ -90,6 +92,7 @@ CHART_BASE_SECTIONS = {
     'bass':   ['DoubleBass', 'SingleBass'],
     'keys':   ['Keyboard'],
     'drums':  ['Drums'],
+    'vocals': [],  # .chart has no vocals - required to prevent errors
 }
 
 # .chart level-name prefix per level
@@ -120,6 +123,7 @@ DIFF_TAGS = {
     'bass':   'diff_bass',
     'keys':   'diff_keys',
     'drums':  'diff_drums',
+    'vocals': 'diff_vocals',
 }
 
 # instrument suffix for retrieval code,
@@ -130,7 +134,9 @@ CODE_SUFFIX = {
     'bass':   'B',
     'keys':   'K',
     'drums':  'D',
+    'vocals': 'V',
 }
+
 SUFFIX_TO_INSTRUMENT = {suffix: key for key, suffix in CODE_SUFFIX.items()}
 
 # level suffix for retrieval code

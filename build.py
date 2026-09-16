@@ -84,6 +84,15 @@ def build_cache(search_path=None, header=None, out_dir=None):
                         len(notes['hand_mask']['time_ms']) == 0
                         and len(notes['kick_mask']['time_ms']) == 0
                     )
+                # for vocals empty means no pitch, no perc, no talkie
+                elif instrument_key == 'vocals':
+                    talkie = level_stream['talkie']
+                    percussion = level_stream['percussion']
+                    is_empty = (
+                        len(notes['time_ms']) == 0
+                        and len(talkie['time_ms']) == 0
+                        and len(percussion['time_ms']) == 0
+                    )
                 else:
                     is_empty = len(notes['time_ms']) == 0
 
