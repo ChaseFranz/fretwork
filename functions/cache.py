@@ -4,7 +4,6 @@ BUILD writes a cache of all the song data needed from the search_path in config.
 ANALYZE and RENDER can read from caches to generate metrics/visuals
 
 Shape:
-
     {
         'generated_at': str,
         'search_path':  str,
@@ -31,6 +30,19 @@ Shape:
                     #         'hand_mask': {'time_ms': ndarray, 'lanes': ndarray uint8},
                     #         'kick_mask': {'time_ms': ndarray, 'lanes': ndarray uint8},
                     #     }
+                    # 'vocals' entries are Expert only, with three streams side by side at the level
+                    #     'notes': {                           # sung, pitched, non-talkie
+                    #         'time_ms':        ndarray,       # sorted
+                    #         'end_ms':         ndarray,
+                    #         'pitch':          ndarray uint8, # midi note 36-84
+                    #         'is_placeholder': ndarray bool,  # '+$' hold filler, not a new syllable
+                    #         'is_slide':       ndarray bool,  # '+' pitch glide, not a new syllable
+                    #     },
+                    #     'talkie': { # rap/spoken
+                    #         'time_ms': ndarray,
+                    #         'end_ms':  ndarray, # NaN when no length is authored (GH lyric-only)
+                    #     },
+                    #     'percussion': {'time_ms': ndarray, 'end_ms': ndarray},   # note 96 taps, render only
                 },
                 'roll_spans': {'drums': {level_key: [(start_ms, end_ms, 'single'|'double'), ...], ...}},
                 # roll lanes available per level
@@ -46,10 +58,12 @@ Caches should be managed based on timestamp / generation time & date
 When generated with errors, a CSV is produced alongside the cache with details
 
 Retrieval codes are per the 8-digit song hash + a level (E/M/H/X) + instrument (G/C/R/B/K/D/V)
-'04821993' + Expert + Bass -> '04821993XB'. 
+'04821993' + Expert + Bass -> '04821993XB' 
 Render uses the code to define the instrument/level
 
 Drums requires roll spans to calculate correctly so those are paired to the code as well
+
+Vocals only exist at Expert, talkie/percussion streams are carried with the code for render
 """
 
 import hashlib

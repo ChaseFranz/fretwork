@@ -31,9 +31,11 @@ import pandas as pd
 import tqdm
 
 import config
-from functions import instruments
+from functions import instruments, ini_updater, xlsx_format, timestamp
 from functions import cache as cache_mod
-from functions import drum_density, drum_formula, fret_density, fret_formula, ini_updater, xlsx_format, timestamp
+from functions import fret_density, fret_formula
+from functions import drum_density, drum_formula
+from functions import vocal_density, vocal_formula
 
 
 # shared row-metadata block - identical between the fret and drum row builders
@@ -118,7 +120,33 @@ def _drum_row(code, meta, notes, instrument_key, level_key, anchor_remap, anchor
     return row
 
 
-#Save clock, since that's slower than most of the analysis...
+# One vocals row, no EMHX so Expert only
+def _vocal_row(code, meta, vocal_entry, metrics=None, d=None):
+    if metrics is None:
+        metrics = vocal_density.calc_vocal_metrics(
+            vocal_entry['notes'], vocal_entry['talkie'], vocal_entry['percussion']
+        )
+    if metrics is None:
+        return None
+    if d is None:
+        d = vocal_formula.calc_vocal_d(metrics)
+
+    return {
+        'Code': code,
+        'Song Title': meta.get('Name'),
+        'Artist': meta.get('Artist'),
+        'Type': instruments.TYPE_LABELS['vocals'],
+        'Charter': meta.get('Charter'),
+        'Release': meta.get('Release'),
+        'Official': meta.get('Official'),
+        'Difficulty': (meta.get('Difficulty') or {}).get('vocals', '-1'),
+        **metrics,
+        **d,
+        'DurationS': int(metrics['DurationS']),
+    }
+
+
+# Save clock, since that's slower than most of the analysis...
 def _save_workbook(writer):
     start = time.time()
     print("Saving spreadsheet...", end='', flush=True)
@@ -215,6 +243,41 @@ def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=No
                 row = _drum_row(code, song['meta'], inst_entry['notes'], instrument_key, level_key,
                                  anchor_remap, anchor_tier, roll_spans=roll_spans,
                                  metrics=expert_metrics if level_key == 'expert' else None)
+                if row is None:
+                    skipped += 1
+                    continue
+
+                rows_by_instrument[instrument_key].append(row)
+                row_counts[instrument_key][level_key] += 1
+            continue
+
+        if instrument_key == 'vocals':
+            # vocals are Expert only - D, RemapDiff and CalcTier all come from the one entry
+            expert_entry = levels.get('expert')
+            vocal_metrics = vocal_d = None
+            if expert_entry is not None:
+                vocal_metrics = vocal_density.calc_vocal_metrics(
+                    expert_entry['notes'], expert_entry['talkie'], expert_entry['percussion']
+                )
+                if vocal_metrics is not None:
+                    vocal_d = vocal_formula.calc_vocal_d(vocal_metrics)
+
+            if diff_mode in ("CalcTier", "RemapDiff") and vocal_d is not None:
+                difficulties_by_instrument[instrument_key][song_path] = {
+                    'RemapDiff': vocal_d['RemapDiff'],
+                    'CalcTier': vocal_d['CalcTier'],
+                }
+
+            for level_key, inst_entry in levels.items():
+                if level_key not in selected_levels:
+                    continue
+                total += 1
+                code = codes_for_instrument.get(level_key)
+
+                is_expert = level_key == 'expert'
+                row = _vocal_row(code, song['meta'], inst_entry,
+                                 metrics=vocal_metrics if is_expert else None,
+                                 d=vocal_d if is_expert else None)
                 if row is None:
                     skipped += 1
                     continue

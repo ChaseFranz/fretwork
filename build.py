@@ -37,6 +37,12 @@ def build_note_index(search_path, errors):
     note_index = {}
     note_index.update(mid_streams)
     note_index.update(chart_streams)  # chart wins on overlap
+
+    # .chart can't encode vocals, when a folder has both use midi vocal track
+    for song_path, chart_stream in chart_streams.items():
+        mid_vocals = mid_streams.get(song_path, {}).get('instruments', {}).get('vocals')
+        if mid_vocals is not None and 'vocals' not in chart_stream['instruments']:
+            chart_stream['instruments']['vocals'] = mid_vocals
     return note_index
 
 

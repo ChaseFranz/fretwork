@@ -49,7 +49,7 @@ import math
 # ---------------------------------
 DIFF_LABELS = [0, 1, 2, 3, 4, 5, 6]   # shared label set
 
-# Bin edges calibrated so RemapDiff distribution roughly matches diff_drums' official distribution in the reference library
+# Bin edges calibrated so RemapDiff distribution roughly matches diff_drums' official distribution
 # Methodology.md has table data for these bins
 DRUM_REMAP_BINS = [0, 10.3, 12.3, 14.0, 16.2, 19.2, 22.8, math.inf]
 
@@ -83,6 +83,10 @@ def calc_drum_d(metrics, kick_mode='1x'):
     hand = metrics.get('hand')
     kick = metrics.get(kick_mode)
     DurationS = metrics.get('DurationS', 0.0)
+
+    # render fix for crash on empty limb group
+    H = T = K = 0.0
+    cvH = cvK = 0.0
 
     if hand is not None:
         pHPS, medHPS, aHPS, stdHPS = hand['pHPS'], hand['medHPS'], hand['aHPS'], hand['stdHPS']
