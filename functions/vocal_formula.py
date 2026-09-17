@@ -33,33 +33,32 @@ STAM: s_stam = 0.20, shared with 5 fret/drums
 
 Vocals have no EMHX, so RemapDiff/CalcTier come straight from D
 
-TODO Calibration for calctier - fit is bad right now
-fix remap, not showing up on xlsx
+CalcTier: vocal D isn't log-normal - so the calc is now linear instead of log
+
+LIMITATIONS:
+This is probably the hardest one to get right since vocals relies so much on knowing a song
+A song you know well can feel so much easier regardless of what the formula says
+Not to mention the weirdness with talkies, huge variations between the same songs across charters, etc.
+This may be a case where vibes tiering may be the correct path given enough playtesting...
 """
 
 import math
 
 # ---------------------------------
-# Calibration fit selection
-# ---------------------------------
-REMAP_FIT = 'all'
-
-# ---------------------------------
-# Remap (0-6) params
+# Remap (0-6)
 # ---------------------------------
 DIFF_LABELS = [0, 1, 2, 3, 4, 5, 6]   # shared label set
 
 # Bin edges calibrated so RemapDiff distribution matches diff_vocals' official distribution
-# fit at s_stam = 0.20
-VOCAL_REMAP_BINS = [0, 9.8, 16.5, 21.4, 26.7, 30.9, 35.0, math.inf],
+VOCAL_REMAP_BINS = [0, 9.8, 16.5, 21.4, 26.7, 30.9, 35.0, math.inf]
 
 
 # --------------------------------------------
-# CalcTier (log-scaled) params - PROVISIONAL, maybe needs a new method
+# CalcTier (linear-scaled)
 # --------------------------------------------
-# BASE_D = that fit's tier 0/1 remap edge, LN_INC = smallest step keeping most of songs under tier 7
-# Vocal D is compressed at the top (p99 ~1.7x median), so log tiers bunch in the middle...
-CALC_TIER_PARAMS = (8.7, 0.248)
+# BASE_D = RemapDiff's own tier 0/1 edge
+# D_STEP = ~average gap between RemapDiff's calibrated edges (6.7, 4.9, 5.3, 4.2, 4.1 -> 5.0),
+CALC_TIER_PARAMS = (9.8, 5.0)
 
 # Formula params
 T_REF = 230.0 # 3-4 min average song
@@ -80,12 +79,12 @@ def remap_diff(D):
     return None
 
 
-# log tier calculation
+# linear tier calculation
 def calc_tier(D):
-    base_d, ln_inc = CALC_TIER_PARAMS
-    if D < base_d:
+    base_d, d_step = CALC_TIER_PARAMS
+    if D <= base_d:
         return 0
-    return int(math.floor(math.log(D / base_d) / ln_inc) + 1)
+    return int(math.floor((D - base_d) / d_step) + 1)
 
 
 # D Formula - P/R/S/COV/D, plus RemapDiff/CalcTier
@@ -98,7 +97,9 @@ def calc_vocal_d(metrics):
     # PPS combo
     epsP = aPPS * 0.05
     P = ((medPPS + epsP) * aPPS * pPPS) ** (1 / 3)
-    cvP = stdPPS / (medPPS + aPPS) if (medPPS + aPPS) > 0 else 0.0
+    #cvP gets very large on talkie dominant charts, floored to limit impact
+    P_FLOOR = 0.01
+    cvP = stdPPS / (medPPS + aPPS + P_FLOOR)
 
     # range
     R = Span ** R_GAMMA if Span > 0 else 0.0
@@ -108,7 +109,7 @@ def calc_vocal_d(metrics):
     S = ((medSPS + epsS) * aSPS * pSPS) ** (1 / 3)
     cvS = stdSPS / (medSPS + aSPS) if (medSPS + aSPS) > 0 else 0.0
 
-    # pitch work x reach, syllables added
+    # pitch work x reach, syllables added (saves rap songs from 0 D)
     BASE = P * R + S
 
     # CoV interaction across syllables & pitch movement
