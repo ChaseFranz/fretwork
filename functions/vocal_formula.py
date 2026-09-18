@@ -57,14 +57,15 @@ import math
 DIFF_LABELS = [0, 1, 2, 3, 4, 5, 6]
 
 # Bin edges calibrated so RemapDiff distribution matches diff_vocals' official distribution
-VOCAL_REMAP_BINS = [0, 16.3, 24.0, 33.4, 46.1, 58.0, 70.9, math.inf]
+VOCAL_REMAP_BINS = [0, 4.1, 6.0, 8.3, 11.4, 14.4, 17.6, math.inf]
 
 # --------------------------------------------
 # CalcTier
 # --------------------------------------------
 # ~One tier per LN_INC of log(D / BASE_D)
-BASE_D = 11.5
-LN_INC = 0.5
+# Single log scale fit to the vocal remap edges
+BASE_D = 4.4
+LN_INC = 0.32
 
 # --------------------------------------------
 # Formula Constants
