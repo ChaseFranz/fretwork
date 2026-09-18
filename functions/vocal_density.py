@@ -1,33 +1,42 @@
 """
 VOCAL DENSITY - Density metrics, computed from the cached vocal streams
 
-SPS = Syllables Per Second
-    Every new articulation counts 1: sung notes that aren't slides (+) placeholders (+$) or talkies (*/^/#)
-    This logic also defines NoteCount - so aSPS = NoteCount / Duration, similar to NPS
+Two windowed families (same 1s window / 250ms step grid as 5 fret & drums) plus static per-song features
 
-PPS = Pitch-movement Per Second
-    Each sung note (including slides and placeholders) is compared to the previous pitch
-    Games score pitch in any octave, so the interval is folded (0-6) and compressed by a square root like drum travel
-        k = |dp| mod 12,  d = min(k, 12 - k),  m = d ** 0.5
-    repeat note 0 / half-step 1 / whole-step ~1.41 / octave 0
+PPS = Pitch-travel Per Second
+    Each sung note (slides (+) and placeholders (+$) included) compared to the previous sung pitch
+    Tracks across octaves, even though the game accepts octave shifts (most people try to hit the notes as recorded)
     A song's first note has nothing to compare against, so it scores 0
+    Talkies aren't pitched and don't break the chain
 
-Active windows (median/std gating) = any sung note or talkie overlapping the window
+SPS = Syllables Per Second
+    Sung notes that aren't slides (+) or placeholders (+$) plus talkies (RB convention (*/^/#), or GH-style lyric-only) 
+    Sung notes + talkies also defines NoteCount
+
+aPPS & aSPS = total / DurationS
+
+Active windows (median/std gating)
+    SPS gates on sung+talkie within the window
+    PPS gates on sung notes within the window
 
 Talkie length
-    Authored talkie lengths are ignored so RB and GH talkies are treated the same:
-        end = time + min(gap to next onset, TALKIE_FILL_MS)
-    TALKIE_FILL_MS is the pooled median authored talkie length across RB officials
-    Clipping to the next onset means talkies never overlap anything
+    Authored talkie lengths are ignored so RB & GH style talkies can be treated equivalently
+    default Talkie length set based on official measurement, but clipped for no overlap
+    Only used for occupancy gating and duration
 
-Span = highest minus lowest sung pitch (semitones, unfolded), 0 for talkie-only charts
-    Even with octave-free scoring most people still try to hit the notes as recorded, adding difficulty
+Static features (sung notes only)
+    Pitches    = distinct MIDI pitches used
+    maxPitch   = highest sung pitch
+    ShortFrac  = share of sung notes (slides/PHs included) shorter than SHORT_NOTE_MS
+    Span       = highest - lowest sung pitch
+    talkieFrac = talkie onsets / NoteCount - descriptive, flags rap/spoken charts
 
-Percussion is render/duration gate only
+std values are used for CoV, same as 5 fret/drums
+
+Percussion is render/duration only (essentially treated as rest time)
 
 Charts with zero syllables return None
 
-WINDOW_MS/STEP_MS and the active-window median/std helpers are shared with fret_density
 Grid start is t=0 and runs until the latest endpoint across all three streams
 """
 
@@ -38,10 +47,14 @@ from functions import fret_density
 WINDOW_MS = fret_density.WINDOW_MS
 STEP_MS = fret_density.STEP_MS
 
-# square-root compression
-PITCH_GAMMA = 0.5
+# Pitch travel constants
+PITCH_CAP = 12      # octave of semitones
+PITCH_GAMMA = 0.5   # sqrt compression
 
-# fixed talkie length, clipped to the next onset
+# short notes = fast articulation
+SHORT_NOTE_MS = 120.0
+
+# fixed talkie length (estimated from official data), clipped to the next onset
 TALKIE_FILL_MS = 133.0
 
 # minimum interval length so a zero-length event still marks its window active
@@ -58,13 +71,12 @@ def _sorted_stream(stream, keys):
     return times, arrays
 
 
-# PPS source - folded/compressed interval from the previous pitch
-def pitch_move(pitches, gamma=PITCH_GAMMA):
+# PPS, capped/compressed interval from previous pitch
+def pitch_travel(pitches, cap=PITCH_CAP, gamma=PITCH_GAMMA):
     p = np.asarray(pitches, dtype=np.int64)
     out = np.zeros(p.size, dtype=np.float64)
     if p.size > 1:
-        k = np.abs(np.diff(p)) % 12
-        d = np.minimum(k, 12 - k).astype(np.float64)
+        d = np.minimum(np.abs(np.diff(p)), cap).astype(np.float64)
         out[1:] = d ** gamma
     return out
 
@@ -81,7 +93,7 @@ def talkie_ends(talkie_times, sung_times, fill_ms=TALKIE_FILL_MS):
     return talkie_times + np.minimum(gap, fill_ms)
 
 
-# Per grid window where any start/end overlaps the window
+# Per grid window: any start/end interval overlapping the window
 def occupancy_gate(starts, ends, grid, window_ms=WINDOW_MS):
     active = np.zeros(grid.size, dtype=bool)
     if starts.size == 0:
@@ -98,20 +110,30 @@ def occupancy_gate(starts, ends, grid, window_ms=WINDOW_MS):
     return active
 
 
-# Windowing pass across SPS/PPS + the occupancy gate
+# windowed sum of per-event values over the grid
+def _window_sum(times, values, grid, window_ms=WINDOW_MS):
+    prefix = np.concatenate(([0.0], np.cumsum(values)))
+    left = np.searchsorted(times, grid, side='left')
+    right = np.searchsorted(times, grid + window_ms, side='left')
+    return prefix[right] - prefix[left]
+
+
+# Windowing pass across SPS/PPS + the occupancy gates
 # zero activity windows are included
 #     Returns:
 #        {
 #            'time_ms':          ndarray,  # uniform grid, starts at 0
 #            'raw_sps_samples':  ndarray,  # syllables per window
-#            'raw_pps_samples':  ndarray,  # pitch movement per window
+#            'raw_pps_samples':  ndarray,  # pitch travel per window
 #            'active':           ndarray,  # bool, any sung/talkie time in window
+#            'active_sung':      ndarray,  # bool, any sung time in window
 #            'syllable_times':   ndarray,  # sorted syllable onsets (sung + talkie)
-#            'move':             ndarray,  # per sung note movement (not windowed)
-#            'sung_times':       ndarray,  # sorted sung note onsets
-#            'talkie_end_ms':    ndarray,  # filled talkie ends
+#            'travel':           ndarray,  # per sung note travel (not windowed)
+#            'sung_times':       ndarray,  # sorted sung note onsets (slides/placeholders included)
+#            'pitch':            ndarray,  # per sung note pitch, sorted with sung_times
+#            'sung_dur_ms':      ndarray,  # per sung note authored length
+#            'talkie_count':     int,
 #            'dur_ms':           float,    # latest end across sung/talkie/percussion
-#            'span':             float,    # highest - lowest sung pitch, semitones
 #        }
 def window_arrays(notes, talkie, percussion=None, window_ms=WINDOW_MS, step_ms=STEP_MS):
     sung_t, sung = _sorted_stream(notes, ('end_ms', 'pitch', 'is_placeholder', 'is_slide'))
@@ -124,8 +146,8 @@ def window_arrays(notes, talkie, percussion=None, window_ms=WINDOW_MS, step_ms=S
 
     sung_end = sung['end_ms'].astype(np.float64)
     talk_end = talkie_ends(talk_t, sung_t)
-    move = pitch_move(sung['pitch'])
-    sung['pitch'] = sung['pitch'].astype(np.int64)
+    pitch = sung['pitch'].astype(np.int64)
+    travel = pitch_travel(pitch)
 
     perc_end = np.asarray((percussion or {}).get('end_ms', []), dtype=np.float64)
     dur_ms = float(max(
@@ -136,36 +158,33 @@ def window_arrays(notes, talkie, percussion=None, window_ms=WINDOW_MS, step_ms=S
     n_samples = int(dur_ms // step_ms) + 1
     grid = np.arange(n_samples, dtype=np.float64) * step_ms
 
-    left = np.searchsorted(syllable_times, grid, side='left')
-    right = np.searchsorted(syllable_times, grid + window_ms, side='left')
-    raw_sps = (right - left).astype(np.float64)
-
-    prefix = np.concatenate(([0.0], np.cumsum(move)))
-    left = np.searchsorted(sung_t, grid, side='left')
-    right = np.searchsorted(sung_t, grid + window_ms, side='left')
-    raw_pps = prefix[right] - prefix[left]
+    raw_sps = _window_sum(syllable_times, np.ones(syllable_times.size), grid, window_ms)
+    raw_pps = _window_sum(sung_t, travel, grid, window_ms)
 
     active = occupancy_gate(
         np.concatenate([sung_t, talk_t]),
         np.concatenate([sung_end, talk_end]),
         grid, window_ms,
     )
+    active_sung = occupancy_gate(sung_t, sung_end, grid, window_ms)
 
     return {
         'time_ms': grid,
         'raw_sps_samples': raw_sps,
         'raw_pps_samples': raw_pps,
         'active': active,
+        'active_sung': active_sung,
         'syllable_times': syllable_times,
-        'move': move,
+        'travel': travel,
         'sung_times': sung_t,
-        'talkie_end_ms': talk_end,
+        'pitch': pitch,
+        'sung_dur_ms': sung_end - sung_t,
+        'talkie_count': int(talk_t.size),
         'dur_ms': dur_ms,
-        'span': float(sung['pitch'].max() - sung['pitch'].min()) if sung_t.size else 0.0,
     }
 
 
-# provides SPS & PPS metrics to calculate D
+# provides PPS/SPS + static pitch features to calculate D
 def calc_vocal_metrics(notes, talkie, percussion=None, window_ms=WINDOW_MS, step_ms=STEP_MS):
     windows = window_arrays(notes, talkie, percussion, window_ms, step_ms)
     if windows is None:
@@ -173,7 +192,8 @@ def calc_vocal_metrics(notes, talkie, percussion=None, window_ms=WINDOW_MS, step
 
     dur_s = windows['dur_ms'] / 1000.0
     window_s = window_ms / 1000.0
-    active = windows['active']   # occupancy gate used for both SPS & PPS
+    active = windows['active']             # SPS gate
+    active_sung = windows['active_sung']   # PPS gate
 
     # SPS
     note_count = int(windows['syllable_times'].size)
@@ -181,17 +201,34 @@ def calc_vocal_metrics(notes, talkie, percussion=None, window_ms=WINDOW_MS, step
 
     # PPS
     pps_window_values = windows['raw_pps_samples'] / window_s
+    total_travel = float(windows['travel'].sum())
+
+    # static pitch features - sung notes only
+    pitch = windows['pitch']
+    if pitch.size:
+        pitches = int(np.unique(pitch).size)
+        max_pitch = int(pitch.max())
+        span = int(pitch.max() - pitch.min())
+        short_frac = float(np.mean(windows['sung_dur_ms'] < SHORT_NOTE_MS))
+    else:
+        # talkie-only chart - nothing pitched
+        pitches = max_pitch = span = 0
+        short_frac = 0.0
 
     return {
         'NoteCount': note_count,
         'DurationS': dur_s,
-        'Span': windows['span'],
+        'Pitches': pitches,
+        'maxPitch': max_pitch,
+        'Span': span,
+        'ShortFrac': short_frac,
+        'talkieFrac': windows['talkie_count'] / note_count if note_count else 0.0,
+        'pPPS': float(pps_window_values.max()) if pps_window_values.size else 0.0,
+        'aPPS': total_travel / dur_s if dur_s > 0 else 0.0,
+        'medPPS': fret_density.active_median(pps_window_values, active_sung),
+        'stdPPS': fret_density.active_std(pps_window_values, active_sung),
+        'pSPS': float(sps_window_values.max()) if sps_window_values.size else 0.0,
         'aSPS': note_count / dur_s if dur_s > 0 else 0.0,
-        'pSPS': float(sps_window_values.max()),
-        'stdSPS': fret_density.active_std(sps_window_values, active),   # gated by occupancy
-        'medSPS': fret_density.active_median(sps_window_values, active),  # gated by occupancy
-        'aPPS': float(windows['move'].sum()) / dur_s if dur_s > 0 else 0.0,
-        'pPPS': float(pps_window_values.max()),
-        'stdPPS': fret_density.active_std(pps_window_values, active),   # gated by occupancy
-        'medPPS': fret_density.active_median(pps_window_values, active),  # gated by occupancy
+        'medSPS': fret_density.active_median(sps_window_values, active),
+        'stdSPS': fret_density.active_std(sps_window_values, active),
     }

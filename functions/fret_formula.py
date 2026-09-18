@@ -29,7 +29,7 @@ epsilon prevents median values of 0 from collapsing D while still being derived 
 
 D/N/V/COV are computed identically regardless of instrument
 
-RemapDiff (0-6 bins) and CalcTier (log-scaled) are instrument-specific - see Methodology.md for calibration data
+RemapDiff (0-6 bins) is instrument-specific, CalcTier is shared (G/B/K) - see Methodology.md for calibration data
 
 EMHX / RemapDiff & CalcTier anchor to expert, since only 1 diff value per instrument in song.ini
 """
@@ -50,12 +50,12 @@ CALIBRATION_GROUP = {
 # ---------------------------------
 # Remap (0-6) params, per group
 # ---------------------------------
-DIFF_LABELS = [0, 1, 2, 3, 4, 5, 6]   # shared label set
+DIFF_LABELS = [0, 1, 2, 3, 4, 5, 6]
 
 # Bin edges calibrated so RemapDiff distribution roughly matches diff_* tag's official distribution in the reference library
 # Methodology.md has table data for these bins
 GUITAR_REMAP_BINS = [0, 11.3, 16.6, 24.5, 33.5, 44.5, 65.6, math.inf]
-BASS_REMAP_BINS   = [0, 3.7, 10.0, 15.2, 22.0, 29.7, 41.2, math.inf]
+BASS_REMAP_BINS   = [0, 3.7, 10.0, 15.2, 22, 29.7, 41.2, math.inf]
 KEYS_REMAP_BINS   = [0, 2.5, 7.8, 13.7, 21.5, 31.4, 42.4, math.inf]
 
 REMAP_BINS = {
@@ -112,9 +112,9 @@ def calc_nvcov(metrics):
 
     # STAMINA!!! sublinear by duration / slowly building boost for long songs, discounts short songs
     # ~66% @ 30s, ~75% @ 60s, 83% @ 90s, etc / 1x @ t_ref / 1.1x @ ~6 mins, 1.2x @ 9.5 mins, etc
-    t_ref  = 230.0 # 3-4 min average song
-    s_stam = 0.20 # curve exponent
-    STAM = (DurationS / t_ref) ** s_stam
+    T_REF  = 230.0 # 3-4 min average song
+    S_STAM = 0.20 # curve exponent
+    STAM = (DurationS / T_REF) ** S_STAM
 
     # base scalar difficulty
     D = N * V * COV * STAM
@@ -122,7 +122,7 @@ def calc_nvcov(metrics):
     return {
         'N': N,
         'V': V,
-        'COV': COV,
+        'CoV': COV,
         'STAM': STAM,
         'D': D,
     }

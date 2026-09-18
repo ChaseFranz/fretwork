@@ -196,12 +196,12 @@ FRET_COLUMN_ORDER = [
     'Code', 'Song Title', 'Artist', 'Level', 'Type', 'Charter', 'Release', 'Official',
     'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier',
     'pNPS', 'aNPS', 'medNPS', 'stdNPS', 'pVPS', 'aVPS', 'medVPS', 'stdVPS',
-    'N', 'V', 'COV', 'STAM',
+    'N', 'V', 'CoV', 'STAM',
 ]
 FRET_HIDDEN_COLS = ['pNPS', 'aNPS', 'medNPS', 'stdNPS',
                      'pVPS', 'aVPS', 'medVPS', 'stdVPS',
-                     'N', 'V', 'COV', 'STAM']
-FRET_FLOAT_COLS = {'aNPS', 'pNPS', 'stdNPS', 'medNPS', 'aVPS', 'pVPS', 'stdVPS', 'medVPS', 'N', 'V', 'COV', 'STAM', 'D'}
+                     'N', 'V', 'CoV', 'STAM']
+FRET_FLOAT_COLS = {'aNPS', 'pNPS', 'stdNPS', 'medNPS', 'aVPS', 'pVPS', 'stdVPS', 'medVPS', 'N', 'V', 'CoV', 'STAM', 'D'}
 FRET_SCALED_COLS = ['D', 'RemapDiff', 'CalcTier']
 
 # Drums: headline metadata + D_1x/D_2x, plus the diagnostic breakdown
@@ -217,7 +217,7 @@ DRUM_HAND_DIAG_COLS = [
 # list, unsuffixed, straight off {**reading, **r}.
 DRUM_KICK_DIAG_BASE = [
     'pKPS', 'aKPS', 'medKPS', 'stdKPS',
-    'K', 'CoV', 'Base',
+    'K', 'CoV',
 ]
 
 
@@ -238,12 +238,13 @@ DRUM_FLOAT_COLS = {*DRUM_DIAG_COLS, 'D_1x', 'D_2x'}
 DRUM_HIDDEN_COLS = list(DRUM_DIAG_COLS)
 DRUM_SCALED_COLS = ['D_1x', 'D_2x', 'RemapDiff', 'CalcTier']
 
-# Vocals: headline metadata + D, plus the formula's parts and their inputs
+# Vocals: headline metadata + D, plus the diagnostic breakdown
+# talkieFrac is descriptive only, not fed into the formula
 VOCAL_DIAG_COLS = [
-    'Span',
+    'Pitches', 'maxPitch', 'ShortFrac', 'talkieFrac',
     'pPPS', 'aPPS', 'medPPS', 'stdPPS',
     'pSPS', 'aSPS', 'medSPS', 'stdSPS',
-    'P', 'R', 'S', 'Base', 'CoV', 'STAM',
+    'P', 'R', 'A', 'S', 'CoV', 'STAM',
 ]
 VOCAL_COLUMN_ORDER = [
     'Code', 'Song Title', 'Artist', 'Type', 'Charter', 'Release', 'Official',
@@ -251,7 +252,7 @@ VOCAL_COLUMN_ORDER = [
     *VOCAL_DIAG_COLS,
 ]
 VOCAL_HIDDEN_COLS = list(VOCAL_DIAG_COLS)
-VOCAL_FLOAT_COLS = {*VOCAL_DIAG_COLS, 'D'} - {'Span'}
+VOCAL_FLOAT_COLS = {*VOCAL_DIAG_COLS, 'D'} - {'Pitches', 'maxPitch'}
 VOCAL_SCALED_COLS = ['D', 'RemapDiff', 'CalcTier']
 
 _FRET_PROFILE = SheetProfile(FRET_COLUMN_ORDER, FRET_HIDDEN_COLS, FRET_FLOAT_COLS, FRET_SCALED_COLS, 'D')
