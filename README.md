@@ -151,8 +151,12 @@ One PNG per code, named `{code}_{Artist} - {Song}.png`, showing:
 - **Travel** - how much movement across the pads is happening per second
 - **Kicks** - Kick note density per second
 
-**Vocals codes are not renderable yet** - `V` is a valid retrieval code suffix and shows up in the spreadsheet, but `render.py` has no vocals graphing path built out. Coming soon!
-
+**Vocals**
+- **D** - overall difficulty over time
+- **Pitch** - Pitch movement density per second
+- **Syllables** - Sung notes + Talkies per second
+- **Percussion** - Percussion hit density per second (only rendered if present)
+  
 Graphs are available in light or dark mode depending on the config.
 
 **Optional arguments:**
