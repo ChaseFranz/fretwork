@@ -128,7 +128,7 @@ Drums use the 1x kick reading, Vocals only have the one D
 
 You can render several at once, any mix of instruments and levels:
 
-`python render.py 04821993XG 71620045HB 09933120MD`
+`python render.py 04821993EG 71620045MB 09933120HD 23859937XV`
 
 Or from a text file, one code per line:
 
@@ -162,21 +162,21 @@ Graphs are available in light or dark mode depending on the config.
 ## 5. Fixes/Extension Ideas
 **Fixes:**
 - Midi files misbehaving - *possibly parser drift / file corrruption/truncation?*
-- Vocals has no render support - a `V` retrieval code falls through to the 5 Fret render path in `render.py` and will error/produce garbage instead of an SPS/PPS graph
 
 **Extension Ideas:**
-- Vocals render (SPS/PPS/Span curves over time, matching the 5 Fret/Drums PNG format)
 - Vocal harmonies (`HARM1`-`HARM3`) - *doesn't seem worth the effort*
 - RB style band diff once all instruments are in
   
-**Bigger rebuilds**
+**Fork Ideas:**
+- Vocal harmonies (`HARM1`-`HARM3`)
+- Pro Instruments
 - Scoring by totals (as opposed to average), type of notes (singles by type/state, chords by type)
-- D by section + Section names for renders - *parsing sections is a lot of extra data for the cache*
-- Including strum/hopo/tap state by note in the cache - *not adding until there's plan to use them*
-- Actually doing something with note state once it exists - *Ratios over the song was a good suggestion*
-- Star Power Difficulty (how hard are SP phrases to hit?) - *SP no longer parsed*
+- D by section + Section names for renders
+- Including strum/hopo/tap state by note in the cache
+- Actually doing something with note state once it exists
+- Star Power Difficulty (how hard are SP phrases to hit?)
 - Rhythm changes/variability possibly easier than pattern recognition?
-- Pattern recognition (chords, trills, runs, zigs, quads, quints, anchoring, etc) - potentially N-gram based
+- Pattern recognition (chords, trills, runs, zigs, quads, quints, anchoring, etc) / Ngrams
 - A strain-based difficulty metric splitting strum vs fret
 - DDR Groove Radar style scoring (probably tied to patterns)
 

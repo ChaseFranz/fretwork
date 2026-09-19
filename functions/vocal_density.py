@@ -134,10 +134,13 @@ def _window_sum(times, values, grid, window_ms=WINDOW_MS):
 #            'sung_dur_ms':      ndarray,  # per sung note authored length
 #            'talkie_count':     int,
 #            'dur_ms':           float,    # latest end across sung/talkie/percussion
+#            'raw_perc_samples': ndarray,  # percussion hits per window (render only)
+#            'has_percussion':   bool,     # true = draw perc line (render only)
 #        }
 def window_arrays(notes, talkie, percussion=None, window_ms=WINDOW_MS, step_ms=STEP_MS):
     sung_t, sung = _sorted_stream(notes, ('end_ms', 'pitch', 'is_placeholder', 'is_slide'))
     talk_t = np.sort(np.asarray(talkie['time_ms'], dtype=np.float64))
+    perc_t = np.sort(np.asarray((percussion or {}).get('time_ms', []), dtype=np.float64))
 
     new_syllable = ~(sung['is_slide'].astype(bool) | sung['is_placeholder'].astype(bool))
     syllable_times = np.sort(np.concatenate([sung_t[new_syllable], talk_t]))
@@ -160,6 +163,8 @@ def window_arrays(notes, talkie, percussion=None, window_ms=WINDOW_MS, step_ms=S
 
     raw_sps = _window_sum(syllable_times, np.ones(syllable_times.size), grid, window_ms)
     raw_pps = _window_sum(sung_t, travel, grid, window_ms)
+    raw_perc = (_window_sum(perc_t, np.ones(perc_t.size), grid, window_ms)
+                if perc_t.size else np.zeros(grid.size, dtype=np.float64))
 
     active = occupancy_gate(
         np.concatenate([sung_t, talk_t]),
@@ -181,6 +186,8 @@ def window_arrays(notes, talkie, percussion=None, window_ms=WINDOW_MS, step_ms=S
         'sung_dur_ms': sung_end - sung_t,
         'talkie_count': int(talk_t.size),
         'dur_ms': dur_ms,
+        'raw_perc_samples': raw_perc,
+        'has_percussion': bool(perc_t.size),
     }
 
 
