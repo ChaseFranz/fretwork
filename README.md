@@ -6,7 +6,7 @@ Fretwork is an analysis tool to calculate difficulty values for **Full Band (Gui
 
 Libraries required: **pandas, numpy, tqdm, mido, matplotlib, and openpyxl** 
 
-![Render Example](https://github.com/Staycation44/fretwork/blob/Vocals-staging/renders/02139802XG_Dragonforce%20-%20Through%20The%20Fire%20Flames.png)
+![Render Example](https://github.com/Staycation44/fretwork/blob/main/renders/02139802XG_Dragonforce%20-%20Through%20The%20Fire%20Flames.png)
 
 ## Using Fretwork <!-- omit in toc -->
 To use the tool setup **config** and run these in order:
