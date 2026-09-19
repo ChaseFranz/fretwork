@@ -5,8 +5,10 @@
 import { BOOT, rows as sheetRows, say, done, wait, click, key, ready, params } from "./lib.js";
 await ready();
 
-const { ui: UI, render: RENDER } = BOOT;
-const sheet = Object.keys(BOOT.data)[0];
+const { ui: UI, render: RENDER, curves: CURVES } = BOOT;
+// ?sheet= runs the same checks on another family's sheet (Drums, Vocals): the
+// legend, the readout and the export follow labels.CURVE_FAMILIES' lines
+const sheet = params().get("sheet") || Object.keys(BOOT.data)[0];
 const rows = await sheetRows(sheet);
 const cols = BOOT.data[sheet].columns;
 const col = n => cols.indexOf(n);
@@ -57,20 +59,37 @@ say("line 2 names D, the tiers and the file", meta && meta.textContent.includes(
 const dCell = row.querySelector("td.headline").textContent;
 say("line 2's D agrees with the row", meta.textContent.includes(dCell), dCell);
 
-// legend: the three series, in the profile's colours
-const legend = modal.querySelectorAll(".legend li");
-say("the legend names the three series", legend.length === 3 && [...legend].map(l => l.textContent.trim()).join() === [UI.graph_d, UI.graph_nps, UI.graph_vps].join(),
-    [...legend].map(l => l.textContent.trim()).join());
-
-// --- the pinned vector through the page's own smoothing ---------------------------
+// legend: ~D and the family's lines, in its order and words (labels.CURVE_FAMILIES),
+// only the ones the file has, each swatch the line's own token
 const fw = gbody().fw;
 say("the test hook is there", !!fw && typeof fw.smooth === "function" && Array.isArray(fw.charts));
-const got = fw.smooth({ v: 1, step: 250, window: 1000, tau: 2000, n: 6, win: [0, 1, 3, 2, 0, 4], var: [0, 1, 2, 2, 0, 3] });
+const curves = fw.charts[0].curves;
+const family = CURVES[curves.family];
+say("the file names its family, one the page knows", !!family, curves.family);
+const lines = family.lines.filter(([k]) => k in curves.lines);
+const legend = modal.querySelectorAll(".legend li");
+say("the legend is ~D and the family's lines", legend.length === 1 + lines.length &&
+    [...legend].map(l => l.textContent.trim()).join() === [UI.graph_d, ...lines.map(l => l[1])].join(),
+    [...legend].map(l => l.textContent.trim()).join());
+say("each swatch is its line's token", [...legend].slice(1).every((li, i) => li.querySelector(".sw").style.borderColor === "var(" + lines[i][3] + ")"),
+    [...legend].slice(1).map(li => li.querySelector(".sw").style.borderColor).join());
+say("every line the file has is drawn", curves.keys.every(k => k in curves.lines && curves.lines[k].length === curves.n), curves.keys.join());
+say("~D is a family the page draws: " + curves.family, ["fret", "drums", "vocals"].includes(curves.family) &&
+    (curves.family === "fret" ? lines.length === 2 : lines.length >= 2), lines.length);
+
+// --- the pinned vector through the page's own smoothing ---------------------------
+const got = fw.smooth({ v: 2, family: "fret", step: 250, window: 1000, tau: 2000, n: 6, series: { nps: [0, 1, 3, 2, 0, 4], vps: [0, 1, 2, 2, 0, 3] }, d: { geo: ["nps", "vps"] } });
 const NPS = [0.206319956884, 0.233791139980, 0.249274712958, 0.221722210520, 0.166347919619, 0.113576201083];
 const VPS = [0.168201115681, 0.190596834038, 0.200329151998, 0.181904979485, 0.135036063769, 0.090279835296];
 const D = [0.186288075129, 0.211092044157, 0.223465862854, 0.200829216391, 0.149876510106, 0.101260262331];
-say("smooth() reproduces the pinned vector", [...got.nps].every((v, i) => near(v, NPS[i])) && [...got.vps].every((v, i) => near(v, VPS[i])) &&
+say("smooth() reproduces the pinned vector", [...got.lines.nps].every((v, i) => near(v, NPS[i])) && [...got.lines.vps].every((v, i) => near(v, VPS[i])) &&
     [...got.d].every((v, i) => near(v, D[i])), JSON.stringify([...got.d].map(v => +v.toFixed(12))));
+// a weighted sum, as the drum and vocal files carry: ~D is the lines added with their weights
+const sum = fw.smooth({ v: 2, family: "drums", step: 250, window: 1000, tau: 2000, n: 6, series: { hps: [0, 1, 3, 2, 0, 4], tps: [0, 1, 2, 2, 0, 3], kps: [1, 0, 0, 1, 0, 0] }, d: { sum: { hps: 1, tps: 1, kps: 1 } } });
+say("smooth() sums a file's lines by its weights", [...sum.d].every((v, i) => near(v, sum.lines.hps[i] + sum.lines.tps[i] + sum.lines.kps[i])) &&
+    [...sum.lines.hps].every((v, i) => near(v, NPS[i])), JSON.stringify([...sum.d].map(v => +v.toFixed(6))));
+const weighted = fw.smooth({ v: 2, family: "vocals", step: 250, window: 1000, tau: 2000, n: 6, series: { pps: [0, 1, 3, 2, 0, 4], sps: [0, 1, 2, 2, 0, 3] }, d: { sum: { pps: 1.5, sps: 0.25 } } });
+say("with fractional weights", [...weighted.d].every((v, i) => near(v, 1.5 * weighted.lines.pps[i] + 0.25 * weighted.lines.sps[i])));
 say("the chart's curves are as long as its file says", fw.charts[0].curves.d.length === fw.charts[0].curves.n && fw.charts[0].curves.n > 0, fw.charts[0].curves.n);
 
 // --- readout: pointer, keys -----------------------------------------------------------
@@ -78,6 +97,8 @@ const box = canvas().getBoundingClientRect();
 const pattern = new RegExp("^" + UI.graph_readout.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\{\w+\\\}/g, ".+") + "$");
 const at0 = readout().textContent;
 say("the readout starts at 0:00", at0.startsWith("0:00") && pattern.test(at0), JSON.stringify(at0));
+say("and reads every line by its readout word", lines.every(l => at0.includes(l[2] + " ")), JSON.stringify(at0));
+say("the alt text names the family's lines", canvas().getAttribute("aria-label").includes(family.alt), canvas().getAttribute("aria-label"));
 canvas().dispatchEvent(new PointerEvent("pointermove", { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2, bubbles: true }));
 const mid = readout().textContent;
 say("a pointer at the middle moves the readout", mid !== at0 && pattern.test(mid) && !mid.startsWith("0:00"), JSON.stringify(mid));

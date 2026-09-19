@@ -120,10 +120,13 @@ async function audit() {
     if (linkBtn) check("link button", linkBtn, true);
     const linkCell = document.querySelector("#body td.lnkc a.ext");
     if (linkCell) check("link column arrow", linkCell, true);
-    // the three curves and the three compare series against the pane's ground:
-    // 3:1, the floor for non-text; the tokens are what the canvas paints
+    // ~D and the three line colours every family shares (notes/hands/syllables,
+    // variability/travel/pitch, kicks/percussion) and the three compare series
+    // against the pane's ground: 3:1, the floor for non-text; the tokens are
+    // what the canvas paints
     const paneBg = bgOf(modal.querySelector(".legend"));
     for (const [name, tok] of [["curve D", "--fw-curve-d"], ["curve Notes", "--fw-curve-nps"], ["curve Variability", "--fw-curve-vps"],
+                               ["curve Kicks", "--fw-curve-kps"],
                                ["series A", "--fw-series-a"], ["series B", "--fw-series-b"], ["series C", "--fw-series-c"]]) {
       swatch(name, token(tok), paneBg);
     }

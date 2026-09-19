@@ -3,8 +3,10 @@
      every rule below names a role, and the two theme blocks give each role its
      value. Magenta is the brand and means "on" or "do this" (an active chip, a
      pressed toggle, the primary button, the open row's edge); links are the
-     blue; the graph's three curves and the three compare series are two
-     separate trios, so no colour ever changes meaning; the four level colours
+     blue; the graph's four curve colours (~D and the three lines under it,
+     config.RENDER_DEFAULT's color_d/nps/vps/kps, which every family shares
+     in plot.py's assignment) and the three compare series are two separate
+     sets, so no colour ever changes meaning; the four level colours
      are the spreadsheet's hue families saturated for each ground. --fw-brand is
      a FILL (white on it is 5.4:1) and never text: text in the brand colour is
      --fw-brand-text. Every text pair below measures 4.5:1 or better on its own
@@ -22,7 +24,7 @@
     --fw-brand:#b71fb7; --fw-brand-rgb:183,31,183; --fw-brand-text:#9a189a;
     --fw-link:#1a67b0; --fw-link-rgb:26,103,176;
     --fw-select:rgba(0,0,0,.08); --fw-backdrop:rgba(24,20,34,.6);
-    --fw-curve-d:#b71fb7; --fw-curve-nps:#1a6fc0; --fw-curve-vps:#c85f14;
+    --fw-curve-d:#b71fb7; --fw-curve-nps:#1a6fc0; --fw-curve-vps:#c85f14; --fw-curve-kps:#1e8449;
     --fw-series-a:var(--fw-curve-d); --fw-series-b:#0e8a8a; --fw-series-c:#9a7200;
     --fw-easy:#186f42; --fw-medium:#1f63a8; --fw-hard:#8a5a00; --fw-expert:#c02a4c;
   }
@@ -37,7 +39,7 @@
     --fw-brand:#b71fb7; --fw-brand-rgb:183,31,183; --fw-brand-text:#e879e8;
     --fw-link:#5eaee8; --fw-link-rgb:94,174,232;
     --fw-select:rgba(255,255,255,.12); --fw-backdrop:rgba(0,0,0,.85);
-    --fw-curve-d:#c93cc9; --fw-curve-nps:#3b9ee0; --fw-curve-vps:#e58a3c;
+    --fw-curve-d:#c93cc9; --fw-curve-nps:#3b9ee0; --fw-curve-vps:#e58a3c; --fw-curve-kps:#3db56c;
     --fw-series-a:var(--fw-curve-d); --fw-series-b:#2fc7c7; --fw-series-c:#e6c03f;
     --fw-easy:#7fd8a3; --fw-medium:#8ec0f2; --fw-hard:#f4ad52; --fw-expert:#f78aa0;
   }

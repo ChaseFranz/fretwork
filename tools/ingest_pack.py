@@ -386,11 +386,6 @@ def scored(cache):
     return packs.scored_codes(cache)
 
 
-def drums_codes(cache):
-    suffix = instruments.CODE_SUFFIX['drums']
-    return [c for c in cache['codes'] if c.endswith(suffix)]
-
-
 def newest_after(kind, header, ext, since):
     try:
         path = timestamp.latest_output(kind, header, ext=ext)
@@ -425,21 +420,18 @@ def summary(args, plan, header, before, after, before_stamp, after_stamp, folder
     total_err, pack_err = errors_in(errors_csv, folder)
     b_songs = len(before['songs']) if before else None
     b_scored = len(scored(before)) if before else None
-    b_drums = len(drums_codes(before)) if before else None
-    a_songs, a_scored, a_drums = len(after['songs']), len(codes_after), len(drums_codes(after))
+    a_songs, a_scored = len(after['songs']), len(codes_after)
     delta = lambda a, b: f'{a - b:+,}' if b is not None else ''
     show = lambda b: fmt(b) if b is not None else 'none'
     print(f'\nSummary  {header}  {before_stamp or "none"} -> {after_stamp}')
     print(f'  songs                {show(b_songs):>10} -> {fmt(a_songs):>8}  {delta(a_songs, b_songs):>8}')
     print(f'  charts scored        {show(b_scored):>10} -> {fmt(a_scored):>8}  {delta(a_scored, b_scored):>8}')
-    print(f'  drums cached (not scored) {show(b_drums):>5} -> {fmt(a_drums):>8}  {delta(a_drums, b_drums):>8}')
     print(f'  build errors         {fmt(total_err):>10}   ' + (f'({errors_csv.name})' if errors_csv else f'(no caches/{header}_errors_*.csv from this run)'))
     eb, ea = (expert_counts(before) if before else None), expert_counts(after)
     print(f'\n  Expert charts        before    after    delta')
     for key in instruments.INSTRUMENT_KEYS:
         b = eb[key] if eb else None
-        note = '   (not scored)' if key not in instruments.SCORED_INSTRUMENTS else ''
-        print(f'    {instruments.DISPLAY_NAMES[key]:<18} {show(b):>8} {fmt(ea[key]):>8} {delta(ea[key], b):>8}{note}')
+        print(f'    {instruments.DISPLAY_NAMES[key]:<18} {show(b):>8} {fmt(ea[key]):>8} {delta(ea[key], b):>8}')
     print(f'\n  this pack  {folder}/')
     print(f'    song.ini found          {fmt(found):>6}')
     print(f'    cached                  {fmt(songs_in):>6}')

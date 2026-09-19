@@ -5,7 +5,7 @@ import pathlib
 import tempfile
 import unittest
 
-from functions import density, formula, instruments
+from functions import fret_density as density, fret_formula as formula, instruments
 from parsers import chart_parser, ini_parser, mid_parser
 from tests import fixture
 
@@ -40,10 +40,10 @@ class FixtureTest(unittest.TestCase):
         self.assertEqual(len(lib.charted), 14)
         self.assertEqual(len(lib.unusable), 2)          # the ini-only song and the broken mid
         self.assertEqual(len(lib.errors), 1)
-        self.assertEqual(lib.codes, 50)                  # 48 five-fret + 2 drums
-        self.assertEqual(lib.rows_by_sheet, {'Guitar': 36, 'Bass': 11, 'Keys': 1})
-        self.assertEqual(lib.official_rows, 26)
-        self.assertEqual(sum(lib.rows_by_sheet.values()) - lib.official_rows, 22)
+        self.assertEqual(lib.codes, 52)                  # 48 five-fret + 2 drums + 2 vocals
+        self.assertEqual(lib.rows_by_sheet, {'Guitar': 36, 'Bass': 11, 'Keys': 1, 'Drums': 2, 'Vocals': 2})
+        self.assertEqual(lib.official_rows, 29)
+        self.assertEqual(sum(lib.rows_by_sheet.values()) - lib.official_rows, 23)
         landing = sum(1 for s in lib.charted if s.official
                       for i in ('guitar', 'coop', 'rhythm') if 'X' in s.parts.get(i, ''))
         self.assertEqual(landing, 9)
@@ -63,7 +63,7 @@ class FixtureTest(unittest.TestCase):
         for song in self.lib.songs:
             folder = pathlib.Path(self.tmp.name) / song.pack / song.folder
             with self.subTest(song=song.folder):
-                meta = ini_parser.ini_parse(folder / 'song.ini')
+                meta = ini_parser.ini_metadata(folder / 'song.ini')
                 self.assertEqual(meta['Release'], song.release)
                 self.assertEqual(meta['Official'], song.official)
                 if song.fmt == fixture.BROKEN:
@@ -83,19 +83,26 @@ class FixtureTest(unittest.TestCase):
                         if key == 'drums':
                             self.assertIn('hand_mask', notes)
                             continue
+                        if key == 'vocals':
+                            # a sung line with slides, and the talkie and percussion streams beside it
+                            self.assertEqual(sorted(levels), ['expert'])
+                            self.assertTrue(notes['is_slide'].any() and not notes['is_slide'].all())
+                            self.assertGreater(len(stream['talkie']['time_ms']), 0)
+                            self.assertGreater(len(stream['percussion']['time_ms']), 0)
+                            continue
                         self.assertEqual(str(notes['time_ms'].dtype), 'float64')
                         self.assertEqual(str(notes['lanes'].dtype), 'uint8')
                         self.assertTrue((notes['time_ms'][1:] >= notes['time_ms'][:-1]).all())
 
     def test_detag_and_encodings(self):
         c4 = pathlib.Path(self.tmp.name) / 'Fixture Pack C' / 'C4 - Less Than More'
-        meta = ini_parser.ini_parse(c4 / 'song.ini')
+        meta = ini_parser.ini_metadata(c4 / 'song.ini')
         self.assertEqual(meta['Name'], 'Less < More')
         self.assertEqual(meta['Artist'], 'René Escapé')
         a3 = pathlib.Path(self.tmp.name) / 'Fixture Pack A' / 'A3 - Midi Mirror'
         raw = (a3 / 'song.ini').read_bytes()
         self.assertTrue(raw.startswith(b'\xef\xbb\xbf') and b'\r\n' in raw)
-        self.assertEqual(ini_parser.ini_parse(a3 / 'song.ini')['Name'], 'Midi Mirror')
+        self.assertEqual(ini_parser.ini_metadata(a3 / 'song.ini')['Name'], 'Midi Mirror')
 
     def test_enhanced_opens_and_a_folded_open_note(self):
         c6 = pathlib.Path(self.tmp.name) / 'Fixture Pack C' / 'C6 - Enhanced Opens'

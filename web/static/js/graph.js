@@ -1,8 +1,12 @@
-// The graph, drawn on a canvas from graph/<code>.json: the same three curves
+// The graph, drawn on a canvas from graph/<code>.json: the same curves
 // functions/plot.py draws, re-smoothed here so a smoothing change never
 // republishes a file, plus what a picture cannot do - a readout of the values
 // under the cursor (pointer or arrow keys), up to three charts on one axis, and
-// a PNG export named the way render.py names its files. The picture's shape
+// a PNG export named the way render.py names its files. The file names its
+// lines (nps and vps for a fret chart, hps, tps and kps for drums, pps, sps
+// and perc for vocals) and carries the recipe that makes ~D of them; CURVES,
+// labels.CURVE_FAMILIES, gives each family's lines their order, words and
+// colour tokens, so one drawing path serves the three. The picture's shape
 // (line width, grid alpha, the fill) comes from RENDER, plot.resolve_profile()'s
 // numbers, so the page and render.py draw the same lines; its colours are the
 // page's own, read from the stylesheet's tokens at every paint (gPalette), so
@@ -10,7 +14,7 @@
 // helper is prefixed g- or lives inside mountGraph's closure: the bundle is one
 // scope, and draw, render, heading, opener and toast are already top-level
 // names elsewhere.
-import { RENDER, UI, MISS_TEXT } from "./boot.js";
+import { RENDER, CURVES, UI, MISS_TEXT } from "./boot.js";
 import { esc } from "./dom.js";
 import { t, mmss } from "./format.js";
 
@@ -27,9 +31,13 @@ const G_EXPORT = { width: 1920, height: 840 };   // figsize * dpi, before the ti
 
 // --- the curve --------------------------------------------------------------------
 
-// curves.smooth_curves in the browser: counts to rates, then a single-pole EMA
+// curves.smooth_series in the browser: counts to rates, then a single-pole EMA
 // run forward and backward so peaks do not lag. Doubles throughout, so it
 // reproduces the Python loop exactly (measured: a maximum difference of 0).
+// Then ~D by the file's recipe, as curves.py's d_raw lines: the geometric
+// mean of the named lines (sqrt(nps * vps) for a fret chart) or their
+// weighted sum (hps + tps + kps for drums, R * A * pps + S_WEIGHT * sps for
+// vocals). Returns {lines: {key: Float64Array}, keys, d}.
 export function smooth(json) {
   const windowS = json.window / 1000;
   const decay = Math.exp(-json.step / json.tau), gain = 1 - decay;
@@ -41,10 +49,36 @@ export function smooth(json) {
     for (let i = xs.length - 1; i >= 0; i--) out[i] = acc = acc * decay + out[i] * gain;
     return out;
   };
-  const nps = both(json.win), vps = both(json.var);
-  const d = new Float64Array(nps.length);
-  for (let i = 0; i < d.length; i++) d[i] = Math.sqrt(nps[i] * vps[i]);
-  return { nps, vps, d };
+  const keys = Object.keys(json.series);
+  const lines = {};
+  for (const k of keys) lines[k] = both(json.series[k]);
+  const d = new Float64Array(json.n);
+  if (json.d.geo) {
+    const geo = json.d.geo.map(k => lines[k]), root = 1 / geo.length;
+    for (let i = 0; i < d.length; i++) {
+      let p = 1;
+      for (const s of geo) p *= s[i];
+      d[i] = geo.length === 2 ? Math.sqrt(p) : Math.pow(p, root);
+    }
+  } else {
+    const terms = Object.entries(json.d.sum).map(([k, w]) => [lines[k], w]);
+    for (let i = 0; i < d.length; i++) {
+      let v = 0;
+      for (const [s, w] of terms) v += w * s[i];
+      d[i] = v;
+    }
+  }
+  return { lines, keys, d };
+}
+
+// The lines a chart's graph draws under ~D, in the family's order, only the
+// ones its file has: [{key, legend, readout, token}]. A family the page does
+// not know (a newer file) draws what the file names, in the file's order.
+export function gLines(curves) {
+  const spec = (CURVES[curves.family] || {}).lines || [];
+  const known = spec.filter(([key]) => key in curves.lines).map(([key, legend, readout, token]) => ({ key, legend, readout, token }));
+  const extra = curves.keys.filter(k => !spec.some(([key]) => key === k)).map(key => ({ key, legend: key, readout: key, token: "--fw-curve-kps" }));
+  return known.concat(extra);
 }
 
 const gCurves = new Map();    // code -> promise of the smoothed curves, oldest evicted
@@ -56,10 +90,12 @@ export function loadCurves(code) {
   const p = fetch("graph/" + encodeURIComponent(code) + ".json")
     .then(r => { if (!r.ok) throw new Error(r.status + " " + code); return r.json(); })
     .then(json => {
-      if (json.v !== 1 || !Array.isArray(json.win) || !Array.isArray(json.var) ||
-          json.win.length !== json.n || json.var.length !== json.n || !(json.n > 0))
+      const series = json.series && typeof json.series === "object" ? Object.values(json.series) : [];
+      const recipe = json.d && typeof json.d === "object" ? (json.d.geo || (json.d.sum && Object.keys(json.d.sum))) : null;
+      if (json.v !== 2 || !series.length || !(json.n > 0) || !Array.isArray(recipe) || !recipe.length ||
+          series.some(s => !Array.isArray(s) || s.length !== json.n) || recipe.some(k => !(k in json.series)))
         throw new Error("bad curve file " + code);
-      return { ...smooth(json), n: json.n, step: json.step, head: json.head || {} };
+      return { ...smooth(json), n: json.n, step: json.step, family: json.family, head: json.head || {} };
     })
     .catch(err => { gCurves.delete(code); throw err; });
   gCurves.set(code, p);
@@ -80,7 +116,7 @@ function gExtent(charts) {
   let xMax = 0, yMax = 0;
   for (const c of charts) {
     xMax = Math.max(xMax, (c.curves.n - 1) * c.curves.step);
-    const series = compare ? [c.curves.d] : [c.curves.d, c.curves.nps, c.curves.vps];
+    const series = compare ? [c.curves.d] : [c.curves.d, ...gLines(c.curves).map(l => c.curves.lines[l.key])];
     for (const s of series) for (let i = 0; i < s.length; i++) if (s[i] > yMax) yMax = s[i];
   }
   return { xMax: Math.max(xMax, 1), yMax: (yMax || 1) * G_HEADROOM, compare };
@@ -104,14 +140,15 @@ export const seriesVar = k => "var(" + G_SERIES[k] + ")";
 
 // The page's colours for the canvas, read from the tokens app.css defines per
 // theme: the ground (the canvas is painted on it, so it is not a box), the
-// text, the dim for the spines and the cursor, the three curves and the three
-// series. Read at each paint, which is how a theme switch reaches the graph.
+// text, the dim for the spines and the cursor, ~D, the three line tokens the
+// families share (line(token) reads one) and the three series. Read at each
+// paint, which is how a theme switch reaches the graph.
 export function gPalette() {
   const cs = getComputedStyle(document.documentElement);
   const tok = name => cs.getPropertyValue(name).trim();
   return { bg: tok("--fw-bg"), text: tok("--fw-text"), dim: tok("--fw-dim"),
-    d: tok("--fw-curve-d"), nps: tok("--fw-curve-nps"), vps: tok("--fw-curve-vps"),
-    series: G_SERIES.map(tok) };
+    d: tok("--fw-curve-d"), nps: tok("--fw-curve-nps"), vps: tok("--fw-curve-vps"), kps: tok("--fw-curve-kps"),
+    line: tok, series: G_SERIES.map(tok) };
 }
 
 // The plot into a 2d context sized W by H CSS px; fonts are {label, tick} px.
@@ -158,8 +195,9 @@ function gPaint(ctx, W, H, charts, fonts, margin, pal) {
     gPolyline(ctx, c.curves.d, Xi, Y); ctx.stroke();
     if (!compare) {
       ctx.setLineDash(G_DASH);
-      ctx.strokeStyle = pal.nps; gPolyline(ctx, c.curves.nps, Xi, Y); ctx.stroke();
-      ctx.strokeStyle = pal.vps; gPolyline(ctx, c.curves.vps, Xi, Y); ctx.stroke();
+      for (const l of gLines(c.curves)) {
+        ctx.strokeStyle = pal.line(l.token); gPolyline(ctx, c.curves.lines[l.key], Xi, Y); ctx.stroke();
+      }
       ctx.setLineDash([]);
     }
   });
@@ -215,6 +253,8 @@ function gNames(charts) {
 
 const gLetters = G_LETTERS;
 const gFix = v => v === null || v === undefined || Number.isNaN(v) ? MISS_TEXT : v.toFixed(2);
+// The family's words for its lines in the alt text, else the legend words joined.
+const gAltWords = curves => (CURVES[curves.family] || {}).alt || gLines(curves).map(l => l.legend).join(", ");
 
 // --- the mounted graph --------------------------------------------------------------
 
@@ -287,7 +327,7 @@ export function mountGraph(host, charts, opts = {}) {
       const i = Math.round(cursor / c.curves.step);
       if (i >= c.curves.n) return;
       const dots = geom.compare ? [[c.curves.d[i], pal.series[k]]]
-        : [[c.curves.d[i], pal.d], [c.curves.nps[i], pal.nps], [c.curves.vps[i], pal.vps]];
+        : [[c.curves.d[i], pal.d], ...gLines(c.curves).map(l => [c.curves.lines[l.key][i], pal.line(l.token)])];
       for (const [v, colour] of dots) {
         ctx.fillStyle = colour;
         ctx.beginPath(); ctx.arc(x, geom.Y(v), 3, 0, Math.PI * 2); ctx.fill();
@@ -299,8 +339,9 @@ export function mountGraph(host, charts, opts = {}) {
     const at = mmss(cursor / 1000);
     if (!geom.compare) {
       const c = charts[0], i = Math.round(cursor / c.curves.step);
-      const v = k => i < c.curves.n ? gFix(c.curves[k][i]) : MISS_TEXT;
-      readout.textContent = t("graph_readout", { t: at, d: v("d"), nps: v("nps"), vps: v("vps") });
+      const v = xs => i < c.curves.n ? gFix(xs[i]) : MISS_TEXT;
+      const lines = gLines(c.curves).map(l => t("graph_readout_line", { label: l.readout, v: v(c.curves.lines[l.key]) }));
+      readout.textContent = t("graph_readout", { t: at, d: v(c.curves.d), lines: lines.join("  ") });
     } else {
       const parts = charts.map((c, k) => {
         const i = Math.round(cursor / c.curves.step);
@@ -323,8 +364,7 @@ export function mountGraph(host, charts, opts = {}) {
   const writeLegend = () => {
     const swatch = (colour, dotted) => '<span class="sw' + (dotted ? " dot" : "") + '" style="border-color:' + esc(colour) + '"></span>';
     if (charts.length < 2) {
-      legend.innerHTML = [[UI.graph_d, "var(--fw-curve-d)", false], [UI.graph_nps, "var(--fw-curve-nps)", true],
-        [UI.graph_vps, "var(--fw-curve-vps)", true]]
+      legend.innerHTML = [[UI.graph_d, "var(--fw-curve-d)", false], ...gLines(charts[0].curves).map(l => [l.legend, "var(" + l.token + ")", true])]
         .map(([text, colour, dotted]) => "<li>" + swatch(colour, dotted) + esc(text) + "</li>").join("");
       return;
     }
@@ -343,7 +383,7 @@ export function mountGraph(host, charts, opts = {}) {
     size();
     setCursor(cursor);
     const song = charts[0].row ? gName(charts[0]) : charts[0].code;
-    canvas.setAttribute("aria-label", t("graph_alt", { song }));
+    canvas.setAttribute("aria-label", t("graph_alt", { song, lines: gAltWords(charts[0].curves) }));
   };
 
   // pointer: a time under the cursor; the readout stops narrating while it moves
@@ -438,7 +478,7 @@ export function exportPng(charts, heading) {
   const names = gNames(charts);
   const entries = geom.compare
     ? charts.map((ch, k) => [gLetters[k] + " " + names[k], pal.series[k], false])
-    : [[UI.graph_d, pal.d, false], [UI.graph_nps, pal.nps, true], [UI.graph_vps, pal.vps, true]];
+    : [[UI.graph_d, pal.d, false], ...gLines(charts[0].curves).map(l => [l.legend, pal.line(l.token), true])];
   ctx.font = "11px system-ui, sans-serif"; ctx.textBaseline = "middle"; ctx.textAlign = "left";
   const widths = entries.map(([text]) => ctx.measureText(text).width + 34);
   let x = (c.width - widths.reduce((a, b) => a + b, 0)) / 2;

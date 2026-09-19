@@ -37,6 +37,12 @@ def build_note_index(search_path, errors):
     note_index = {}
     note_index.update(mid_streams)
     note_index.update(chart_streams)  # chart wins on overlap
+
+    # .chart can't encode vocals, when a folder has both use midi vocal track
+    for song_path, chart_stream in chart_streams.items():
+        mid_vocals = mid_streams.get(song_path, {}).get('instruments', {}).get('vocals')
+        if mid_vocals is not None and 'vocals' not in chart_stream['instruments']:
+            chart_stream['instruments']['vocals'] = mid_vocals
     return note_index
 
 
@@ -84,6 +90,15 @@ def build_cache(search_path=None, header=None, out_dir=None):
                         len(notes['hand_mask']['time_ms']) == 0
                         and len(notes['kick_mask']['time_ms']) == 0
                     )
+                # for vocals empty means no pitch, no perc, no talkie
+                elif instrument_key == 'vocals':
+                    talkie = level_stream['talkie']
+                    percussion = level_stream['percussion']
+                    is_empty = (
+                        len(notes['time_ms']) == 0
+                        and len(talkie['time_ms']) == 0
+                        and len(percussion['time_ms']) == 0
+                    )
                 else:
                     is_empty = len(notes['time_ms']) == 0
 
@@ -94,7 +109,8 @@ def build_cache(search_path=None, header=None, out_dir=None):
                     ))
                     continue
 
-                level_stream['notes_hash'] = cache_mod.notes_hash(notes)
+                sides = (level_stream['talkie'], level_stream['percussion']) if instrument_key == 'vocals' else ()
+                level_stream['notes_hash'] = cache_mod.notes_hash(notes, *sides)
                 song_levels[level_key] = level_stream
                 instrument_counts[instrument_key][level_key] += 1
 
@@ -112,6 +128,8 @@ def build_cache(search_path=None, header=None, out_dir=None):
             'source_format': stream['source_format'],
             'chart_md5': stream.get('chart_md5'),   # never in meta: the graph fingerprint hashes meta
             'instruments': song_instruments,
+            # drum roll lanes
+            'roll_spans': stream.get('roll_spans', {}),
         }
 
     backed_up = ini_updater.backup_data(

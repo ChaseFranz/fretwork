@@ -11,7 +11,7 @@ import re
 
 import pandas as pd
 
-from functions import timestamp
+from functions import instruments, timestamp
 
 PCT_COL = 'Pct'        # the column added to every sheet
 PCT_OF = 'D'           # what is ranked
@@ -29,7 +29,30 @@ def load_frames(header, xlsx_path=None):
     if xlsx_path is None:
         xlsx_path = timestamp.latest_output('metrics', header, ext='xlsx')
     xlsx_path = pathlib.Path(xlsx_path)
-    return xlsx_path, pd.read_excel(xlsx_path, sheet_name=None, dtype=HASH_COLS)
+    return xlsx_path, unify(pd.read_excel(xlsx_path, sheet_name=None, dtype=HASH_COLS))
+
+
+# One shape for every sheet the page serves (section 23), so the page has one
+# D, one Level and one NoteCount to key on whatever the spreadsheet's profile
+# (instruments.SHEET_PROFILES) calls them. The Drums sheet's D_1x becomes D
+# and its NoteCount_1x NoteCount (the 1x reading is what the sheet is sorted
+# by and what the site ranks; D_2x and NoteCount_2x stay beside them), and
+# the Vocals sheet, which is Expert only and has no Level column, gets one
+# reading Expert after Artist, where the other sheets carry it. The renames
+# are the page's alone; the spreadsheet keeps its profile's names.
+UNIFY_RENAMES = {'D_1x': 'D', 'NoteCount_1x': 'NoteCount'}
+EXPERT = instruments.LEVEL_DISPLAY_NAMES['expert']
+
+
+def unify(frames):
+    for name, df in frames.items():
+        renames = {old: new for old, new in UNIFY_RENAMES.items() if old in df.columns and new not in df.columns}
+        if renames:
+            df.rename(columns=renames, inplace=True)
+        if PCT_WITHIN not in df.columns and 'Code' in df.columns:
+            at = df.columns.get_loc('Artist') + 1 if 'Artist' in df.columns else 0
+            df.insert(at, PCT_WITHIN, EXPERT)
+    return frames
 
 
 # to_json is the round trip that turns NaN into null and numpy scalars into

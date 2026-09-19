@@ -8,6 +8,7 @@ export const SHEETS = BOOT.data;
 export const SHEET_OF_CODE = BOOT.sheetOfCode || {};   // instrument letter -> sheet
 export const PREFS_VERSION = BOOT.prefsVersion || 0;
 export const RENDER = BOOT.render;      // the graph palette, plot.resolve_profile()'s canvas keys
+export const CURVES = BOOT.curves || {};   // per family, the lines under ~D: [[key, legend, readout, token], ...] and the alt words
 export const LINKS_FILE = BOOT.links || null;   // data/links.<hash8>.json, or null when no song has a link
 export const SITE_URL = BOOT.siteUrl || null;   // the published address, for Copy link; null on serve
 export const HOSTS = BOOT.hosts || [];          // [[key, {label, tip, url, id}]], where a chart can be published

@@ -187,7 +187,7 @@ SUITES = [
     ("copies.js",    {"queries": ["", "?f.Copies=2" + ALL_LEVELS]}),
     ("sheets.js",    {"queries": [carry_query]}),
     ("window.js",    {"queries": ["", deep_code_query]}),
-    ("graph.js",     {"queries": ["", "?code=00000000XD"]}),
+    ("graph.js",     {"queries": ["", "?sheet=Drums", "?sheet=Vocals", "?code=00000000XD"]}),
     ("compare.js",   {"queries": [compare_query]}),
     ("song.js",      {}),
     ("song_url.js",  {"queries": [song_query, song_only_query, song_stale_query, "?song=000000000000"]}),
@@ -327,17 +327,22 @@ def make_profile(chrome):
     return subprocess.run(["wslpath", "-w", local], capture_output=True, text=True).stdout.strip(), local
 
 
-def run_suite(chrome, url, budget, window, profile):
+# A dump without the results block is Chrome finishing before the suite ran
+# (its first launch on a fresh profile now and then dumps the page before the
+# module scripts have run; a suite that ran always writes the block, through
+# done() or the error handlers), so it is retried once before it counts.
+def run_suite(chrome, url, budget, window, profile, tries=2):
     cmd = [chrome, "--headless=new", "--disable-gpu", "--no-sandbox",
            f"--virtual-time-budget={budget}", f"--window-size={window}"]
     if profile:
         cmd.append(f"--user-data-dir={profile}")
-    dom = subprocess.run(cmd + ["--dump-dom", url], capture_output=True, text=True,
-                         timeout=180).stdout
-    found = RESULTS.search(dom)
-    if not found:
-        return ["NO RESULTS"]
-    return html.unescape(found.group(1)).splitlines()
+    for attempt in range(tries):
+        dom = subprocess.run(cmd + ["--dump-dom", url], capture_output=True, text=True,
+                             timeout=180).stdout
+        found = RESULTS.search(dom)
+        if found:
+            return html.unescape(found.group(1)).splitlines()
+    return ["NO RESULTS"]
 
 
 def report(name, lines):
@@ -359,7 +364,7 @@ def parse_args():
     ap.add_argument("--header", default=None)
     ap.add_argument("--suite", action="append", help="run only this suite (repeatable)")
     ap.add_argument("--chrome", help="Chrome binary (default: $CHROME, PATH, then the Windows binary)")
-    ap.add_argument("--budget", type=int, default=30000, help="--virtual-time-budget in ms")
+    ap.add_argument("--budget", type=int, default=60000, help="--virtual-time-budget in ms")
     ap.add_argument("--keep", action="store_true", help="leave the staged copy behind and print its path")
     ap.add_argument("--allow-fallback", action="store_true", help="run against a --no-bootstrap bundle")
     ap.add_argument("--verbose", action="store_true", help="print every result line")

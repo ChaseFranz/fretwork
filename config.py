@@ -52,13 +52,34 @@ EXTRA_METRICS = False
 #    None        - don't touch song.ini at all (default)
 #   "CalcTier"   - write the continuous log-scaled tier to each instrument's own diff_*
 #   "RemapDiff"  - writes the manual 0-6 remap instead to each instrument's own diff_*
-#   "Restore"    - restore every song.ini's diff_* tags (every instrument at once) to
-#                  the values backed up from BUILD
+#   "Restore"    - restore every song.ini's diff_* tags to backup from BUILD - always all instruments
 #
 # Overridable per-run with --diff-mode on ANALYZE
 # Safest to leave this at None and use --diff-mode when you actually want to override
 
 DIFF_WRITE_MODE = None # None | "CalcTier" | "RemapDiff" | "Restore"
+
+# DIFF_WRITE_OVERRIDES 
+# lets specific instruments use a different mode than DIFF_WRITE_MODE above (or skip writing)
+DIFF_WRITE_OVERRIDES = {} # {instrument_key: "CalcTier" | "RemapDiff" | None}
+
+'''
+EXAMPLE OVERRIDE:
+DIFF_WRITE_MODE = "CalcTier"   # Will apply for any instrument not listed below
+
+DIFF_WRITE_OVERRIDES = {
+    "guitar":  "CalcTier",     # harmless but redundant
+    "coop":    "RemapDiff",    # override to the 0-6 remap instead
+    "rhythm":  "RemapDiff",    # same override
+    "bass":     None,          # skip - bass song.ini left untouched
+    "keys":     None,          # skip - keys song.ini left untouched
+    "drums":   "RemapDiff",    # override to the 0-6 remap instead
+
+    Vocals not in overrides means it will fall back to DIFF_WRITE_MODE
+}
+
+'''
+
 
 
 # ----------------
@@ -93,8 +114,9 @@ RENDER_DEFAULT = {
     "mode": "dark",   # "light" or "dark" - causes plot to use selected values from RENDER_THEMES
  
     "color_d": "#B71FB7",
-    "color_nps": "#127BC1",
-    "color_vps": "#DD6C1B",
+    "color_nps": "#127BC1", # Notes for 5 fret / Hands for drums / Syllables for vocals
+    "color_vps": "#DD6C1B", # Variability for 5 fret / Travel for drums / Pitch for vocals
+    "color_kps": "#2E9E5B", # Kicks for drums / Percussion for vocals
 
     "linewidth": 1.5,
     "grid_alpha": 0.25,

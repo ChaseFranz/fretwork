@@ -17,7 +17,8 @@ import tempfile
 from tqdm import tqdm
 
 import config
-from functions import curves, density, difficulty
+from functions import cache as cache_mod
+from functions import curves, difficulty, fret_density
 from web import assets
 from web import graph as graph_mod
 
@@ -73,37 +74,47 @@ def write_page(out_dir, files):
     return list(files), written, prune_page(out, files)
 
 
+# The bytes of a chart's notes and of its Expert anchor, and the spans and
+# streams that ride beside them per family (a drum chart's roll spans, a
+# vocals chart's talkie and percussion streams), through the cache's own
+# identity function: the same bytes that make NotesHash. Every fingerprint
+# moved with the 2026-09-19 merge anyway (formula v2 changed every D), which
+# is when this stopped keeping its own two-element form of the fret bytes.
+def _notes_bytes(entry):
+    family = difficulty.family(entry)
+    expert = entry.get('expert_notes')
+    if family == 'vocals':
+        return (cache_mod.stream_bytes(entry['notes'], entry.get('talkie'), entry.get('percussion')), b'', '')
+    spans = repr((entry.get('roll_spans'), entry.get('expert_roll_spans'))) if family == 'drums' else ''
+    return (cache_mod.stream_bytes(entry['notes']),
+            cache_mod.stream_bytes(expert) if expert is not None else b'', spans)
+
+
 # Everything the PNG depends on: the chart, its Expert anchor, the numbers the
 # header prints, the metadata the header prints (difficulty.HEADER_META_KEYS,
 # never the rest of meta), and the curve and render settings.
 def fingerprint(entry, original_diff):
-    expert = entry.get('expert_notes')
     parts = (
         entry['code'], entry['instrument'], entry['level'], entry.get('source_format'),
-        entry['notes']['time_ms'].tobytes(), entry['notes']['lanes'].tobytes(),
-        expert['time_ms'].tobytes() if expert is not None else b'',
-        expert['lanes'].tobytes() if expert is not None else b'',
+        *_notes_bytes(entry),
         repr(sorted((k, v) for k, v in entry['meta'].items() if k in difficulty.HEADER_META_KEYS)),
         repr(original_diff),
         repr(difficulty.entry_difficulty(entry)),
-        curves.TAU_MS, density.WINDOW_MS, density.STEP_MS,
+        curves.TAU_MS, fret_density.WINDOW_MS, fret_density.STEP_MS,
         repr(config.RENDER_DEFAULT), repr(config.RENDER_THEMES),
     )
     return hashlib.sha1(pickle.dumps(parts, protocol=4)).hexdigest()
 
 
 # The curve JSON depends on less: the chart, its Expert anchor, the source
-# format, the difficulty block its head carries, and the window and smoothing
-# constants. Never the theme or the metadata, so a theme edit or a retitle
-# rewrites no JSON.
+# format, the difficulty block its head carries, the file's version and the
+# window and smoothing constants. Never the theme or the metadata, so a theme
+# edit or a retitle rewrites no JSON.
 def fingerprint_curves(entry):
-    expert = entry.get('expert_notes')
     parts = (
-        1, entry['notes']['time_ms'].tobytes(), entry['notes']['lanes'].tobytes(),
-        expert['time_ms'].tobytes() if expert is not None else b'',
-        expert['lanes'].tobytes() if expert is not None else b'',
+        graph_mod.CURVES_VERSION, *_notes_bytes(entry),
         entry.get('source_format'), repr(difficulty.entry_difficulty(entry)),
-        density.WINDOW_MS, density.STEP_MS, curves.TAU_MS,
+        fret_density.WINDOW_MS, fret_density.STEP_MS, curves.TAU_MS,
     )
     return hashlib.sha1(pickle.dumps(parts, protocol=4)).hexdigest()
 
