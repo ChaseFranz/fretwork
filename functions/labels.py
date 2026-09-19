@@ -1,13 +1,15 @@
 """
 LABELS - human-facing display strings for the abbreviated column/metric keys
 
-The short keys ('pNPS', 'medVPS', 'COV', 'DurationS') stay exactly as they are
-everywhere in the data path - density.calc_metrics output, formula.calc_nvcov
-output, the dataframes in analyze.py, and the xlsx headers. Nothing keyed off a
+The short keys ('pNPS', 'medVPS', 'CoV', 'DurationS') stay exactly as they are
+everywhere in the data path - fret_density.calc_metrics output,
+fret_formula.calc_nvcov output (and the drum and vocal modules' likes), the
+dataframes in analyze.py, and the xlsx headers. Nothing keyed off a
 column name has to change. This module is the single place that maps one of
 those keys to something a person can read, applied only at display time.
 
     COLUMN_LABELS  short label for a column header
+    CURVE_FAMILIES the lines under ~D on each family's graph, and their words
     VALUE_ORDER    the order a column's values are listed and sorted in
     COLUMN_HELP    one-line explanation, for tooltips / hover text
     DISPLAY_ORDER  left-to-right column order on the page
@@ -22,7 +24,7 @@ Formula terms are spelled out in Methodology.md; the help text here is the short
 version of the same thing.
 """
 
-from functions import formula, instruments
+from functions import drum_formula, fret_formula as formula, instruments, vocal_formula
 
 # NPS/VPS get spelled out - "notes/sec" and "fret changes/sec" are what they
 # actually measure, and that reads better than the acronym in a column header
@@ -52,11 +54,13 @@ COLUMN_LABELS = {
 
     # shape of the chart
     'NoteCount':  'Notes',
+    'NoteCount_2x': 'Notes (2x)',
     'DurationS':  'Length',
 
     # difficulty
     'Difficulty': 'Original Tier',
     'D':          'Difficulty (D)',
+    'D_2x':       'D (2x)',
     'RemapDiff':  'Remap Tier',
     'CalcTier':   'Calc Tier',
     'Pct':        'Percentile',
@@ -76,16 +80,59 @@ COLUMN_LABELS = {
     # formula components
     'N':          'Note factor (N)',
     'V':          'Variability factor (V)',
-    'COV':        'Consistency (CoV)',
+    'CoV':        'Consistency (CoV)',
+    'STAM':       'Stamina (STAM)',
+
+    # drums: hands, travel and kicks per second, and the three factors
+    'pHPS':       'Peak hits/sec',
+    'aHPS':       'Avg hits/sec',
+    'medHPS':     'Median hits/sec',
+    'stdHPS':     'Std dev hits/sec',
+    'pTPS':       'Peak travel/sec',
+    'aTPS':       'Avg travel/sec',
+    'medTPS':     'Median travel/sec',
+    'stdTPS':     'Std dev travel/sec',
+    'H':          'Hands factor (H)',
+    'T':          'Travel factor (T)',
+    'pKPS_1x':    'Peak kicks/sec',
+    'aKPS_1x':    'Avg kicks/sec',
+    'medKPS_1x':  'Median kicks/sec',
+    'stdKPS_1x':  'Std dev kicks/sec',
+    'K_1x':       'Kick factor (K)',
+    'CoV_1x':     'Consistency (CoV)',
+    'pKPS_2x':    'Peak kicks/sec (2x)',
+    'aKPS_2x':    'Avg kicks/sec (2x)',
+    'medKPS_2x':  'Median kicks/sec (2x)',
+    'stdKPS_2x':  'Std dev kicks/sec (2x)',
+    'K_2x':       'Kick factor (K, 2x)',
+    'CoV_2x':     'Consistency (CoV, 2x)',
+
+    # vocals: pitch travel and syllables per second, the register and the factors
+    'Pitches':    'Distinct pitches',
+    'maxPitch':   'Highest pitch',
+    'ShortFrac':  'Short notes',
+    'talkieFrac': 'Talkie share',
+    'pPPS':       'Peak pitch/sec',
+    'aPPS':       'Avg pitch/sec',
+    'medPPS':     'Median pitch/sec',
+    'stdPPS':     'Std dev pitch/sec',
+    'pSPS':       'Peak syllables/sec',
+    'aSPS':       'Avg syllables/sec',
+    'medSPS':     'Median syllables/sec',
+    'stdSPS':     'Std dev syllables/sec',
+    'P':          'Pitch factor (P)',
+    'R':          'Register (R)',
+    'A':          'Articulation (A)',
+    'S':          'Syllable factor (S)',
 }
 
 COLUMN_HELP = {
     'Rank':       'Position in the list as currently sorted and filtered, so it renumbers as you narrow the view.',
-    'Code':       'Retrieval code: 8-digit song hash, then level (E/M/H/X) and instrument (G/C/R/B/K). Pass it to render.py.',
+    'Code':       'Retrieval code: 8-digit song hash, then level (E/M/H/X) and instrument (G/C/R/B/K/D/V). Pass it to render.py.',
     'Song Title': 'Song name from song.ini.',
     'Artist':     'Artist from song.ini.',
-    'Level':      'Charted difficulty level: Easy, Medium, Hard or Expert.',
-    'Type':       'Which part this row is: Lead, Co-op, Rhythm, Bass or Keys.',
+    'Level':      'Charted difficulty level: Easy, Medium, Hard or Expert. Vocals are charted at one level, read as Expert.',
+    'Type':       'Which part this row is: Lead, Co-op, Rhythm, Bass, Keys, Drums or Vocals.',
     'Charter':    'Who charted the song, from song.ini.',
     'Release':    'Release or source pack. Officials are matched against the tables in sources/.',
     'Album':      'Album from song.ini, as the charter wrote it. Empty when the file has none.',
@@ -100,13 +147,22 @@ COLUMN_HELP = {
                   'A dash means no host was found for it.',
     'Leaderboard': 'Has a Clone Hero leaderboard: the arrow opens the scores page.',
 
-    'NoteCount':  'Total notes in this chart. Frets played together count as one note, same as the games score it.',
+    'NoteCount':  'Total notes in this chart. Frets played together count as one note, same as the games score it. '
+                  'On drums, hand hits plus single-pedal kicks; on vocals, syllables.',
+    'NoteCount_2x': 'Notes at the double-pedal reading: hand hits plus every kick. Only a chart with 2x kicks has one.',
     'DurationS':  'Time from t=0 to the last note.',
 
     'Difficulty': 'The diff_* tier already in song.ini. -1 means the tag is missing.',
-    'D':          'Calculated difficulty, D = N x V x CoV. The main output. Higher is harder, uncapped.',
+    'D':          'Calculated difficulty. The main output, higher is harder, uncapped. For guitar, bass and keys '
+                  'D = N x V x CoV x STAM; drums add hands, travel and kicks before the same two factors and score '
+                  'the single-pedal (1x) reading here; vocals multiply pitch work by register and articulation, '
+                  'add syllables, then the two factors.',
+    'D_2x':       'D at the double-pedal reading, every kick counted. Only a chart with 2x kicks has one; the '
+                  'tiers and the percentile stay on the 1x reading.',
     'RemapDiff':  'D binned to 0-6, calibrated per instrument so the spread matches official tiers. From the Expert chart only.',
-    'CalcTier':   f'Log-scaled tier, one step per {formula.LN_INC} increase in ln(D) above {formula.BASE_D}. Uncapped, so hard customs reach 10+. From the Expert chart only.',
+    'CalcTier':   f'Log-scaled tier, one step per {formula.LN_INC} increase in ln(D) above {formula.BASE_D} on guitar, bass and keys '
+                  f'({drum_formula.LN_INC} above {drum_formula.BASE_D} on drums, {vocal_formula.LN_INC} above {vocal_formula.BASE_D} on vocals). '
+                  'Uncapped, so hard customs reach 10+. From the Expert chart only.',
     'Pct':        'Sits at or above N% of the charts on this sheet at the same level, officials and customs together. Each distinct chart counts once, however many packs carry it. Ties share a value and the top chart reads 100. The Guitar sheet pools Lead, Rhythm and Co-op, which share one calibration group.',
 
     'pNPS':       'Busiest one-second window, in notes per second.',
@@ -121,7 +177,48 @@ COLUMN_HELP = {
 
     'N':          'Note-density term: cube root of median x average x peak notes/sec.',
     'V':          'Variability term: cube root of median x average x peak changes/sec.',
-    'COV':        'Interaction term, 1 or higher. Rewards charts whose difficulty is uneven.',
+    'CoV':        'Interaction term, 1 or higher. Rewards charts whose difficulty is uneven.',
+    'STAM':       'Stamina term: a slow curve of the chart\u2019s length, 1 at about four minutes, under 1 for a short chart, over 1 for a long one.',
+
+    'pHPS':       'Busiest one-second window of hand hits, rolls capped.',
+    'aHPS':       'Hand hits per second across the whole chart.',
+    'medHPS':     'Median one-second window of hand hits.',
+    'stdHPS':     'Spread of hand hits across the chart.',
+    'pTPS':       'Busiest one-second window of travel between pads.',
+    'aTPS':       'Travel between pads per second across the whole chart.',
+    'medTPS':     'Median one-second window of travel.',
+    'stdTPS':     'Spread of travel across the chart.',
+    'H':          'Hands term: cube root of median x average x peak hits/sec.',
+    'T':          'Travel term: cube root of median x average x peak travel/sec.',
+    'pKPS_1x':    'Busiest one-second window of kicks, single pedal.',
+    'aKPS_1x':    'Kicks per second across the whole chart, single pedal.',
+    'medKPS_1x':  'Median one-second window of kicks, single pedal.',
+    'stdKPS_1x':  'Spread of kicks across the chart, single pedal.',
+    'K_1x':       'Kick term: cube root of median x average x peak kicks/sec, single pedal.',
+    'CoV_1x':     'Interaction term across hands and kicks, 1 or higher, single pedal.',
+    'pKPS_2x':    'Busiest one-second window of kicks with the double pedal.',
+    'aKPS_2x':    'Kicks per second across the whole chart with the double pedal.',
+    'medKPS_2x':  'Median one-second window of kicks with the double pedal.',
+    'stdKPS_2x':  'Spread of kicks across the chart with the double pedal.',
+    'K_2x':       'Kick term with the double pedal.',
+    'CoV_2x':     'Interaction term across hands and kicks with the double pedal.',
+
+    'Pitches':    'How many distinct pitches the line uses.',
+    'maxPitch':   'The highest pitch in the line, as a MIDI note number.',
+    'ShortFrac':  'Share of sung notes shorter than 120 ms: quick runs.',
+    'talkieFrac': 'Share of syllables that are spoken rather than pitched. Descriptive only, not in the formula.',
+    'pPPS':       'Busiest one-second window of pitch movement, in semitones.',
+    'aPPS':       'Pitch movement per second across the whole chart.',
+    'medPPS':     'Median one-second window of pitch movement.',
+    'stdPPS':     'Spread of pitch movement across the chart.',
+    'pSPS':       'Busiest one-second window of syllables.',
+    'aSPS':       'Syllables per second across the whole chart.',
+    'medSPS':     'Median one-second window of syllables.',
+    'stdSPS':     'Spread of syllables across the chart.',
+    'P':          'Pitch term: cube root of median x average x peak pitch movement.',
+    'R':          'Register: how many pitches the line uses and how high it goes, near 1 for an average line.',
+    'A':          'Articulation: 1 plus the share of short notes.',
+    'S':          'Syllable term, weighted, so a spoken-only chart still scores.',
 }
 
 # ---------------------------------------------------------------------
@@ -180,6 +277,32 @@ VALUE_LABELS = {
 }
 
 
+# The lines under ~D on a chart's graph, per family (instruments.FAMILY), in
+# the order they are drawn and listed: the key the curve file names the
+# series by (web/graph.py), its legend word (functions/plot.py's, which is
+# upstream's), its readout word, and the stylesheet token of its colour. The
+# same three tokens serve every family in plot.py's own assignment
+# (config.RENDER_DEFAULT): color_nps for notes, hands and syllables, color_vps
+# for variability, travel and pitch, color_kps for kicks and percussion.
+# `alt` is the graph image's words for the lines. A family's graph draws the
+# lines its file has, in this order, so a vocals chart without percussion
+# draws two.
+CURVE_FAMILIES = {
+    'fret': {'lines': (('nps', 'Notes', 'notes/s', '--fw-curve-nps'),
+                       ('vps', 'Variability', 'changes/s', '--fw-curve-vps')),
+             'alt': 'notes per second, fret changes per second and their geometric mean'},
+    'drums': {'lines': (('hps', 'Hands', 'hits/s', '--fw-curve-nps'),
+                        ('tps', 'Travel', 'travel/s', '--fw-curve-vps'),
+                        ('kps', 'Kicks', 'kicks/s', '--fw-curve-kps')),
+              'alt': 'hand hits, travel between pads and kicks per second and their sum'},
+    'vocals': {'lines': (('pps', 'Pitch', 'pitch/s', '--fw-curve-vps'),
+                         ('sps', 'Syllables', 'syllables/s', '--fw-curve-nps'),
+                         ('perc', 'Percussion', 'perc/s', '--fw-curve-kps')),
+               'alt': 'pitch movement, syllables and percussion per second and their weighted sum'},
+}
+assert set(CURVE_FAMILIES) == set(instruments.FAMILIES)
+
+
 # The four places this site points at, named once. Every mention of fretwork or
 # its author in the prose below links to one of them.
 ENGINE_REPO = 'https://github.com/Staycation44/fretwork'
@@ -236,12 +359,18 @@ METHODOLOGY_SOURCE = (
     f'fretwork engine repository, which is the reference for the formula and its calibration '
     f'tables. The tables on this page are checked against the code that scored every chart here.')
 
+# Over the list of numbers where the document lags the code (web/methodology.KNOWN_DRIFT):
+# the code is what scored the charts, and the correction belongs upstream.
+METHODOLOGY_DRIFT = (
+    'Where a number below differs from the code, the code is what scored the charts here; '
+    'the document is the engine\u2019s and its correction belongs there. At this publish:')
+
 # Left-to-right order on the page, which is not the spreadsheet's order: D is what
 # the site is for, so it sits beside the song instead of past the right edge.
 # Anything missing from this list keeps its spreadsheet position, at the end.
 DISPLAY_ORDER = (
-    'Song Title', 'Artist', 'Chart', 'Leaderboard', 'D', 'Pct', 'CalcTier', 'Level', 'Type',
-    'DurationS', 'NoteCount', 'Charter', 'Release', 'Album', 'Year', 'Genre', 'Added', 'Copies',
+    'Song Title', 'Artist', 'Chart', 'Leaderboard', 'D', 'D_2x', 'Pct', 'CalcTier', 'Level', 'Type',
+    'DurationS', 'NoteCount', 'NoteCount_2x', 'Charter', 'Release', 'Album', 'Year', 'Genre', 'Added', 'Copies',
     'Difficulty', 'RemapDiff', 'Official', 'Code', 'SongKey', 'NotesHash',
 )
 
@@ -272,13 +401,18 @@ PREFS_VERSION = 3
 EXPLAINER = (
     ('What D measures',
      'D is a single number for how hard a chart is to play, read out of the chart '
-     'file itself rather than from anyone\u2019s opinion. It multiplies three things: '
-     'how busy the chart is (N, from the peak, average and median notes per second), '
-     'how much the fretting hand has to move (V, the same three figures for fret '
-     'changes), and how unevenly that work is spread across the song (CoV). Higher '
-     'is harder, and the scale has no ceiling \u2013 the hardest charts here run past 1000.'),
+     'file itself rather than from anyone\u2019s opinion. For guitar, bass and keys it '
+     'multiplies four things: how busy the chart is (N, from the peak, average and median '
+     'notes per second), how much the fretting hand has to move (V, the same three figures '
+     'for fret changes), how unevenly that work is spread across the song (CoV), and how '
+     'long it goes on (STAM, a slow curve of the length). Drums add up the hands, the '
+     'travel between pads and the kicks before the same two factors, and are scored at the '
+     'single-pedal reading; vocals multiply pitch movement by the register and the '
+     'articulation, add the syllables, then the same two. Higher is harder, and the scale '
+     'has no ceiling \u2013 the hardest guitar charts here run past 1000.'),
     ('Reading the tiers',
-     f'Calc Tier is D on a log scale: one step for every {formula.LN_INC} rise in ln(D) above {formula.BASE_D}, '
+     f'Calc Tier is D on a log scale: one step for every {formula.LN_INC} rise in ln(D) above {formula.BASE_D} '
+     f'on guitar, bass and keys, with drums and vocals on their own pair of constants, '
      'so it keeps climbing past 10 for the hardest customs. Remap Tier is the same '
      'value binned into the 0\u20136 range the games use, calibrated per instrument. Both '
      'are computed from the Expert chart and then shown on every difficulty of that '
@@ -290,7 +424,9 @@ EXPLAINER = (
      'Strum, HOPO and tap state are discarded, so how a chart flows does not change '
      'its score. There is no pattern recognition \u2013 trills, anchoring and chord '
      'shapes all count simply as movement. Long quiet stretches pull the averages '
-     'down. Drums and vocals are not scored at all.'),
+     'down. Drum rolls are capped and their travel zeroed; a drum chart is scored at the '
+     'single-pedal reading, with the double-pedal D beside it. Vocal difficulty is the '
+     'loosest fit of the three, since official tiers for singing agree on little.'),
     ('Where the numbers come from',
      f'Every chart here was parsed and scored by [fretwork]({ENGINE_REPO}), an '
      f'open-source project by [Staycation44]({CHANNEL}). This site runs that engine '
@@ -305,8 +441,9 @@ EXPLAINER = (
 # here, and who to complain to. All three answers deserve a URL.
 ABOUT = (
     ('What this site is',
-     'Fretladder publishes calculated difficulty ratings for 5-fret rhythm-game charts '
-     '\u2013 Guitar Hero, Rock Band, Clone Hero, and the custom charts made for them. '
+     'Fretladder publishes calculated difficulty ratings for rhythm-game charts '
+     '\u2013 guitar, bass, keys, drums and vocals from Guitar Hero, Rock Band, Clone Hero, and '
+     'the custom charts made for them. '
      'Every rating is computed from the chart file itself. None of it is hand-assigned, '
      'voted on, or edited afterwards. How the calculation works is explained under '
      '\u201cHow it works\u201d on the charts page, and in full on the '
@@ -343,9 +480,12 @@ def t_count(n):
     return UI['chart_count'].format(n=f"{n:,}")
 
 
-# The alt text of a song page's graph image (section 22), from the graph's own alt string.
-def t_graph_alt(song):
-    return UI['graph_alt'].format(song=song)
+# The alt text of a song page's graph image (section 22), from the graph's own
+# alt string, with the lines of the chart's family, read from the code's
+# instrument letter (a drum chart's picture is hands, travel and kicks).
+def t_graph_alt(song, code):
+    instrument = instruments.SUFFIX_TO_INSTRUMENT.get(str(code)[-1:], 'guitar')
+    return UI['graph_alt'].format(song=song, lines=CURVE_FAMILIES[instruments.FAMILY[instrument]]['alt'])
 
 
 def label(column):
@@ -371,8 +511,7 @@ UI = {
     # the badge already says "beta", so the note carries the substance instead of
     # repeating it - and stays one line on a desktop, three on a phone
     'beta_note':        'The library is partial and the scoring is still being calibrated, '
-                        'so a chart\u2019s numbers can move between updates. '
-                        'Guitar, bass and keys for now.',
+                        'so a chart\u2019s numbers can move between updates.',
 
     'copyright':        f'An independent fork of [fretwork]({ENGINE_REPO}), not '
                         f'affiliated with its author. Engine copyright (c) 2026 '
@@ -427,7 +566,7 @@ UI = {
     'library_intro':    'What is on the site, in numbers: every count below comes from the same '
                         'table the charts page shows, so the two always agree. A chart is one '
                         'instrument at one level; a song has up to four levels of each instrument '
-                        'it is charted for.',
+                        'it is charted for, and one of vocals.',
     'library_charts':   'Charts',
     'library_charts_note': 'Charts as the table lists them; the smaller number under a count is the '
                         'distinct charts, counting a chart once however many packs carry it, which '
@@ -470,8 +609,8 @@ UI = {
     'song_game':        'From {game}, with every song of that setlist ranked by difficulty.',
     'game_title':       '{game} setlist by difficulty',
     'game_intro':       'Every song in {game} ranked by fretwork\u2019s difficulty on Expert guitar, D, with the Calc Tier '
-                        'and the percentile among the site\u2019s Expert Guitar charts, and the bass and keys charts beside it. '
-                        'A song opens its page; a number opens that chart\u2019s graph.',
+                        'and the percentile among the site\u2019s Expert Guitar charts, and the bass, keys, drums and vocals '
+                        'charts beside it. A song opens its page; a number opens that chart\u2019s graph.',
     'game_facts':       '{songs} songs, {charts} charts, {kind}, on the site since {date}',
     'game_no_guitar':   'Songs with no Expert guitar chart follow, by their other parts.',
     'list_hardest':     'The {n} hardest Guitar Hero and Rock Band songs on Expert {sheet}',
@@ -503,7 +642,7 @@ UI = {
     'songs_tip':        'Every song on the site, A to Z',
     'songs_intro':      'Every song on the site, {n} of them, A to Z by title; each opens the song\u2019s page with its difficulty on every instrument and level.',
     'song_page_title':  '{song}: chart difficulty - {site}',
-    'song_note':        'D is the difficulty fretwork computes from note density and fret movement, with the '
+    'song_note':        'D is the difficulty fretwork computes from the chart\u2019s note density and movement, with the '
                         'percentile among charts of the same instrument and level on the site and the Calc Tier '
                         'anchored to the Expert chart; [how it is scored](methodology.html) and '
                         '[what the library holds](library.html). A number opens that chart\u2019s graph.',
@@ -527,22 +666,22 @@ UI = {
     'copies_label':     'Same chart in:',
     'copies_tip':       'The same notes in another folder. Opens that copy\u2019s graph.',
 
-    # the graph itself, drawn on a canvas from graph/<code>.json; the first
-    # five mirror literals in functions/plot.py, which is upstream's
+    # the graph itself, drawn on a canvas from graph/<code>.json; ~D and the
+    # axis words mirror literals in functions/plot.py, which is upstream's, and
+    # the lines under ~D are CURVE_FAMILIES' words
     'graph_d':          '~D',
-    'graph_nps':        'Notes',
-    'graph_vps':        'Variability',
     'graph_y':          'per second',
     'graph_x':          'Time (m:ss)',
     'graph_source':     '.{source} file',
-    'graph_readout':    '{t}  ~D {d}  notes/s {nps}  changes/s {vps}',
+    'graph_readout':    '{t}  ~D {d}  {lines}',
+    'graph_readout_line': '{label} {v}',
     'graph_readout_part': '{letter} {d}',
     'graph_readout_many': '{t}  {parts}',
     'graph_legend':     '{title} - {artist}, {level} {type}',
     'graph_legend_part': '{level} {type}',    # compared charts of one song
     'graph_legend_level': '{level}',          # ... and one part
     'graph_hint':       'Hover or use the arrow keys to read values',
-    'graph_alt':        'Difficulty graph of {song}: notes per second, fret changes per second and their geometric mean over time',
+    'graph_alt':        'Difficulty graph of {song}: {lines} over time',
     # compare is pick-from-the-table alone: the table's search and filters are
     # the picker, and the song grid lists the song's other charts
     'compare_pick':     'Compare with a row',

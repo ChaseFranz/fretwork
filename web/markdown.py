@@ -32,14 +32,17 @@ class MarkdownError(ValueError):
 # --- refusals: the constructs the file does not use, and must not start using silently
 
 REFUSE = (
-    (re.compile(r'^\s*([-*+]|\d+\.)\s'), 'a list is not supported'),
+    (re.compile(r'^\s*(\d+\.)\s'), 'an ordered list is not supported'),
+    (re.compile(r'^\s+[-*+]\s'), 'a nested list is not supported'),
     (re.compile(r'^```'), 'a fenced code block is not supported'),
     (re.compile(r'^(    |\t)'), 'an indented code block is not supported'),
-    (re.compile(r'^(---+|===+)\s*$'), 'a rule or setext heading is not supported'),
+    (re.compile(r'^===+\s*$'), 'a setext heading is not supported'),
     (re.compile(r'^<'), 'an HTML block is not supported'),
 )
 HEADING = re.compile(r'^(#{1,6})\s+(.*)$')
 ALIGN_CELL = re.compile(r'^:?-+:?$')
+BULLET = re.compile(r'^[-*+]\s+(.*)$')     # a flat unordered list, one line per item (upstream's 2026-09 edit)
+RULE = re.compile(r'^---+\s*$')              # a thematic break between the instrument families
 
 
 def _cells(line):
@@ -61,9 +64,12 @@ def _slug(text, taken):
     return slug
 
 
+COMMENT = re.compile(r'<!--.*?-->')    # a toc generator's "omit in toc" marks on the headings: not content
+
+
 def parse(text):
     """The file as block tuples, each ending with the 1-based line it starts on."""
-    lines = text.split('\n')
+    lines = [COMMENT.sub('', line).rstrip() for line in text.split('\n')]
     blocks, taken = [], set()
     i, n = 0, len(lines)
     para = []
@@ -104,6 +110,19 @@ def parse(text):
             heading = m.group(2).rstrip()
             blocks.append(('heading', level, heading, _slug(heading, taken), at))
             i += 1
+            continue
+        if RULE.match(line):
+            flush()
+            blocks.append(('rule', at))
+            i += 1
+            continue
+        if BULLET.match(line):
+            flush()
+            items = []
+            while i < n and BULLET.match(lines[i]):
+                items.append(BULLET.match(lines[i]).group(1).rstrip())
+                i += 1
+            blocks.append(('list', items, at))
             continue
         if stripped.startswith('>'):
             flush()
@@ -152,6 +171,9 @@ def parse(text):
 # --- inline rules, applied on placeholders so they cannot nest wrongly ----------------
 
 CODE = re.compile(r'`([^`]+)`')
+# a link to a heading on the same page, the only link form the file uses:
+# [text](#slug), where the slug is a heading's own (checked at render)
+ANCHOR = re.compile(r'\[([^\]]+)\]\(#([a-z0-9-]+)\)')
 INLINE_MATH = re.compile(r'\$([^$]*)\$')
 BOLD = re.compile(r'\*\*(.+?)\*\*')
 ITALIC = re.compile(r'\*(?=\S)(.+?)(?<=\S)\*')
@@ -177,12 +199,11 @@ def _inline(text, line):
         return hold('<code>' + html.escape(m.group(1)) + '</code>')
 
     def imath(m):
-        ident = m.group(1)
-        if not re.fullmatch(r'[A-Za-z]+', ident):
-            raise MarkdownError(f'line {line}: inline math holds more than one identifier: ${ident}$')
-        return hold(f'<math><mi>{ident}</mi></math>')
+        # an identifier, or a short expression in the same subset the display formulas use
+        return hold('<math>' + _math(m.group(1), line) + '</math>')
 
     out = CODE.sub(code, text)
+    out = ANCHOR.sub(lambda m: hold(f'<a href="#{html.escape(m.group(2))}">' + html.escape(m.group(1)) + '</a>'), out)
     out = INLINE_MATH.sub(imath, out)
     out = BOLD.sub(lambda m: hold('<strong>' + html.escape(m.group(1)) + '</strong>'), out)
     out = ITALIC.sub(lambda m: hold('<em>' + html.escape(m.group(1)) + '</em>'), out)
@@ -195,10 +216,10 @@ def _inline(text, line):
 
 # --- the typesetter: a LaTeX subset to MathML Core -----------------------------------
 
-MATH_TOKEN = re.compile(r'\\[A-Za-z]+|\\,|[A-Za-z]+|\d+(?:\.\d+)?|\s+|.')
+MATH_TOKEN = re.compile(r'\\[A-Za-z]+|\\[,;]|[A-Za-z]+|\d+(?:\.\d+)?|\s+|.')
 SYMBOLS = {'\\varepsilon': 'ε', '\\sigma': 'σ'}
-SPACES = {'\\,': '0.17em', '\\qquad': '2em'}
-OPERATORS = {'=': '=', '+': '+', '-': '−', ',': ',', '/': '/', '\\cdot': '⋅'}
+SPACES = {'\\,': '0.17em', '\\;': '0.28em', '\\qquad': '2em'}
+OPERATORS = {'=': '=', '+': '+', '-': '−', ',': ',', '/': '/', '\\cdot': '⋅', '\\approx': '≈', '<': '&lt;', '>': '&gt;'}
 
 
 class _Math:
@@ -267,6 +288,14 @@ class _Math:
             self.expect('\\Big')
             self.expect(']')
             return '<mrow><mo stretchy="true">[</mo>' + ''.join(nodes) + '<mo stretchy="true">]</mo></mrow>'
+        if tok == '\\left':
+            fence = self.take()
+            if fence != '(':
+                self.fail('\\left is only supported around ( ... )')
+            nodes = self.row(until='\\right')
+            self.expect('\\right')
+            self.expect(')')
+            return '<mrow><mo stretchy="true">(</mo>' + ''.join(nodes) + '<mo stretchy="true">)</mo></mrow>'
         if re.fullmatch(r'[A-Za-z]+', tok):
             return f'<mi>{tok}</mi>'
         if re.fullmatch(r'\d+(?:\.\d+)?', tok):
@@ -323,6 +352,10 @@ def render(blocks, shift=0):
             out.append('<p>' + _inline(block[1], line) + '</p>')
         elif kind == 'quote':
             out.append('<blockquote>' + ''.join('<p>' + _inline(p, line) + '</p>' for p in block[1]) + '</blockquote>')
+        elif kind == 'list':
+            out.append('<ul>' + ''.join('<li>' + _inline(item, line) + '</li>' for item in block[1]) + '</ul>')
+        elif kind == 'rule':
+            out.append('<hr>')
         elif kind == 'math':
             out.append('<div class="eq"><math display="block">' + _math(block[1], line) + '</math></div>')
         elif kind == 'table':

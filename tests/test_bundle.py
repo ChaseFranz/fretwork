@@ -11,7 +11,7 @@ import unittest.mock
 import numpy as np
 
 import config
-from functions import curves, density
+from functions import curves
 from web import assets, bundle, bundler, frames
 from web import graph as graph_mod
 
@@ -98,6 +98,7 @@ class AssetsAndSheetsTest(unittest.TestCase):
 
 
 class CurvesTest(unittest.TestCase):
+    """The curve JSON (v2) for the three families, and its reconstruction against curves.py."""
 
     def entry(self):
         times = np.array([0.0, 400.0, 900.0, 1300.0, 2100.0, 2600.0], dtype=np.float64)
@@ -106,43 +107,144 @@ class CurvesTest(unittest.TestCase):
                 'notes': {'time_ms': times, 'lanes': lanes}, 'expert_notes': {'time_ms': times, 'lanes': lanes},
                 'meta': {'Name': 'x'}, 'song_path': '/x'}
 
+    # hands on five pads, a roll span over the second bar, 1x kicks on the
+    # beat and one 2x kick, so both readings exist and the roll cap is exercised
+    def drum_entry(self):
+        hand = {'time_ms': np.arange(0, 6000, 300, dtype=np.float64), 'lanes': np.array([1 << (i % 5) for i in range(20)], dtype=np.uint8)}
+        kick = {'time_ms': np.array([0.0, 500.0, 1000.0, 1500.0, 2000.0, 2250.0, 3000.0, 4000.0, 6500.0]),
+                'lanes': np.array([1, 1, 1, 1, 1, 2, 1, 1, 1], dtype=np.uint8)}
+        notes = {'hand_mask': hand, 'kick_mask': kick}
+        spans = [(1200.0, 2400.0, 'single')]
+        return {'code': '00000002XD', 'instrument': 'drums', 'level': 'expert', 'source_format': 'mid',
+                'notes': notes, 'expert_notes': notes, 'roll_spans': spans, 'expert_roll_spans': spans,
+                'meta': {'Name': 'd'}, 'song_path': '/d'}
+
+    def vocal_entry(self, percussion=True):
+        n = 16
+        times = np.arange(0, n * 400, 400, dtype=np.float64)
+        notes = {'time_ms': times, 'end_ms': times + 300.0,
+                 'pitch': np.array([55 + (i * 5) % 17 for i in range(n)], dtype=np.uint8),
+                 'is_placeholder': np.zeros(n, dtype=bool), 'is_slide': np.array([i % 5 == 4 for i in range(n)])}
+        talkie = {'time_ms': np.array([200.0, 3300.0]), 'end_ms': np.array([np.nan, np.nan])}
+        perc = {'time_ms': np.array([1000.0, 5000.0]), 'end_ms': np.array([1020.0, 5020.0])} if percussion \
+            else {'time_ms': np.array([], dtype=np.float64), 'end_ms': np.array([], dtype=np.float64)}
+        return {'code': '00000003XV', 'instrument': 'vocals', 'level': 'expert', 'source_format': 'mid',
+                'notes': notes, 'talkie': talkie, 'percussion': perc, 'expert_notes': notes,
+                'meta': {'Name': 'v'}, 'song_path': '/v'}
+
     def test_curve_json_shape(self):
         doc = json.loads(graph_mod.curves_bytes(self.entry()))
-        self.assertEqual([doc['v'], doc['step'], doc['window'], doc['tau']], [1, 250, 1000, 2000])
-        self.assertEqual(doc['n'], len(doc['win']))
-        self.assertEqual(len(doc['win']), len(doc['var']))
+        self.assertEqual([doc['v'], doc['family'], doc['step'], doc['window'], doc['tau']], [2, 'fret', 250, 1000, 2000])
+        self.assertEqual(list(doc['series']), ['nps', 'vps'])
+        self.assertEqual(doc['d'], {'geo': ['nps', 'vps']})
+        self.assertTrue(all(len(v) == doc['n'] for v in doc['series'].values()))
         self.assertEqual(doc['n'], int(2600 // 250) + 1)
-        self.assertEqual(set(doc['head']), {'N', 'V', 'COV', 'D', 'RemapDiff', 'CalcTier', 'source'})
+        self.assertEqual(set(doc['head']), {'N', 'V', 'CoV', 'STAM', 'D', 'RemapDiff', 'CalcTier', 'source'})
         self.assertEqual(doc['head']['source'], 'chart')
-        self.assertTrue(all(isinstance(v, int) and v >= 0 for v in doc['win'] + doc['var']))
+        self.assertTrue(all(isinstance(v, int) and v >= 0 for k in doc['series'] for v in doc['series'][k]))
 
-    # The JS reconstruction, written in Python with the same operations, must land
-    # on curves.calc_curves to within floating-point noise.
-    def test_client_reconstruction_matches_calc_curves(self):
-        entry = self.entry()
-        doc = json.loads(graph_mod.curves_bytes(entry))
-        ref = curves.calc_curves(entry['notes'])
+    def test_drum_and_vocal_json_shapes(self):
+        drums = json.loads(graph_mod.curves_bytes(self.drum_entry()))
+        self.assertEqual([drums['v'], drums['family']], [2, 'drums'])
+        self.assertEqual(list(drums['series']), ['hps', 'tps', 'kps'])
+        self.assertEqual(drums['d'], {'sum': {'hps': 1, 'tps': 1, 'kps': 1}})
+        self.assertEqual({'H', 'T', 'K', 'CoV', 'STAM', 'D', 'D_2x', 'RemapDiff', 'CalcTier', 'source'}, set(drums['head']))
+        self.assertEqual(drums['n'], int(6500 // 250) + 1)     # the 1x kicks outlast the hands
+        vocals = json.loads(graph_mod.curves_bytes(self.vocal_entry()))
+        self.assertEqual([vocals['v'], vocals['family']], [2, 'vocals'])
+        self.assertEqual(list(vocals['series']), ['pps', 'sps', 'perc'])
+        self.assertEqual(list(vocals['d']['sum']), ['pps', 'sps'])
+        self.assertEqual(vocals['d']['sum']['sps'], 0.25)
+        self.assertIn('R', vocals['head'])
+        quiet = json.loads(graph_mod.curves_bytes(self.vocal_entry(percussion=False)))
+        self.assertEqual(list(quiet['series']), ['pps', 'sps'])
+        # every family's series is n long and finite
+        for doc in (drums, vocals, quiet):
+            self.assertTrue(all(len(v) == doc['n'] and all(math.isfinite(x) for x in v) for v in doc['series'].values()))
+
+    # The JS reconstruction (graph.js smooth), written in Python with the same
+    # operations: the smoothing of each line, then ~D by the file's recipe, must
+    # land on curves.py's d_raw for every family, to the four places the drum
+    # and vocal counts are rounded to and to floating-point noise for the fret
+    # family, whose counts are integers.
+    @staticmethod
+    def reconstruct(doc):
         decay = math.exp(-doc['step'] / doc['tau'])
         gain = 1 - decay
+        window_s = doc['window'] / 1000
 
         def ema(values):
             out, acc = [], 0.0
             for v in values:
-                acc = acc * decay + v * gain
+                acc = acc * decay + (v / window_s) * gain
                 out.append(acc)
             back, acc = [], 0.0
             for v in reversed(out):
                 acc = acc * decay + v * gain
                 back.append(acc)
             return list(reversed(back))
-        nps = ema([c / (doc['window'] / 1000) for c in doc['win']])
-        vps = ema([c / (doc['window'] / 1000) for c in doc['var']])
-        for a, b in zip(nps, ref['nps']):
+        lines = {k: ema(v) for k, v in doc['series'].items()}
+        if 'geo' in doc['d']:
+            d = [math.sqrt(math.prod(lines[k][i] for k in doc['d']['geo'])) for i in range(doc['n'])]
+        else:
+            d = [sum(w * lines[k][i] for k, w in doc['d']['sum'].items()) for i in range(doc['n'])]
+        return lines, d
+
+    def test_client_reconstruction_matches_calc_curves(self):
+        entry = self.entry()
+        lines, d = self.reconstruct(json.loads(graph_mod.curves_bytes(entry)))
+        ref = curves.calc_curves(entry['notes'])
+        for key in ('nps', 'vps'):
+            for a, b in zip(lines[key], ref[key]):
+                self.assertAlmostEqual(a, b, places=12)
+        for a, b in zip(d, ref['d_raw']):
             self.assertAlmostEqual(a, b, places=12)
-        for a, b in zip(vps, ref['vps']):
-            self.assertAlmostEqual(a, b, places=12)
-        for a, b, c in zip(nps, vps, ref['d_raw']):
-            self.assertAlmostEqual(math.sqrt(a * b), c, places=12)
+
+    def test_client_reconstruction_matches_drum_and_vocal_curves(self):
+        entry = self.drum_entry()
+        lines, d = self.reconstruct(json.loads(graph_mod.curves_bytes(entry)))
+        ref = curves.calc_drum_curves(entry['notes'], roll_spans=entry['roll_spans'])
+        self.assertEqual(len(d), len(ref['d_raw']['1x']))
+        for key, want in (('hps', ref['hps']), ('tps', ref['tps']), ('kps', ref['kps']['1x'])):
+            for a, b in zip(lines[key], want):
+                self.assertAlmostEqual(a, b, places=3, msg=key)
+        for a, b in zip(d, ref['d_raw']['1x']):
+            self.assertAlmostEqual(a, b, places=3)
+        entry = self.vocal_entry()
+        lines, d = self.reconstruct(json.loads(graph_mod.curves_bytes(entry)))
+        ref = curves.calc_vocal_curves(entry['notes'], entry['talkie'], percussion=entry['percussion'])
+        for key in ('pps', 'sps', 'perc'):
+            for a, b in zip(lines[key], ref[key]):
+                self.assertAlmostEqual(a, b, places=3, msg=key)
+        for a, b in zip(d, ref['d_raw']):
+            self.assertAlmostEqual(a, b, places=3)
+
+    def test_the_difficulty_block_is_the_row_s(self):
+        from functions import difficulty
+        # drums: D is the 1x reading, D_2x beside it; vocals: the tiers come straight from D
+        drums = difficulty.entry_difficulty(self.drum_entry())
+        self.assertGreater(drums['D'], 0)
+        self.assertIsNotNone(drums['D_2x'])
+        self.assertIsInstance(drums['CalcTier'], int)
+        vocals = difficulty.entry_difficulty(self.vocal_entry())
+        self.assertGreater(vocals['D'], 0)
+        self.assertIn(vocals['RemapDiff'], range(7))
+        # a stream of another shape is not scorable, and the JSON is None
+        bad = self.drum_entry()
+        bad['notes'] = self.entry()['notes']
+        self.assertFalse(difficulty.scorable(bad))
+        self.assertIsNone(graph_mod.curves_bytes(bad))
+
+    def test_fingerprints_see_every_family_s_streams(self):
+        drums = self.drum_entry()
+        before = bundle.fingerprint_curves(drums), bundle.fingerprint(drums, None)
+        drums['roll_spans'] = []
+        self.assertNotEqual(bundle.fingerprint_curves(drums), before[0])
+        self.assertNotEqual(bundle.fingerprint(drums, None), before[1])
+        vocals = self.vocal_entry()
+        before = bundle.fingerprint_curves(vocals)
+        vocals['talkie'] = {'time_ms': np.array([200.0]), 'end_ms': np.array([np.nan])}
+        self.assertNotEqual(bundle.fingerprint_curves(vocals), before)
 
     # HEADER_META_KEYS mirrors what upstream's plot.py prints; the mirror is checked
     # against plot.py's source so an upstream change turns into a red test here.

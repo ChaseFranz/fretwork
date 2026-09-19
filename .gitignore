@@ -12,3 +12,4 @@ songs/
 site/
 .env*
 !.env.example
+.png

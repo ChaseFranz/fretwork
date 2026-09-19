@@ -6,6 +6,9 @@ title, artist and charter is invented and every note stream comes from a seeded
 random generator. Fourteen carry a chart the parsers accept (ten notes.chart
 written as text, four notes.mid written with mido), one has only a song.ini,
 and one has a song.ini beside a truncated notes.mid so the errors path runs.
+Two songs carry drums (one per format) and two of the .mid songs carry vocals
+(a sung line with slides, talkies and percussion taps), so every family the
+site scores (instruments.FAMILY) is in the fixture.
 Three of the charts repeat notes on purpose, for the Copies column: B5 is A1's
 Expert guitar in another pack under another title (a cross-pack pair), A2's
 Hard equals its Expert, and C4's Rhythm equals its Lead (neither is a copy).
@@ -84,7 +87,7 @@ def fake_links(index):
     return {'md5': LINKS_FAKE['md5'][:-2] + tail, 'songHash': LINKS_FAKE['songHash'][:-2] + tail}
 
 
-# The table. Rows on the site = every level of every non-drums instrument.
+# The table. Rows on the site = every level of every instrument.
 SONGS = [
     Song('Fixture Pack A', 'A1 - Grid Runner', 'chart', {'guitar': 'EMHX', 'bass': 'X'}, True, PACKS['Fixture Pack A'][1],
          {'name': 'Grid Runner', 'artist': 'The Tessellates', 'charter': 'Fixture', 'diff_guitar': '4', 'diff_bass': '3'},
@@ -92,7 +95,7 @@ SONGS = [
     Song('Fixture Pack A', 'A2 - Two Tier', 'chart', {'guitar': 'HX'}, True, PACKS['Fixture Pack A'][1],
          {'name': '__SHOUT__ Two Tier', 'artist': 'Placeholder Pattern', 'charter': 'Fixture', 'year': 'Unknown Year'},
          bpm=120, notes=300, seconds=90, flat_levels=True),
-    Song('Fixture Pack A', 'A3 - Midi Mirror', 'mid', {'guitar': 'EMHX', 'bass': 'HX'}, True, PACKS['Fixture Pack A'][1],
+    Song('Fixture Pack A', 'A3 - Midi Mirror', 'mid', {'guitar': 'EMHX', 'bass': 'HX', 'vocals': 'X'}, True, PACKS['Fixture Pack A'][1],
          {'name': 'Midi Mirror', 'artist': 'Reflected Signal', 'charter': 'Fixture', 'diff_guitar': '6', 'year': '2007 (re-issue)'},
          bpm=160, notes=800, seconds=140, encoding='utf-8-sig-crlf'),
     Song('Fixture Pack A', 'A4 - Keys Only Once', 'chart', {'guitar': 'X', 'keys': 'X'}, True, PACKS['Fixture Pack A'][1],
@@ -101,7 +104,7 @@ SONGS = [
     Song('Fixture Pack B', 'B1 - Half Medium', 'chart', {'guitar': 'MX', 'bass': 'X'}, True, PACKS['Fixture Pack B'][1],
          {'name': 'Half Medium', 'artist': 'Quarter Rest', 'charter': 'Fixture Two', 'diff_guitar': '-1', 'genre': '<color=#ff0000>Rock</color>'},
          bpm=130, notes=450, seconds=100),
-    Song('Fixture Pack B', 'B2 - Drum Mid', 'mid', {'guitar': 'EMHX', 'drums': 'X'}, True, PACKS['Fixture Pack B'][1],
+    Song('Fixture Pack B', 'B2 - Drum Mid', 'mid', {'guitar': 'EMHX', 'drums': 'X', 'vocals': 'X'}, True, PACKS['Fixture Pack B'][1],
          {'name': 'Drum Mid', 'artist': 'Kick Pattern', 'charter': 'Fixture Two'},
          bpm=150, notes=500, seconds=110),
     Song('Fixture Pack B', 'B3 - Co-op Lead', 'chart', {'guitar': 'EX', 'coop': 'X'}, True, PACKS['Fixture Pack B'][1],
@@ -171,14 +174,14 @@ class Library:
     def rows_by_sheet(self):
         out = {}
         for sheet, keys in instruments.SHEET_GROUPS.items():
-            n = sum(len(s.levels(i)) for s in self.charted for i in s.parts if i in keys and i != 'drums')
+            n = sum(len(s.levels(i)) for s in self.charted for i in s.parts if i in keys)
             if n:
                 out[sheet] = n
         return out
 
     @property
     def official_rows(self):
-        return sum(len(s.levels(i)) for s in self.charted if s.official for i in s.parts if i != 'drums')
+        return sum(len(s.levels(i)) for s in self.charted if s.official for i in s.parts)
 
     # the diff_* cell backup_data writes per song and tag: the ini value ('-1' when
     # the tag is absent) for an instrument the song has a stream for, '' otherwise
@@ -311,6 +314,23 @@ def write_mid(rng, song, folder, streams, name='notes.mid', truncate=False):
         events = []   # (abs tick, order, message without time)
         for level, ticks in levels.items():
             base = instruments.MID_PITCH_BASE[level]
+            if instrument == 'vocals':
+                # a sung line walking the lanes over an octave, a slide every
+                # fifth note, a talkie every seventh, a percussion tap every
+                # eleventh; the lyric rides on the note's tick
+                for i, (tick, lanes) in enumerate(ticks):
+                    if i % 11 == 0:
+                        events.append((tick, 0, mido.Message('note_on', note=96, velocity=100)))
+                        events.append((tick + NOTE_OFF_TICKS, 1, mido.Message('note_off', note=96, velocity=0)))
+                        continue
+                    pitch = 55 + lanes[0] * 3 + (i % 3)
+                    lyric = 'la' if i % 5 else '+'
+                    if i % 7 == 0:
+                        lyric = 'talk#'
+                    events.append((tick, 0, mido.Message('note_on', note=pitch, velocity=100)))
+                    events.append((tick, 0, mido.MetaMessage('lyrics', text=lyric)))
+                    events.append((tick + GRID * 2, 1, mido.Message('note_off', note=pitch, velocity=0)))
+                continue
             for i, (tick, lanes) in enumerate(ticks):
                 if instrument == 'drums':
                     pitches = [base] if i % 3 == 0 else [base + 1 + (i % 4)]
@@ -321,7 +341,7 @@ def write_mid(rng, song, folder, streams, name='notes.mid', truncate=False):
                 for pitch in pitches:
                     events.append((tick, 0, mido.Message('note_on', note=pitch, velocity=100)))
                     events.append((tick + NOTE_OFF_TICKS, 1, mido.Message('note_off', note=pitch, velocity=0)))
-        events.sort(key=lambda e: (e[0], e[1], e[2].note))
+        events.sort(key=lambda e: (e[0], e[1], getattr(e[2], 'note', -1)))
         at = 0
         for tick, _, msg in events:
             msg.time = tick - at

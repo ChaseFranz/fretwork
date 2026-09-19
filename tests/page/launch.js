@@ -101,8 +101,9 @@ say("official is written", p.get("f.Official") === "true", p.get("f.Official"));
 say("sort and direction are written", p.get("sort") === "NoteCount" && p.get("dir") === "desc",
     p.get("sort") + " " + p.get("dir"));
 say("sheet is not written for the first sheet", p.get("sheet") === null);
+// the columns query.js's SEARCH_COLS names, Album included (section 08)
 const wantSearch = rows.filter(r =>
-    ["Song Title", "Artist", "Charter", "Release", "Code"].some(n =>
+    ["Song Title", "Artist", "Album", "Charter", "Release", "Code"].some(n =>
       String(r[col(n)] ?? "").toLowerCase().includes(title)) &&
     ["Expert", "Hard"].includes(r[col("Level")]) && r[col("Official")] === true).length;
 say("rows match the search", shown() === wantSearch && wantSearch > 0, shown() + " vs " + wantSearch);

@@ -56,6 +56,25 @@ class CountsTest(unittest.TestCase):
         self.assertEqual(frames.counts(f)['sheets']['Guitar']['levels']['Expert'], (3, 3))
 
 
+class UnifyTest(unittest.TestCase):
+    """frames.unify (section 23): one D, Level and NoteCount per sheet, whatever the profile calls them."""
+
+    def test_drums_read_at_1x_and_vocals_at_expert(self):
+        drums = pd.DataFrame({'Code': ['00000001XD'], 'Song Title': ['Alpha'], 'Artist': ['a'], 'Level': ['Expert'], 'Type': ['Drums'],
+                              'NoteCount_1x': [100], 'NoteCount_2x': [120], 'D_1x': [9.5], 'D_2x': [11.0]})
+        vocals = pd.DataFrame({'Code': ['00000001XV'], 'Song Title': ['Alpha'], 'Artist': ['a'], 'Type': ['Vocals'], 'D': [4.0]})
+        out = frames.unify({'Drums': drums, 'Vocals': vocals, 'Guitar': small_frames()['Guitar']})
+        self.assertEqual(list(out['Drums'].columns), ['Code', 'Song Title', 'Artist', 'Level', 'Type', 'NoteCount', 'NoteCount_2x', 'D', 'D_2x'])
+        self.assertEqual(out['Drums']['D'][0], 9.5)
+        self.assertEqual(list(out['Vocals'].columns), ['Code', 'Song Title', 'Artist', 'Level', 'Type', 'D'])
+        self.assertEqual(out['Vocals']['Level'][0], 'Expert')
+        self.assertEqual(list(out['Guitar'].columns), list(small_frames()['Guitar'].columns))
+        # the counts and the percentile read the unified names
+        frames.add_percentiles(out)
+        self.assertEqual(int(out['Drums']['Pct'][0]), 100)
+        self.assertEqual(frames.counts(out)['sheets']['Vocals']['levels'], {'Expert': (1, 1)})
+
+
 class LibraryPageTest(unittest.TestCase):
 
     def resolved(self):

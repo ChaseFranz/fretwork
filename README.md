@@ -1,6 +1,6 @@
 [![ci](https://github.com/ChaseFranz/fretwork/actions/workflows/ci.yml/badge.svg)](https://github.com/ChaseFranz/fretwork/actions/workflows/ci.yml) [![site release](https://img.shields.io/github/v/release/ChaseFranz/fretwork?label=fretladder&color=b71fb7)](https://github.com/ChaseFranz/fretwork/releases) [![fretladder.com](https://img.shields.io/badge/live-fretladder.com-b71fb7)](https://fretladder.com) [![licence](https://img.shields.io/github/license/ChaseFranz/fretwork)](LICENSE)
 
-**This fork is [fretladder](https://fretladder.com)**: fretwork's difficulty ratings for 11,904 Guitar Hero, Rock Band and Clone Hero charts as a hosted, searchable table, with each chart's graph drawn in the browser, every chart of its song beside it, and a link to where it is published. The engine, its calibration and the command-line tools are [Staycation44's fretwork](https://github.com/Staycation44/fretwork), unchanged and merged in as they move; this repository adds the viewer (`serve.py`, `publish.py`, `deploy.py`, `web/`), the pack registry, the link lookups and the tests. Site releases are tagged `fretladder-vX.Y.Z` and listed under [Releases](https://github.com/ChaseFranz/fretwork/releases), each at the commit whose sources produced the live bundle; the plan behind them is [`docs/spec/`](docs/spec/README.md). It is an independent fork, not affiliated with fretwork's author; the [about page](https://fretladder.com/about.html) says what the site is and is not. Song pack requests and rating reports go through the [issue forms](https://github.com/ChaseFranz/fretwork/issues/new/choose).
+**This fork is [fretladder](https://fretladder.com)**: fretwork's difficulty ratings for 18,807 Guitar Hero, Rock Band and Clone Hero charts, guitar, bass, keys, drums and vocals, as a hosted, searchable table, with each chart's graph drawn in the browser, every chart of its song beside it, and a link to where it is published. The engine, its calibration and the command-line tools are [Staycation44's fretwork](https://github.com/Staycation44/fretwork), unchanged and merged in as they move; this repository adds the viewer (`serve.py`, `publish.py`, `deploy.py`, `web/`), the pack registry, the link lookups and the tests. Site releases are tagged `fretladder-vX.Y.Z` and listed under [Releases](https://github.com/ChaseFranz/fretwork/releases), each at the commit whose sources produced the live bundle; the plan behind them is [`docs/spec/`](docs/spec/README.md). It is an independent fork, not affiliated with fretwork's author; the [about page](https://fretladder.com/about.html) says what the site is and is not. Song pack requests and rating reports go through the [issue forms](https://github.com/ChaseFranz/fretwork/issues/new/choose).
 
 [![fretladder: the charts table with a chart's details pane open, three levels of one song compared](https://raw.githubusercontent.com/ChaseFranz/fretwork/screenshots/fretladder-pane.png)](https://fretladder.com)
 
@@ -10,21 +10,21 @@ The page follows your system's theme, dark or light, and the button at the top r
 
 The rest of this file is the engine's own README, with sections 5 to 7 and 9 for what the fork adds.
 
-# Fretwork - 5-Fret Difficulty Analyzer <!-- omit in toc -->
+# Fretwork - Full Band Difficulty Analyzer <!-- omit in toc -->
 
-Fretwork is an analysis tool to calculate difficulty values across Easy/Medium/Hard/Expert for Guitar/Bass/Keys from notes.chart & notes.mid files (Guitar Hero, Rock Band, Clone Hero, YARG) using Notes Per Second (note density) & Variability Per Second (fret change) metrics.
+Fretwork is an analysis tool to calculate difficulty values for **Full Band (Guitar / Bass / Keys / Drums / Vocals)** from chart & midi files **(Guitar Hero / Rock Band / Clone Hero / YARG)** using metrics derived directly from the charted notes (See Methodology.md for details)
 
 [Explainer video with some historical context](https://youtu.be/emoWMpDJ4ls)
 
 Libraries required: **pandas, numpy, tqdm, mido, matplotlib, and openpyxl** 
 
-![Render Example](https://github.com/Staycation44/fretwork/blob/main/renders/02139802G_Guitar_Dragonforce%20-%20Through%20The%20Fire%20Flames.png)
+![Render Example](https://github.com/Staycation44/fretwork/blob/main/renders/02139802XG_Dragonforce%20-%20Through%20The%20Fire%20Flames.png)
 
 ## Using Fretwork <!-- omit in toc -->
 To use the tool setup **config** and run these in order:
 
-1. **Build** - Scan a library, save everything into a cache file, & creates a backup of original difficulties
-2. **Analyze** - Turn Build's cache into an .xlsx spreadsheet including song metadata and calculated metrics for every song/instrument combo. 
+1. **Build** - Scan a library, save everything into a cache file, & create a backup of original difficulties
+2. **Analyze** - Turn Build's cache into an .xlsx spreadsheet including song metadata and calculated metrics for every song/instrument combo.
 Optionally, applies calculated difficulty to `song.ini` files for use in-game, or restores them back to their originals from the backup
 3. **Render** - Output a PNG graph of metrics over time for one or more song/instrument combos based on a retrieval code from the spreadsheet
 4. **Serve** *(optional)* - Browse the spreadsheet in a browser instead of Excel, with per-column filters and a details pane for the chart under the cursor
@@ -34,7 +34,7 @@ Optionally, applies calculated difficulty to `song.ini` files for use in-game, o
 Python 3.11 or newer (the pack registry is read with the standard library's `tomllib`). In a hurry? [7. Updating the live site, start to finish](#7-updating-the-live-site-start-to-finish) is the whole rescan-to-published sequence as numbered steps.
 
 ## Index <!-- omit in toc -->
-- [1. Setup your Config](#1-setup-your-config)
+- [1. Setting up Config](#1-setting-up-config)
 - [2. Building a cache](#2-building-a-cache)
 - [3. Analyzing a cache](#3-analyzing-a-cache)
 - [4. Rendering song graphs](#4-rendering-song-graphs)
@@ -47,7 +47,7 @@ Python 3.11 or newer (the pack registry is read with the standard library's `tom
 
 ---
 
-## 1. Setup your Config
+## 1. Setting up Config
 
 Before running anything, open `config.py` and check these values:
 
@@ -76,19 +76,21 @@ Under `RENDER_DEFAULT` and `RENDER_THEMES`, you can tweak how `render.py's` PNGs
 
 ## 2. Building a cache
 
-`build.py` walks `SEARCH_PATH`, finds every `song.ini`, `notes.chart`, and `notes.mid`, reads them, and writes one cache file containing every song's note timing and metadata. Note state (strum/hopo/tap), note length, and star power/solo phrases are not parsed. Every level (Easy/Medium/Hard/Expert) charted for each instrument is cached. Currently caches drum notes, but doesn't do anything with them downstream in Analyze/Render.
+`build.py` walks `SEARCH_PATH`, finds every `song.ini`, `notes.chart`, and `notes.mid`, reads them, and writes one cache file containing every song's note timing and metadata. A CSV containing per instrument original difficulties is also saved.
 
 By default this will run on the `SEARCH_PATH` & `HEADER` set in the config.
 
-Additionally, this always backs up your original difficulties as it scans - Build never writes to `song.ini` itself, it only records what's there so Analyze can restore it later if you want to.
+Note state (strum/hopo/tap), note length, and star power/solo phrases are not parsed.
+
+**If you ran a prior version, you will need to rebuild your cache with the addition of Drums / Vocals**
 
 **Outputs:**
 
-- A `{header}_cache_{timestamp}.pkl` file, the main output used by Analyze and Render
-- A `{header}_errors_{timestamp}.csv` file, only generated if some songs failed to parse, this lists which file failed and why (e.g. missing guitar track, corrupt midi file)
-- A `{header}_BackupData.csv` file, which is a back up that stores all difficulties that were found at the time of building
+- `{header}_cache_{timestamp}.pkl`: The main output used by Analyze and Render
+- `{header}_errors_{timestamp}.csv`: Only generated if some songs failed to parse, this lists which file failed and why (e.g. missing valid instruments, corrupt midi file)
+- `{header}_BackupData.csv`: A backup that stores all difficulties that were found at the time of building
 
-Cache, errors, and backup all land in `caches/`; the metrics spreadsheet lands in `metrics/`. Both are set in `OUTPUT_DIRS` in `config.py`.
+Cache, errors, and backup all land in `caches/` & the metrics spreadsheet lands in `metrics/`.
 
 **Optional arguments:**
 - `--search-path`: scan a different folder than the one in `config.py`
@@ -115,25 +117,26 @@ Each tab is formatted for browsing using `xlsx_format.py`
 
 Using `XLSX_LEVELS` in the config you can adjust the mix of Easy/Medium/Hard/Expert you want in the sheet.
 
-The raw NPS/VPS details and N/V/COV formula components are dropped, but they can be included as hidden columns by using `EXTRA_METRICS = True` in the config for diagnostics/comparison.
+The raw formula components are dropped by default but they can be included as hidden columns by using `EXTRA_METRICS = True` in the config.
 
 **Full D formula, Remap tables, & CalcTier detail in `Methodology.md`** (also published as the site's methodology page, checked against `formula.py` at every publish)
 
 In the metrics spreadsheet / render header, you'll see D translated two ways:
-- **RemapDiff (0–6):** A manual grouping, calibrated to roughly match the percentage of official releases across the seven tiers. Roughly, how would this have been tiered in a Rock Band game (capped at 6). Guitar (plus Co-op/Rhythm), Bass, and Keys each have their own bin edges, fit against that instrument's own `diff_*` distribution.
-- **CalcTier:** A continuous, log-scaled tiering calculation. Every 0.44 natural-log increase in D over a baseline value increments the tier by one. This value is not capped, so officials at Dragonforce level end up in 7+, and a lot of notable customs are 10+. Unlike RemapDiff, the baseline/increment constants are currently shared across all instruments rather than fit per-instrument.
+- **RemapDiff (0–6):** A manual grouping, calibrated to roughly match the percentage of official releases across the seven tiers & capped at 6.
+- **CalcTier:** A continuous, log-scaled tiering calculation. Every set natural-log increase in D over a baseline value increments the tier by one. This value is not capped, so tiers can extend well past 6 to provide additional granularity. Guitar/Bass/Keys share one scale, Drums and Vocals each have their own.
 
-**RemapDiff and CalcTier are computed once per song/instrument, from the Expert level's D only**
+**RemapDiff and CalcTier are computed once per song/instrument, from the Expert level D only** 
+Drums use the 1x kick reading, Vocals only have the one D
 
 **Optional arguments:**
 
 - `--header`: analyze a different library's most recent cache
 - `--cache`: point at a specific cache file, instead of most recent for the header
-- `--diff-mode`: `CalcTier`, `RemapDiff`, or `Restore`.
+- `--diff-mode`: `CalcTier`, `RemapDiff`, or `Restore`. (`None` to leave `song.ini` alone)
   - `CalcTier`/`RemapDiff` writes selected value into every song's own `diff_*` tag, per instrument
   - `Restore` returns every instrument's `diff_*` values back to its `{header}_BackupData.csv` original, throws errors for songs moved/deleted
-  - If not supplied, falls back to `config.DIFF_WRITE_MODE` (default `None`, which leaves song.ini alone)
-- `--xlsx-levels`: which EMHX levels to write rows for. If not supplied, falls back to `config.XLSX_LEVELS`
+
+**Per-instrument exceptions:** `DIFF_WRITE_OVERRIDES` in the config lets individual instruments use a different mode than `--diff-mode`/`DIFF_WRITE_MODE`, or skip writing.
 
 **Note: After updating `song.ini` data, you MUST SCAN SONGS for the new metadata to work.**
 
@@ -143,26 +146,39 @@ In the metrics spreadsheet / render header, you'll see D translated two ways:
 
 `python render.py [retrieval code]`
 
-`render.py` draws one PNG graph of difficulty over time for a specific song/instrument/level combo, using its retrieval code. A retrieval code is an 8-digit song hash plus a level letter (`E`/`M`/`H`/`X`) then an instrument letter (`G`, `C`, `R`, `B`, `K`) available on the metrics spreadsheet from Analyze. 
+`render.py` draws one PNG graph of difficulty over time for a specific song/instrument/level combo, using its retrieval code.
 
 **Make sure the header in config matches the spreadsheet/library you are rendering from.**
 
-**You can render several at once, any mix of instruments and levels:**
+You can render several at once, any mix of instruments and levels:
 
-`python render.py 04821993XG 71620045HB 09933120EK`
+`python render.py 04821993EG 71620045MB 09933120HD 23859937XV`
 
-**Or from a text file, one code per line:**
+Or from a text file, one code per line:
 
 `python render.py --codes-file picks.txt`
 
 **Outputs:**
 
-One PNG per code, named `{code}_{Artist} - {Song}.png`, showing three lines:
+One PNG per code, named `{code}_{Artist} - {Song}.png`, showing:
 
-- **D** - overall difficulty over time (approx since it does not include CoV & has to be rescaled to fit on the same axis as N & V)
+**5 Fret**
+- **D** - overall difficulty over time
 - **Notes** - note density per second
 - **Variability** - how much the fret pattern is changing per second
 
+**Drums**
+- **D** - overall difficulty over time
+- **Hands** - Hand note density per second
+- **Travel** - how much movement across the pads is happening per second
+- **Kicks** - Kick note density per second
+
+**Vocals**
+- **D** - overall difficulty over time
+- **Pitch** - Pitch movement density per second
+- **Syllables** - Sung notes + Talkies per second
+- **Percussion** - Percussion hit density per second (only rendered if present)
+  
 Graphs are available in light or dark mode depending on the config.
 
 **Optional arguments:**
@@ -187,7 +203,8 @@ Open **http://localhost:8000** once it starts. It binds `127.0.0.1` only, so not
 - **Copies** (hidden by default) is how many charts on the sheet have exactly these notes at this level and part, this one included: 1 is unique, 2 means the same chart is in another folder, usually another pack. Rows are never merged, since each copy has its own code, graph and report link; the graph heading lists the other folders under "Same chart in", each a link that opens that copy's graph. `?f.Copies=2` is the view of every duplicated chart
 - **Filter** any column from the caret next to its name - a checkbox list for things like Part or Remap Tier, a min/max box for wide numeric columns like D or Length. Value counts reflect your other active filters
 - **Search** song, artist, album, charter or source from the box in the toolbar
-- **Switching instrument** keeps your levels, filters, search and sort; only a filter no row on the new sheet could match (a Part it does not have) is dropped
+- **Switching instrument** keeps your levels, filters, search and sort; only a filter no row on the new sheet could match (a Part it does not have) is dropped. Five sheets: Guitar (Lead, Co-op and Rhythm), Bass, Keys, Drums and Vocals. On Drums, `D` is the single-pedal (1x) reading the tiers and the percentile are on, with `D (2x)` beside it for a chart with double-pedal kicks; Vocals have one level, read as Expert
+- **The graph** draws the lines the family has: notes and fret changes per second under ~D for guitar, bass and keys; hands, travel and kicks for drums; pitch movement, syllables and percussion for vocals. The legend, the readout and the export follow
 - **The library** page, from the footer: charts per instrument and level, the Expert charts per tier, official against custom, the ten hardest per instrument and every pack, all from the same numbers the table shows
 - **Click a row** to open its details in a pane under the table, which shrinks to make room; the row stays highlighted through a sort or a filter, the arrow keys move from chart to chart with the pane following, clicking the row again or Escape closes it, the top edge drags its height and the caret collapses it to a strip. A row click always shows that one chart: comparisons are built in the pane, and while one is up every row on the graph wears its colour and letter in the table, so what is being compared is visible in both places. The pane's left half is the chart's graph: the same three curves `render.py` draws, drawn in the browser from the chart's curve file, with the values under the cursor read out below (hover, or the arrow keys once the graph has focus; Shift with them jumps ten seconds). **Compare with a row** overlays up to three charts' D curves (the button is disabled at three): find the other chart with the table's own search and filters and click its row (an instrument's "Compare all levels" in the song grid overlays its levels in one click); the link carries them as `?code=A&vs=B,C`, and the legend names only what tells the charts apart. **Save as PNG** downloads the graph at the figure's own size, named the way `render.py` names its files. The copy icon on a Code cell copies the retrieval code instead
 - **Copy link** in the pane puts a link on the clipboard that previews as the song when pasted in Discord or a chat (title, artist, and each part's Expert difficulty, tier and percentile) and opens exactly this chart and comparison; if the chart's folder has moved by then, the link opens the song instead. The link is the song's own page, which search engines read: what it scores in words, its graph as a picture, every level of every part, the facts, the game it came in, and a link into the table; **Songs** in the footer lists every one A to Z, every game has a page with its setlist ranked by difficulty, and the library page links the hardest and easiest lists per instrument
@@ -407,19 +424,19 @@ The engine ideas below are upstream's list. The fork's own plan for the hosted s
 - Midi files misbehaving - *possibly parser drift / file corrruption/truncation?*
 
 **Extension Ideas:**
-- Vocals (Unique data, new metric needs, new difficulty logic/calcs) - *design in progress*
-- Drums (similar data, new metric needs, new difficulty logic/calcs) - *design in progress*
+- Vocal harmonies (`HARM1`-`HARM3`) - *doesn't seem worth the effort*
 - RB style band diff once all instruments are in
-- Retesting duration and ways to include it (GHVH outliers) - *very annoying, short song downscaling is not bad but calibration for long is tough*
   
-**Bigger rebuilds**
+**Fork Ideas:**
+- Vocal harmonies (`HARM1`-`HARM3`)
+- Pro Instruments
 - Scoring by totals (as opposed to average), type of notes (singles by type/state, chords by type)
-- D by section + Section names for renders - *parsing sections is a lot of extra data for the cache*
-- Including strum/hopo/tap state by note in the cache - *not adding until there's plan to use them*
-- Actually doing something with note state once it exists - *Ratios over the song was a good suggestion*
-- Star Power Difficulty (how hard are SP phrases to hit?) - *SP no longer parsed*
+- D by section + Section names for renders
+- Including strum/hopo/tap state by note in the cache
+- Actually doing something with note state once it exists
+- Star Power Difficulty (how hard are SP phrases to hit?)
 - Rhythm changes/variability possibly easier than pattern recognition?
-- Pattern recognition (chords, trills, runs, zigs, quads, quints, anchoring, etc)
+- Pattern recognition (chords, trills, runs, zigs, quads, quints, anchoring, etc) / Ngrams
 - A strain-based difficulty metric splitting strum vs fret
 - DDR Groove Radar style scoring (probably tied to patterns)
 

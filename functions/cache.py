@@ -4,7 +4,6 @@ BUILD writes a cache of all the song data needed from the search_path in config.
 ANALYZE and RENDER can read from caches to generate metrics/visuals
 
 Shape:
-
     {
         'generated_at': str,
         'search_path':  str,
@@ -35,7 +34,22 @@ Shape:
                     #         'hand_mask': {'time_ms': ndarray, 'lanes': ndarray uint8},
                     #         'kick_mask': {'time_ms': ndarray, 'lanes': ndarray uint8},
                     #     }
+                    # 'vocals' entries are Expert only, with three streams side by side at the level
+                    #     'notes': {                           # sung, pitched, non-talkie
+                    #         'time_ms':        ndarray,       # sorted
+                    #         'end_ms':         ndarray,
+                    #         'pitch':          ndarray uint8, # midi note 36-84
+                    #         'is_placeholder': ndarray bool,  # '+$' hold filler, not a new syllable
+                    #         'is_slide':       ndarray bool,  # '+' pitch glide, not a new syllable
+                    #     },
+                    #     'talkie': { # rap/spoken
+                    #         'time_ms': ndarray,
+                    #         'end_ms':  ndarray, # NaN when no length is authored (GH lyric-only)
+                    #     },
+                    #     'percussion': {'time_ms': ndarray, 'end_ms': ndarray},   # note 96 taps, render only
                 },
+                'roll_spans': {'drums': {level_key: [(start_ms, end_ms, 'single'|'double'), ...], ...}},
+                # roll lanes available per level
             },
             ...
         },
@@ -47,9 +61,13 @@ Caches should be managed based on timestamp / generation time & date
 
 When generated with errors, a CSV is produced alongside the cache with details
 
-Retrieval codes are per the 8-digit song hash + a level (E/M/H/X) + instrument (G/C/R/B/K)
-'04821993' + Expert + Bass -> '04821993XB'. 
+Retrieval codes are per the 8-digit song hash + a level (E/M/H/X) + instrument (G/C/R/B/K/D/V)
+'04821993' + Expert + Bass -> '04821993XB' 
 Render uses the code to define the instrument/level
+
+Drums requires roll spans to calculate correctly so those are paired to the code as well
+
+Vocals only exist at Expert, talkie/percussion streams are carried with the code for render
 """
 
 import hashlib
@@ -77,16 +95,29 @@ def _hash_code(song_path, digits):
 # two labelled streams for a drums pair. bundle.fingerprint keeps its own
 # two-element form of the same bytes; routing it through here would change
 # every stored fingerprint and re-render every graph.
-def stream_bytes(notes):
-    if 'time_ms' in notes:
+# A vocals chart is three streams side by side (sung, talkie, percussion); the
+# sung stream's arrays, in this order, then the other two, so two talkie-only
+# charts with different lyrics do not hash the same.
+VOCAL_KEYS = ('time_ms', 'end_ms', 'pitch', 'is_placeholder', 'is_slide')
+SIDE_KEYS = ('time_ms', 'end_ms')
+
+
+def stream_bytes(notes, *sides):
+    if 'lanes' in notes:
         return notes['time_ms'].tobytes() + notes['lanes'].tobytes()
-    return b'hand' + stream_bytes(notes['hand_mask']) + b'kick' + stream_bytes(notes['kick_mask'])
+    if 'hand_mask' in notes:
+        return b'hand' + stream_bytes(notes['hand_mask']) + b'kick' + stream_bytes(notes['kick_mask'])
+    out = b'vox' + b''.join(notes[k].tobytes() for k in VOCAL_KEYS)
+    for side in sides:
+        out += (b'side' + b''.join(side[k].tobytes() for k in SIDE_KEYS)) if side else b'none'
+    return out
 
 
 # A chart's identity: the same notes in another folder hash the same, whatever
 # the song is called. Per (song, instrument, level), where song_key is per song.
-def notes_hash(notes):
-    return hashlib.sha1(stream_bytes(notes)).hexdigest()[:12]
+# A vocals chart passes its talkie and percussion streams as `sides`.
+def notes_hash(notes, *sides):
+    return hashlib.sha1(stream_bytes(notes, *sides)).hexdigest()[:12]
 
 
 def song_key(song_instruments):
@@ -194,10 +225,14 @@ def entries_by_code(cache, codes):
             missing.append(raw)
             continue
 
-        # Expert's own note stream, alongside the requested level 
+        # Expert's notes, alongside the requested level 
         # RemapDiff/CalcTier are anchored to Expert row's data
-        # None if this instrument has no Expert chart
         expert_notes = instrument_levels.get('expert', {}).get('notes')
+
+        # Roll spans - drums only to calc metrics correctly
+        instrument_roll_spans = song.get('roll_spans', {}).get(instrument_key, {})
+        roll_spans = instrument_roll_spans.get(level_key)
+        expert_roll_spans = instrument_roll_spans.get('expert')
 
         entries.append({
             **inst_entry,
@@ -208,6 +243,8 @@ def entries_by_code(cache, codes):
             'meta': song['meta'],
             'source_format': song['source_format'],
             'expert_notes': expert_notes,
+            'roll_spans': roll_spans,
+            'expert_roll_spans': expert_roll_spans,
         })
 
     return entries, missing

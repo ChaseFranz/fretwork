@@ -217,10 +217,20 @@ def render_doc(name, title, body, names, page_title=None, description=None):
 
 # The engine's Methodology.md, rendered through the subset renderer with every
 # heading one level down (the brand is the page's h1), after its tables have
-# been checked against formula.py; drift stops publish and serve here.
+# been checked against the formula modules. A table that cannot be read stops
+# publish and serve here; a number that differs from the code is upstream's
+# document lagging upstream's code (this fork edits neither), so it is printed
+# and put on the page as a note under the source line, one sentence per
+# drift, since the code is what scored the charts.
 def render_methodology(names):
-    blocks = methodology.load()
-    body = (f'<p class="source">{rich_text(labels.METHODOLOGY_SOURCE)}</p>\n'
+    blocks, drifts = methodology.load()
+    for drift in drifts:
+        print(f'  Methodology.md: {drift}')
+    note = ''
+    if drifts:
+        items = ''.join(f'<li>{html.escape(methodology.plain(d))}.</li>' for d in drifts)
+        note = f'<p class="drift">{rich_text(labels.METHODOLOGY_DRIFT)}</p>\n<ul class="drift">{items}</ul>\n'
+    body = (f'<p class="source">{rich_text(labels.METHODOLOGY_SOURCE)}</p>\n{note}'
             f'<div class="md">\n{markdown.render(blocks, shift=1)}\n</div>')
     return render_doc('methodology.html', labels.UI['methodology'], body, names,
                       page_title=labels.UI['methodology_title'], description=labels.UI['methodology_desc'])
@@ -525,10 +535,11 @@ def render_song_page(key, fact, names, game=None):
     facts = [v for v in (fact['charter'], fact['release'], kind, fact['album'],
                          str(fact['year']) if fact['year'] else '', fact['genre']) if v]
     image = song_image_code(fact)
-    # the picture: the first part's Expert graph, drawn by publish as a PNG (Built.png_codes)
+    # the picture: the first part's Expert graph, drawn by publish as a PNG (Built.png_codes);
+    # its alt names the lines of the chart's family, read from the code's instrument letter
     picture = ('' if image is None else
                f'<p class="pic"><a href="./?code={html.escape(image)}"><img src="graph/{html.escape(image)}.png" width="1920" height="840" loading="lazy" '
-               f'alt="{html.escape(labels.t_graph_alt(by))}"></a></p>')
+               f'alt="{html.escape(labels.t_graph_alt(by, image))}"></a></p>')
     # the game it came in, when the registry names one
     where = ''
     if game:
@@ -650,14 +661,19 @@ def _kind_of(songs):
     return _kind_label(official, len(songs) - official)
 
 
-# The pack's songs ranked by their Expert guitar D (the first part in
-# VALUE_ORDER on the Guitar sheet, Lead), the bass and keys beside; songs with
-# no guitar Expert follow, by their best other part. Each song links its page,
-# each number the chart's graph.
+# The pack's songs ranked by their Expert guitar D (the parts of the Guitar
+# sheet, Lead first in VALUE_ORDER), the other sheets' parts beside, one column
+# each in sheet order (Bass, Keys, Drums, Vocals); songs with no guitar Expert
+# follow, by their best other part. Each song links its page, each number the
+# chart's graph.
+GUITAR_SHEET = next(iter(instruments.SHEET_GROUPS))
+OTHER_PARTS = [instruments.TYPE_LABELS[k] for sheet, keys in instruments.SHEET_GROUPS.items() if sheet != GUITAR_SHEET for k in keys]
+
+
 def render_game_page(pack, slug_, songs, names, tally):
     ui = labels.UI
     types = list(labels.VALUE_ORDER.get('Type', ()))
-    guitar_parts = [t for t in types if t not in ('Bass', 'Keys', 'Drums')]
+    guitar_parts = [t for t in types if t not in OTHER_PARTS]
 
     def best(song, parts):
         charts = [song['parts'][t] for t in parts if t in song['parts'] and song['parts'][t]['d'] is not None]
@@ -665,16 +681,16 @@ def render_game_page(pack, slug_, songs, names, tally):
     ranked = []
     for key, song in songs.items():
         g = best(song, guitar_parts)
-        other = best(song, ['Bass', 'Keys'])
+        other = best(song, OTHER_PARTS)
         ranked.append((0 if g else 1, -(g['d'] if g else (other['d'] if other else 0)), song['title'].casefold(), key, song, g))
     ranked.sort()
     head = [('#', 'r'), (labels.label('Song Title'), ''), (labels.label('Artist'), ''), (labels.label('D'), 'r'),
-            (labels.label('CalcTier'), 'r'), ('Bass', 'r'), ('Keys', 'r')]
+            (labels.label('CalcTier'), 'r'), *((part, 'r') for part in OTHER_PARTS)]
     rows = []
     for n, (_, _, _, key, song, g) in enumerate(ranked, 1):
         tier = labels.MISSING_TEXT if g is None or g['tier'] is None else str(g['tier'])
         rows.append([str(n), f'<a href="{SONG_DIR}/{key}.html">{html.escape(song["title"])}</a>', html.escape(song['artist']),
-                     _chart_html(g), tier, _chart_html(song['parts'].get('Bass')), _chart_html(song['parts'].get('Keys'))])
+                     _chart_html(g), tier, *(_chart_html(song['parts'].get(part)) for part in OTHER_PARTS)])
     n_songs, n_charts = tally.get(pack.folder, (len(songs), 0))
     facts = ui['game_facts'].format(songs=_n(n_songs), charts=_n(n_charts), kind=_kind_of(songs).lower(), date=fmt_date(pack.added))
     parts = [f'  <p class="intro">{html.escape(ui["game_intro"].format(game=pack.name))}</p>',

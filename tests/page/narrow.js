@@ -52,17 +52,23 @@ export async function narrowFrame(src) {
 const f = await narrowFrame("plain.html");
 measure(f.contentDocument, f.contentWindow);
 
-// The methodology page at 390px (section 12): nothing scrolls sideways, the
-// tables and formulas fit their wrappers, and the headings keep their order.
+// The methodology page at 390px (section 12): the body never scrolls
+// sideways, the tables fit their wrappers, and a formula wider than the
+// screen (upstream's STAM line, with its constants after a \qquad, is 345px)
+// scrolls inside its own .eq box and nowhere else; the headings keep their order.
 const m = await narrowFrame("methodology.html");
 const md = m.contentDocument, mw = m.contentWindow;
 say("methodology.html: the body does not scroll sideways", md.documentElement.scrollWidth <= 390, md.documentElement.scrollWidth);
-say("every table and formula fits at 390px", [...md.querySelectorAll(".tbl, .eq")].every(e => e.scrollWidth <= e.clientWidth),
-    [...md.querySelectorAll(".tbl, .eq")].map(e => e.scrollWidth + "/" + e.clientWidth).join(" "));
+say("every table fits at 390px", [...md.querySelectorAll(".tbl")].every(e => e.scrollWidth <= e.clientWidth),
+    [...md.querySelectorAll(".tbl")].map(e => e.scrollWidth + "/" + e.clientWidth).join(" "));
+const wide = [...md.querySelectorAll(".eq")].filter(e => e.scrollWidth > e.clientWidth);
+say("a formula wider than the screen scrolls in its own box", wide.every(e => mw.getComputedStyle(e).overflowX === "auto") && wide.length <= 3,
+    wide.map(e => e.scrollWidth + "/" + e.clientWidth).join(" "));
 const px = sel => parseFloat(mw.getComputedStyle(md.querySelector(sel)).fontSize);
 say("heading sizes step down h2 > h3 > h4 > h5", px(".md h2") > px(".md h3") && px(".md h3") > px(".md h4") && px(".md h4") > px(".md h5"),
     [".md h2", ".md h3", ".md h4", ".md h5"].map(px).join(" > "));
-say("it holds the four tables and seven formulas", md.querySelectorAll(".md table").length === 4 && md.querySelectorAll('math[display="block"]').length === 7);
+say("it holds the six tables and 29 formulas", md.querySelectorAll(".md table").length === 6 && md.querySelectorAll('math[display="block"]').length === 29,
+    md.querySelectorAll(".md table").length + " tables, " + md.querySelectorAll('math[display="block"]').length + " formulas");
 m.remove();
 
 // The details pane on a phone (sections 06, 07, 14): a bottom sheet under the

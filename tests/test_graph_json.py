@@ -38,7 +38,11 @@ class RenderProfileTest(unittest.TestCase):
         css = (REPO / 'web' / 'static' / 'css' / 'app.css').read_text(encoding='utf-8')
         js = (REPO / 'web' / 'static' / 'js' / 'graph.js').read_text(encoding='utf-8')
         read = set(re.findall(r'"(--fw-[a-z-]+)"', js))
-        self.assertTrue({'--fw-bg', '--fw-series-a', '--fw-series-c', '--fw-curve-d'} <= read, read)
+        self.assertTrue({'--fw-bg', '--fw-series-a', '--fw-series-c', '--fw-curve-d', '--fw-curve-kps'} <= read, read)
+        # and the token each family's lines name (labels.CURVE_FAMILIES) is one the canvas can read
+        for fam in labels.CURVE_FAMILIES.values():
+            for line in fam['lines']:
+                read.add(line[3])
         blocks = {name: css[css.index(name):] for name in (':root, [data-bs-theme="light"] {', '[data-bs-theme="dark"] {')}
         for name, text in blocks.items():
             block = text[:text.index('}')]
@@ -47,9 +51,17 @@ class RenderProfileTest(unittest.TestCase):
 
     def test_graph_words_are_plot_literals(self):
         src = (REPO / 'functions' / 'plot.py').read_text(encoding='utf-8')
-        for key in ('graph_d', 'graph_nps', 'graph_vps', 'graph_y', 'graph_x'):
+        for key in ('graph_d', 'graph_y', 'graph_x'):
             literal = labels.UI[key]
             self.assertTrue(f"'{literal}'" in src or f'"{literal}"' in src, f'{key}: {literal!r} is not a literal in plot.py')
+        # each family's legend words, and its colour tokens in plot.py's own assignment (config.RENDER_DEFAULT)
+        colour_of = {'--fw-curve-nps': 'color_nps', '--fw-curve-vps': 'color_vps', '--fw-curve-kps': 'color_kps'}
+        for fam, spec in labels.CURVE_FAMILIES.items():
+            for key, legend, readout, token in spec['lines']:
+                self.assertIn(f"label='{legend}'", src, f'{fam} {key}: {legend!r} is not a plot.py label')
+                self.assertIn(token, colour_of, token)
+        self.assertEqual({t for spec in labels.CURVE_FAMILIES.values() for *_, t in spec['lines']}, set(colour_of))
+        self.assertEqual(set(boot.boot_payload({}, {})['curves']), set(labels.CURVE_FAMILIES))
 
 
 class SmoothingTest(unittest.TestCase):
@@ -58,7 +70,7 @@ class SmoothingTest(unittest.TestCase):
         windows = {'time_ms': np.arange(6) * 250.0,
                    'raw_nps_samples': np.array(PINNED_WIN, dtype=np.float64),
                    'raw_vps_samples': np.array(PINNED_VAR, dtype=np.float64)}
-        out = curves.smooth_curves(windows, 1000, 250, 2000)
+        out = curves._calc_fret_curves(windows, 1000, 250, 2000)
         for name, got, want in (('nps', out['nps'], PINNED_NPS), ('vps', out['vps'], PINNED_VPS), ('d', out['d_raw'], PINNED_D)):
             self.assertEqual([round(float(v), 12) for v in got], want, name)
 
@@ -95,7 +107,7 @@ class RenderGraphsTest(unittest.TestCase):
         self._fp, self._fpc, self._cb = bundle.PNG.fingerprint_of, bundle.CURVES.fingerprint_of, bundle.CURVES.make
         bundle.PNG.fingerprint_of = lambda renderer, entry: 'fp-' + entry['code']
         bundle.CURVES.fingerprint_of = lambda renderer, entry: 'cfp-' + entry['code']
-        bundle.CURVES.make = lambda renderer, entry, scratch: b'{"v":1}'
+        bundle.CURVES.make = lambda renderer, entry, scratch: b'{"v":2}'
 
     def tearDown(self):
         import shutil

@@ -259,3 +259,7 @@ folder = "CHARTS 2 DLC 5"
 source = "https://customsongscentral.com/charts-2-dlc-5/"
 added = 2026-09-13
 notes = "Chezy\u2019s CHARTS 2 DLC series, part 5."
+
+[[change]]
+date = 2026-09-19
+text = "Drums and vocals are scored: two more sheets, a graph per chart drawn from hands, travel and kicks or from pitch movement, syllables and percussion, a column each on every game page and lists of their own. Drums are rated at the single-pedal reading, with the double-pedal D beside it. The engine's fret formula moved to version 2 (a stamina term, the medians over active windows only), so every guitar, bass and keys D, tier and percentile changed with this update."

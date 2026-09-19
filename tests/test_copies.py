@@ -82,6 +82,18 @@ class NotesHashTest(unittest.TestCase):
         swapped = cache.stream_bytes({'hand_mask': kick, 'kick_mask': hand})
         self.assertNotEqual(got, swapped)
 
+    # A vocals chart is its sung arrays plus the talkie and percussion streams
+    # beside them, so two talkie-only charts with different lyrics differ.
+    def test_vocals_hash_covers_the_side_streams(self):
+        sung = {'time_ms': np.array([], dtype=np.float64), 'end_ms': np.array([], dtype=np.float64),
+                'pitch': np.array([], dtype=np.uint8), 'is_placeholder': np.array([], dtype=bool), 'is_slide': np.array([], dtype=bool)}
+        talk_a = {'time_ms': np.array([0.0, 400.0]), 'end_ms': np.array([np.nan, np.nan])}
+        talk_b = {'time_ms': np.array([0.0, 800.0]), 'end_ms': np.array([np.nan, np.nan])}
+        none = {'time_ms': np.array([], dtype=np.float64), 'end_ms': np.array([], dtype=np.float64)}
+        self.assertNotEqual(cache.notes_hash(sung, talk_a, none), cache.notes_hash(sung, talk_b, none))
+        self.assertEqual(cache.notes_hash(sung, talk_a, none), cache.notes_hash(sung, dict(talk_a), dict(none)))
+        self.assertTrue(cache.stream_bytes(sung, talk_a, none).startswith(b'vox'))
+
     def test_same_notes_same_hash_and_a_lane_change_moves_it(self):
         a = {'time_ms': np.array([0.0, 1.0]), 'lanes': np.array([1, 1], dtype=np.uint8)}
         b = {'time_ms': a['time_ms'].copy(), 'lanes': a['lanes'].copy()}

@@ -37,7 +37,7 @@ import analyze                                   # noqa: E402
 import config                                    # noqa: E402
 import deploy                                    # noqa: E402
 from functions import cache as cache_mod         # noqa: E402
-from functions import ini_updater, labels, xlsx_format  # noqa: E402
+from functions import ini_updater, instruments, labels  # noqa: E402
 from web import assets, bootstrap, frames, page  # noqa: E402
 from web.graph import GraphRenderer              # noqa: E402
 from web.server import MetricsServer             # noqa: E402
@@ -156,9 +156,9 @@ def run_all(work, header, args):
            'AWS_STUB_LOG': str(log), 'PYTHONUNBUFFERED': '1'}
     site = work / 'site' / header
 
-    # A backup CSV from before drums joined DIFF_TAGS: build must migrate its header (section 00).
+    # A backup CSV from before drums and vocals joined DIFF_TAGS: build must migrate its header (section 00).
     (work / 'caches').mkdir(exist_ok=True)
-    old_cols = [c for c in ini_updater.BACKUP_COLUMNS if c != 'diff_drums']
+    old_cols = [c for c in ini_updater.BACKUP_COLUMNS if c not in ('diff_drums', 'diff_vocals')]
     (work / 'caches' / f'{header}_BackupData.csv').write_text(','.join(old_cols) + '\n', encoding='utf-8')
 
     # ---- ingest (section 09): the three packs one at a time, in its own working directory ----
@@ -207,7 +207,7 @@ def run_all(work, header, args):
     cache = cache_mod.load(caches[0])
     st.check(len(cache['songs']) == len(lib.charted), f"{len(cache['songs'])} songs cached")
     st.check(len(cache['codes']) == lib.codes, f"{len(cache['codes'])} codes")
-    st.check(all(re.fullmatch(r'\d{8}[EMHX][GCRBKD]', c) for c in cache['codes']), 'a code has the wrong shape')
+    st.check(all(re.fullmatch(r'\d{8}[EMHX][GCRBKDV]', c) for c in cache['codes']), 'a code has the wrong shape')
     by_folder = {pathlib.Path(p).name: s for p, s in cache['songs'].items()}
     for song in lib.charted:
         s = by_folder[song.folder]
@@ -216,7 +216,8 @@ def run_all(work, header, args):
                  f'{song.folder}: {s["meta"]}')
         for key, levels in s['instruments'].items():
             for level, stream in levels.items():
-                if key == 'drums':
+                if key in ('drums', 'vocals'):
+                    st.check(re.fullmatch('[0-9a-f]{12}', stream.get('notes_hash', '')), f'{song.folder} {key}: notes_hash')
                     continue
                 notes = stream['notes']
                 st.check(str(notes['time_ms'].dtype) == 'float64' and str(notes['lanes'].dtype) == 'uint8'
@@ -246,23 +247,28 @@ def run_all(work, header, args):
     st.check(xlsxs[0].stem.split('_')[-1] == caches[0].stem.split('_')[-1], 'xlsx timestamp differs from the cache')
     sheets = pd.read_excel(xlsxs[0], sheet_name=None)
     st.check(list(sheets) == list(lib.rows_by_sheet), f'sheets {list(sheets)}')
-    want_cols = analyze.COLUMN_ORDER if config.EXTRA_METRICS else [
-        c for c in analyze.COLUMN_ORDER if c not in xlsx_format.DEFAULT_HIDDEN_COLS]
     for name, df in sheets.items():
-        st.check(list(df.columns) == want_cols, f'{name} columns {list(df.columns)}')
+        st.check(list(df.columns) == analyze._column_order_for(name), f'{name} columns {list(df.columns)}')
         st.check(len(df) == lib.rows_by_sheet[name], f'{name} has {len(df)} rows, expected {lib.rows_by_sheet[name]}')
-        st.check((df['D'] > 0).all(), f'{name}: a D is not positive')
-    total = pd.concat(sheets.values())
+        d_col = instruments.SHEET_PROFILES[name].sort_col
+        st.check((df[d_col] > 0).all(), f'{name}: a {d_col} is not positive')
+    # the site's one shape over the profiles (section 23): frames.unify reads drums at 1x and vocals at Expert
+    _, unified = frames.load_frames(header, xlsxs[0])
+    st.check(all({'D', 'Level', 'NoteCount'} <= set(df.columns) for df in unified.values()), 'a sheet lacks D, Level or NoteCount after unify')
+    st.check((unified['Drums']['D'] == sheets['Drums']['D_1x']).all() and 'D_2x' in unified['Drums'].columns, 'the Drums sheet is not read at 1x')
+    st.check((unified['Vocals']['Level'] == 'Expert').all() and 'Level' not in sheets['Vocals'].columns, 'the Vocals sheet is not read as Expert')
+    total = pd.concat(unified.values())
     st.check(int(total['Official'].sum()) == lib.official_rows, f"{int(total['Official'].sum())} official rows")
     c3 = total[total['Song Title'] == 'Hard Without Expert']
     st.check(len(c3) == 1 and c3['RemapDiff'].isna().all() and c3['CalcTier'].isna().all(), 'C3 should have no anchor')
     others = total[total['Song Title'] != 'Hard Without Expert']
     st.check(others['RemapDiff'].notna().all() and others['CalcTier'].notna().all(), 'a row lost its anchor')
     st.check(set(total['Code']) <= set(cache['codes']), 'an xlsx code is not in the cache')
-    st.check(not any(c.endswith('D') for c in total['Code']), 'a drums code reached the xlsx')
+    st.check(sum(c.endswith('D') for c in total['Code']) == 2 and sum(c.endswith('V') for c in total['Code']) == 2, 'the drums and vocals rows')
     # section 08: the three song.ini columns, and the year rule
     for name, df in sheets.items():
-        st.check(list(df.columns)[6:10] == ['Release', 'Album', 'Year', 'Genre'] and str(df['Year'].dtype) == 'int64', f'{name}: {list(df.columns)[6:10]} {df["Year"].dtype}')
+        at = list(df.columns).index('Release')
+        st.check(list(df.columns)[at:at + 4] == ['Release', 'Album', 'Year', 'Genre'] and str(df['Year'].dtype) == 'int64', f'{name}: {list(df.columns)[at:at + 4]} {df["Year"].dtype}')
     by_title = total.drop_duplicates('Song Title').set_index('Song Title')
     st.check(by_title.loc['__SHOUT__ Two Tier', 'Year'] == -1 and by_title.loc['Midi Mirror', 'Year'] == 2007
              and by_title.loc['Keys Only Once', 'Year'] == 2001 and by_title.loc['Grid Runner', 'Year'] == 2026, 'the year rule')
@@ -323,7 +329,8 @@ def run_all(work, header, args):
     st.check('id="fw-boot"' in index and not PLACEHOLDER.search(outside), 'index.html island or placeholder')
     st.check(b'__SHOUT__ Two Tier' in (site / boot_island(index)['data']['Guitar']['file']).read_bytes(), 'the placeholder-shaped title did not survive publish')
     st.check('<style>' in index and 'static/bootstrap.' not in index, 'fallback CSS not inlined')
-    st.check(len(index) < 28000, f'index.html is {len(index)} bytes with the fallback CSS inlined; the rows should be in data/')
+    # five sheets' manifests, the explainer and the words for every column shown: about 29 KB with the fallback CSS
+    st.check(len(index) < 31000, f'index.html is {len(index)} bytes with the fallback CSS inlined; the rows should be in data/')
     st.check(f'<title>{html.escape(page.site_title())}</title>' in index and 'Clone Hero' in page.site_title()
              and '<h1 class="h6 mb-0 fw-semibold" id="brand">Fretladder</h1>' in index, 'title and brand')
     m = STRAPLINE.search(index)
@@ -399,9 +406,10 @@ def run_all(work, header, args):
     st.check('methodology.html' in a.hrefs, 'about.html does not link the methodology page')
     # section 12: Methodology.md rendered, its tables checked, no scripts and nothing left unrendered
     method = (site / 'methodology.html').read_text(encoding='utf-8')
-    st.check(not PLACEHOLDER.search(method) and method.count('<table') == 4 and method.count('<math display="block"') == 7
+    st.check(not PLACEHOLDER.search(method) and method.count('<table') == 6 and method.count('<math display="block"') == 29
              and method.count('<script') == 1 and page.THEME_SCRIPT in method and method.count('<h1') == 1 and '$$' not in method and '**' not in method,
              f'methodology.html: {method.count("<table")} tables, {method.count(chr(36) * 2)} $$')
+    st.check(method.count('<ul class="drift">') == 1 and 'in Methodology.md but at' in method, 'the known drift is on the methodology page')
     st.check(not PLACEHOLDER.search(about) and not PLACEHOLDER.search((site / '404.html').read_text()), 'placeholders')
     st.check((site / 'robots.txt').read_text() == page.robots_txt() and 'Sitemap: ' in page.robots_txt(), 'robots.txt')
     # section 16: a page per song under song/, the week class; the sitemap names every page
@@ -426,9 +434,15 @@ def run_all(work, header, args):
     lists = sorted(p.name for p in (site / 'list').iterdir())
     st.check(len(games) == 3 and all(re.fullmatch(r'[a-z0-9-]+\.html', g) for g in games), f'game/ holds {games}')
     st.check(len(lists) >= 3 and 'hardest-guitar.html' in lists and 'easiest-guitar.html' in lists, f'list/ holds {lists}')
+    st.check('hardest-drums.html' in lists and 'hardest-vocals.html' in lists, f'the drums and vocals lists: {lists}')
     game_page = (site / 'game' / games[0]).read_text(encoding='utf-8')
     st.check('setlist by difficulty' in game_page and '<base href="../">' in game_page and 'href="song/' in game_page
              and game_page.count('<script') == 1 and not PLACEHOLDER.search(game_page.replace('__SHOUT__', '')), f'game page {games[0]}')
+    st.check(all(f'<th class="r">{part}</th>' in game_page for part in ('Bass', 'Keys', 'Drums', 'Vocals')), 'the game page has a column per other part')
+    # the vocals song page reads Expert on its one level, and the drum chart's picture names its lines
+    b2_key = by_folder['B2 - Drum Mid']['song_key']
+    b2 = (site / 'song' / f'{b2_key}.html').read_text(encoding='utf-8')
+    st.check('On Expert Vocals it scores D' in b2 and 'On Expert Drums it scores D' in b2, 'the song page reads the drums and vocals parts')
     hardest = (site / 'list' / 'hardest-guitar.html').read_text(encoding='utf-8')
     st.check('href="game/' in hardest and 'href="song/' in hardest and 'hardest Guitar Hero and Rock Band songs' in hardest, 'the hardest list')
     st.check('<img src="graph/' in one and 'og:image' in one and 'it scores D' in one and 'href="game/' in one, 'the song page carries its picture, its words and its game')
@@ -459,7 +473,7 @@ def run_all(work, header, args):
         index = (site / 'index.html').read_text(encoding='utf-8')
         st.check(f'href="static/{boot_files[0].name}"' in index and '<style>' not in index, 'index.html should link bootstrap')
         st.check(not (site / 'bootstrap.css').exists(), 'a top-level bootstrap.css survived')
-        st.check(len(index) < 26000, f'index.html is {len(index)} bytes; the rows should be in data/')
+        st.check(len(index) < 29000, f'index.html is {len(index)} bytes; the rows should be in data/')
         st.check(re.search(rf'curves: 0 rendered, {len(codes)} unchanged', st.out), 'curves re-rendered on a no-op')
         st.check(len(list((site / 'graph').glob('*.png'))) == len(lib.charted) and re.search(r'pictures: 0 rendered, \d+ unchanged', st.out), 'the song pictures were re-rendered or lost on the second publish')
         st.check(sorted(os.listdir(site)) == sorted(deploy.BUNDLE_TOP), f'site holds {sorted(os.listdir(site))}')
@@ -533,9 +547,10 @@ def run_all(work, header, args):
     st = Stage('section 00', work, env, args.python)
     renderer = GraphRenderer(header, caches[0])
     drums_code = next(c for c in cache['codes'] if c.endswith('D'))
+    vocals_code = next(c for c in cache['codes'] if c.endswith('V'))
     guitar_code = next(c for c in cache['codes'] if c.endswith('XG'))
-    st.check(renderer.lookup(drums_code) is None, f'lookup({drums_code}) should be None until drums are scored')
-    st.check(renderer.lookup(guitar_code) is not None, f'lookup({guitar_code}) should resolve')
+    for code in (drums_code, vocals_code, guitar_code):
+        st.check(renderer.lookup(code) is not None, f'lookup({code}) should resolve')
     from functions import packs as packs_mod
     resolved = packs_mod.resolve(cache, packs_mod.load(registry))
     built = page.build(header, xlsxs[0], None, public=True, resolved=resolved, links_path=work / 'caches' / f'{header}_links.json')
@@ -557,18 +572,23 @@ def run_all(work, header, args):
             st.check(status == want, f'serve {path} -> {status}')
             if want == 200:
                 st.check(body_bytes == (site / path.lstrip('/')).read_bytes(), f'serve {path} differs from publish')
-        status, _ = get(f'/graph/{drums_code}.png')
-        st.check(status == 404, f'serve drums graph -> {status}')
-        status, body_bytes = get(f'/graph/{guitar_code}.json')
-        st.check(status == 200 and json.loads(body_bytes)['v'] == 1 and (site / 'graph' / f'{guitar_code}.json').read_bytes() == body_bytes,
-                 f'serve curve json -> {status}, equal to the published file')
+        # every family renders a PNG on demand and answers the published curve file (section 23)
+        for code, family, lines in ((drums_code, 'drums', ['hps', 'tps', 'kps']), (vocals_code, 'vocals', ['pps', 'sps', 'perc']),
+                                    (guitar_code, 'fret', ['nps', 'vps'])):
+            status, body_bytes = get(f'/graph/{code}.png')
+            st.check(status == 200 and body_bytes.startswith(b'\x89PNG'), f'serve {family} graph -> {status}')
+            status, body_bytes = get(f'/graph/{code}.json')
+            doc = json.loads(body_bytes) if status == 200 else {}
+            st.check(status == 200 and doc.get('v') == 2 and doc.get('family') == family and list(doc.get('series', {})) == lines
+                     and (site / 'graph' / f'{code}.json').read_bytes() == body_bytes,
+                     f'serve {family} curve json -> {status} {doc.get("family")} {list(doc.get("series", {}))}, equal to the published file')
         for name, data in built.files.items():
             if name.startswith(('static/', 'data/')):
                 st.check((site / name).read_bytes() == data, f'{name} differs between serve and publish')
     finally:
         httpd.shutdown()
         httpd.server_close()
-    st.done('drums lookup is None, serve answers the same bytes publish wrote')
+    st.done('every family resolves, serve answers the same bytes publish wrote')
 
     print(f'\nall stages passed ({work})')
 

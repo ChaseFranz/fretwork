@@ -96,7 +96,7 @@ def parse_ini(file):
     return ini
 
 
-def ini_parse(file):
+def ini_metadata(file):
     ini = parse_ini(file)
     if not ini:
         raise ValueError(f"No key = value metadata found in {file}")
@@ -155,7 +155,7 @@ def ini_loop(search_path, errors=None):
 
     for file in tqdm.tqdm(files, desc="Gathering ini data", unit="file"):
         try:
-            ini_out.append(ini_parse(file))
+            ini_out.append(ini_metadata(file))
         except Exception as exc:
             if errors is not None:
                 errors.append((str(file), type(exc).__name__, str(exc) or repr(exc)))
