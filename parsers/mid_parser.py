@@ -62,6 +62,7 @@ import tqdm
 
 from functions import instruments
 from parsers.timing import tempo_map, ticks_to_ms
+from parsers.vocal_parser import _extract_vocal_track
 
 # ---------------------------------------------------------------------
 # Mid-specific constants
@@ -325,8 +326,8 @@ def mid_notes(mid_source):
             continue  # this instrument just isn't in the file - not an error
 
         levels = (
-            _extract_drum_track(track, to_ms_array)
-            if instrument_key == 'drums'
+            _extract_drum_track(track, to_ms_array) if instrument_key == 'drums'
+            else _extract_vocal_track(track, to_ms_array) if instrument_key == 'vocals'
             else _extract_track(track, instrument_key, to_ms_array)
         )
         if levels is not None:

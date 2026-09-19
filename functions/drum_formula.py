@@ -37,7 +37,7 @@ D is computed per kick reading - kick_mode picks 1x (single pedal) or 2x (double
 RemapDiff (0-6 bins) and CalcTier (log-scaled) are drums-specific - see Methodology.md for calibration data
 
 EMHX / RemapDiff & CalcTier anchor to expert, since only 1 diff value per instrument in song.ini
-Drums anchors to the 1x reading specifically - 2x is optional, 1x is the reading every chart has
+Drums anchors to the 1x reading specifically - 2x is optional
 
 Travel is a little overtuned, but works adeuqately
 """
@@ -47,17 +47,17 @@ import math
 # ---------------------------------
 # Remap (0-6) params
 # ---------------------------------
-DIFF_LABELS = [0, 1, 2, 3, 4, 5, 6]   # shared label set
+DIFF_LABELS = [0, 1, 2, 3, 4, 5, 6]
 
-# Bin edges calibrated so RemapDiff distribution roughly matches diff_drums' official distribution in the reference library
+# Bin edges calibrated so RemapDiff distribution roughly matches diff_drums' official distribution
 # Methodology.md has table data for these bins
-DRUM_REMAP_BINS = [0, 10.3, 12.3, 14.0, 16.2, 19.2, 22.8, math.inf]
+DRUM_REMAP_BINS = [0, 10.3, 12.3, 14, 16.2, 19.2, 22.8, math.inf]
 
 # --------------------------------------------
 # CalcTier (log-scaled) params
 # --------------------------------------------
 # ~One tier per LN_INC of log(D / BASE_D)
-BASE_D = 9.0
+BASE_D = 9
 LN_INC = 0.196
 
 
@@ -83,6 +83,10 @@ def calc_drum_d(metrics, kick_mode='1x'):
     hand = metrics.get('hand')
     kick = metrics.get(kick_mode)
     DurationS = metrics.get('DurationS', 0.0)
+
+    # render fix for crash on empty limb group
+    H = T = K = 0.0
+    cvH = cvK = 0.0
 
     if hand is not None:
         pHPS, medHPS, aHPS, stdHPS = hand['pHPS'], hand['medHPS'], hand['aHPS'], hand['stdHPS']
@@ -114,9 +118,9 @@ def calc_drum_d(metrics, kick_mode='1x'):
 
     # STAMINA!!! sublinear by duration / slowly building boost for long songs, discounts short songs
     # ~66% @ 30s, ~75% @ 60s, 83% @ 90s, etc / 1x @ t_ref / 1.1x @ ~6 mins, 1.2x @ 9.5 mins, etc
-    t_ref  = 230.0 # 3-4 min average song
-    s_stam = 0.20 # curve exponent
-    STAM = (DurationS / t_ref) ** s_stam if DurationS > 0 else 0.0
+    T_REF  = 230.0 # 3-4 min average song
+    S_STAM = 0.20 # curve exponent
+    STAM = (DurationS / T_REF) ** S_STAM if DurationS > 0 else 0.0
 
     # base scalar difficulty
     D = BASE * COV * STAM

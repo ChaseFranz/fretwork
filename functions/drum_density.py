@@ -20,9 +20,6 @@ Hands and kick are separate streams: HPS/TPS are hand-anchored and computed once
 KPS is computed per reading since it's the only axis that differs between 1x and 2x.
 Every avg rate divides by one shared song duration (the later of the two streams' last hit),
 so hand and kick stay comparable to each other.
-
-Grid origin is t=0 and runs until the last note
-WINDOW_MS/STEP_MS, POPCOUNT and the active-window gating are all shared with fret_density
 """
 
 import numpy as np

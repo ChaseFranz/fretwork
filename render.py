@@ -20,6 +20,7 @@ EMHX
 Different instruments require different functions
 
 Drums renders 2x under 1x when both appear for a chart
+Vocals are Expert-only, so no EMHX anchor step - RemapDiff/CalcTier come straight from D
 """
 
 import argparse
@@ -29,6 +30,7 @@ import tqdm
 
 import config
 from functions import cache as cache_mod, drum_density, drum_formula, fret_density, fret_formula
+from functions import vocal_density, vocal_formula
 from functions import curves as curves_mod
 from functions import ini_updater, plot, timestamp
 
@@ -87,6 +89,25 @@ def _render_drum_entry(entry, out_dir, original_diffs):
     return path, None
 
 
+# One vocals entry - Expert only, no EMHX anchoring needed (RemapDiff/CalcTier come straight from D)
+def _render_vocal_entry(entry, out_dir, original_diffs):
+    talkie = entry.get('talkie')
+    percussion = entry.get('percussion')
+
+    vocal_curves = curves_mod.calc_vocal_curves(entry['notes'], talkie, percussion=percussion)
+    if vocal_curves is None:
+        return None, f"{entry['code']}: no curve data"
+
+    difficulty = None
+    metrics = vocal_density.calc_vocal_metrics(entry['notes'], talkie, percussion=percussion)
+    if metrics is not None:
+        difficulty = vocal_formula.calc_vocal_d(metrics)
+
+    original_diff = original_diffs.get(entry['song_path'], {}).get(entry['instrument'])
+    path = plot.render_vocal_song(entry, vocal_curves, difficulty, original_diff=original_diff, out_dir=out_dir)
+    return path, None
+
+
 def render_codes(codes, cache=None, cache_path=None, header=None, out_dir=None):
     header = header or config.HEADER
 
@@ -114,6 +135,8 @@ def render_codes(codes, cache=None, cache_path=None, header=None, out_dir=None):
     for entry in tqdm.tqdm(entries, desc="Rendering", unit="song"):
         if entry['instrument'] == 'drums':
             path, skip_reason = _render_drum_entry(entry, out_dir, original_diffs)
+        elif entry['instrument'] == 'vocals':
+            path, skip_reason = _render_vocal_entry(entry, out_dir, original_diffs)
         else:
             path, skip_reason = _render_fret_entry(entry, out_dir, original_diffs)
 

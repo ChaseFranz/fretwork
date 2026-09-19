@@ -11,7 +11,7 @@ same format comes from both mid/chart files - density and curves can both use th
 
 lanes[i] is a bitmask, bit N = lane N (bits 0-4 frets, bit 7 open) - this keeps the cache smaller
 
-Grid origin is t=0 and runs until the last note
+Grid start is t=0 and runs until the last note
 """
 
 import numpy as np

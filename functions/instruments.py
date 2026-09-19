@@ -28,12 +28,15 @@ DRUMS
 - splitting note streams out to have hands and kick separated
 - 1x & 2x columns/suffix conventions to support both for one song row
 
+VOCALS
+- splitting note streams into Pitch / Talkies / Percussion
+- No levels (everything treated as Expert)
 """
 
 from collections import namedtuple
 
 # instrument keys, display/iteration order
-INSTRUMENT_KEYS = ['guitar', 'coop', 'rhythm', 'bass', 'keys', 'drums']
+INSTRUMENT_KEYS = ['guitar', 'coop', 'rhythm', 'bass', 'keys', 'drums', 'vocals']
 
 DISPLAY_NAMES = {
     'guitar': 'Guitar',
@@ -42,6 +45,7 @@ DISPLAY_NAMES = {
     'bass':   'Bass',
     'keys':   'Keys',
     'drums':  'Drums',
+    'vocals': 'Vocals',
 }
 
 # level keys, display/iteration order
@@ -65,6 +69,7 @@ MID_TRACK_NAMES = {
     'bass':   ['PART BASS'],
     'keys':   ['PART KEYS'],
     'drums':  ['PART DRUMS'],
+    'vocals': ['PART VOCALS'],
 }
 
 # .mid pitch block base per level, per TheNathannator's 5-Fret Guitar mid docs:
@@ -90,6 +95,7 @@ CHART_BASE_SECTIONS = {
     'bass':   ['DoubleBass', 'SingleBass'],
     'keys':   ['Keyboard'],
     'drums':  ['Drums'],
+    'vocals': [],  # .chart has no vocals - required to prevent errors
 }
 
 # .chart level-name prefix per level
@@ -120,6 +126,7 @@ DIFF_TAGS = {
     'bass':   'diff_bass',
     'keys':   'diff_keys',
     'drums':  'diff_drums',
+    'vocals': 'diff_vocals',
 }
 
 # instrument suffix for retrieval code,
@@ -130,7 +137,9 @@ CODE_SUFFIX = {
     'bass':   'B',
     'keys':   'K',
     'drums':  'D',
+    'vocals': 'V',
 }
+
 SUFFIX_TO_INSTRUMENT = {suffix: key for key, suffix in CODE_SUFFIX.items()}
 
 # level suffix for retrieval code
@@ -160,16 +169,17 @@ SHEET_GROUPS = {
     'Bass':   ['bass'],
     'Keys':   ['keys'],
     'Drums':  ['drums'],
+    'Vocals': ['vocals'],
 }
 
-# must match the 'Drums' key in SHEET_GROUPS above
+# must match the 'Drums'/'Vocals' keys in SHEET_GROUPS above
 DRUMS_SHEET_NAME = 'Drums'
+VOCALS_SHEET_NAME = 'Vocals'
 
 # --------------------------------------------------------------------------
 # Sheet profiles - one record per xlsx tab shape
 # Guitar/Bass/Keys are all fret-shaped (single D column, raw NPS/VPS diagnostics)
 # Drums is the only other shape (D_1x/D_2x, HPS/TPS/KPS diagnostics) so far
-# Vocals TBD
 # Band D???
 # used for analyze and xlsx formatting
 # --------------------------------------------------------------------------
@@ -186,12 +196,12 @@ FRET_COLUMN_ORDER = [
     'Code', 'Song Title', 'Artist', 'Level', 'Type', 'Charter', 'Release', 'Official',
     'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier',
     'pNPS', 'aNPS', 'medNPS', 'stdNPS', 'pVPS', 'aVPS', 'medVPS', 'stdVPS',
-    'N', 'V', 'COV', 'STAM',
+    'N', 'V', 'CoV', 'STAM',
 ]
 FRET_HIDDEN_COLS = ['pNPS', 'aNPS', 'medNPS', 'stdNPS',
                      'pVPS', 'aVPS', 'medVPS', 'stdVPS',
-                     'N', 'V', 'COV', 'STAM']
-FRET_FLOAT_COLS = {'aNPS', 'pNPS', 'stdNPS', 'medNPS', 'aVPS', 'pVPS', 'stdVPS', 'medVPS', 'N', 'V', 'COV', 'STAM', 'D'}
+                     'N', 'V', 'CoV', 'STAM']
+FRET_FLOAT_COLS = {'aNPS', 'pNPS', 'stdNPS', 'medNPS', 'aVPS', 'pVPS', 'stdVPS', 'medVPS', 'N', 'V', 'CoV', 'STAM', 'D'}
 FRET_SCALED_COLS = ['D', 'RemapDiff', 'CalcTier']
 
 # Drums: headline metadata + D_1x/D_2x, plus the diagnostic breakdown
@@ -207,7 +217,7 @@ DRUM_HAND_DIAG_COLS = [
 # list, unsuffixed, straight off {**reading, **r}.
 DRUM_KICK_DIAG_BASE = [
     'pKPS', 'aKPS', 'medKPS', 'stdKPS',
-    'K', 'CoV', 'Base',
+    'K', 'CoV',
 ]
 
 
@@ -228,12 +238,34 @@ DRUM_FLOAT_COLS = {*DRUM_DIAG_COLS, 'D_1x', 'D_2x'}
 DRUM_HIDDEN_COLS = list(DRUM_DIAG_COLS)
 DRUM_SCALED_COLS = ['D_1x', 'D_2x', 'RemapDiff', 'CalcTier']
 
+# Vocals: headline metadata + D, plus the diagnostic breakdown
+# talkieFrac is descriptive only, not fed into the formula
+VOCAL_DIAG_COLS = [
+    'Pitches', 'maxPitch', 'ShortFrac', 'talkieFrac',
+    'pPPS', 'aPPS', 'medPPS', 'stdPPS',
+    'pSPS', 'aSPS', 'medSPS', 'stdSPS',
+    'P', 'R', 'A', 'S', 'CoV', 'STAM',
+]
+VOCAL_COLUMN_ORDER = [
+    'Code', 'Song Title', 'Artist', 'Type', 'Charter', 'Release', 'Official',
+    'NoteCount', 'DurationS', 'Difficulty', 'D', 'RemapDiff', 'CalcTier',
+    *VOCAL_DIAG_COLS,
+]
+VOCAL_HIDDEN_COLS = list(VOCAL_DIAG_COLS)
+VOCAL_FLOAT_COLS = {*VOCAL_DIAG_COLS, 'D'} - {'Pitches', 'maxPitch'}
+VOCAL_SCALED_COLS = ['D', 'RemapDiff', 'CalcTier']
+
 _FRET_PROFILE = SheetProfile(FRET_COLUMN_ORDER, FRET_HIDDEN_COLS, FRET_FLOAT_COLS, FRET_SCALED_COLS, 'D')
 _DRUM_PROFILE = SheetProfile(DRUM_COLUMN_ORDER, DRUM_HIDDEN_COLS, DRUM_FLOAT_COLS, DRUM_SCALED_COLS, 'D_1x')
+_VOCAL_PROFILE = SheetProfile(VOCAL_COLUMN_ORDER, VOCAL_HIDDEN_COLS, VOCAL_FLOAT_COLS, VOCAL_SCALED_COLS, 'D')
 
 # every sheet in SHEET_GROUPS gets a profile
 SHEET_PROFILES = {
-    sheet_name: _DRUM_PROFILE if sheet_name == DRUMS_SHEET_NAME else _FRET_PROFILE
+    sheet_name: (
+        _DRUM_PROFILE if sheet_name == DRUMS_SHEET_NAME
+        else _VOCAL_PROFILE if sheet_name == VOCALS_SHEET_NAME
+        else _FRET_PROFILE
+    )
     for sheet_name in SHEET_GROUPS
 }
 
@@ -245,6 +277,7 @@ TYPE_LABELS = {
     'bass':   'Bass',
     'keys':   'Keys',
     'drums':  'Drums',
+    'vocals': 'Vocals',
 }
 
 
