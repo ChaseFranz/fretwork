@@ -53,17 +53,17 @@ const f = await narrowFrame("plain.html");
 measure(f.contentDocument, f.contentWindow);
 
 // The methodology page at 390px (section 12): the body never scrolls
-// sideways, the tables fit their wrappers, and a formula wider than the
-// screen (upstream's STAM line, with its constants after a \qquad, is 345px)
-// scrolls inside its own .eq box and nowhere else; the headings keep their order.
+// sideways; a table or a formula wider than the screen (upstream's
+// five-column CalcTier table, its STAM line with the constants after a
+// \qquad; how many depends on the machine's fonts) scrolls inside its own
+// box and nowhere else; the headings keep their order.
 const m = await narrowFrame("methodology.html");
 const md = m.contentDocument, mw = m.contentWindow;
 say("methodology.html: the body does not scroll sideways", md.documentElement.scrollWidth <= 390, md.documentElement.scrollWidth);
-say("every table fits at 390px", [...md.querySelectorAll(".tbl")].every(e => e.scrollWidth <= e.clientWidth),
-    [...md.querySelectorAll(".tbl")].map(e => e.scrollWidth + "/" + e.clientWidth).join(" "));
-const wide = [...md.querySelectorAll(".eq")].filter(e => e.scrollWidth > e.clientWidth);
-say("a formula wider than the screen scrolls in its own box", wide.every(e => mw.getComputedStyle(e).overflowX === "auto") && wide.length <= 3,
-    wide.map(e => e.scrollWidth + "/" + e.clientWidth).join(" "));
+const boxes = [...md.querySelectorAll(".tbl, .eq")];
+const wide = boxes.filter(e => e.scrollWidth > e.clientWidth);
+say("a table or formula wider than the screen scrolls in its own box", boxes.length > 0 && wide.every(e => mw.getComputedStyle(e).overflowX === "auto" && e.getBoundingClientRect().right <= 390),
+    wide.length + " of " + boxes.length + " wide: " + wide.map(e => e.scrollWidth + "/" + e.clientWidth).join(" "));
 const px = sel => parseFloat(mw.getComputedStyle(md.querySelector(sel)).fontSize);
 say("heading sizes step down h2 > h3 > h4 > h5", px(".md h2") > px(".md h3") && px(".md h3") > px(".md h4") && px(".md h4") > px(".md h5"),
     [".md h2", ".md h3", ".md h4", ".md h5"].map(px).join(" > "));
