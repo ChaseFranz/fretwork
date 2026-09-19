@@ -65,8 +65,8 @@ DIFF_WRITE_OVERRIDES = {
     "guitar":  "CalcTier",     # harmless but redundant
     "coop":    "RemapDiff",    # override to the 0-6 remap instead
     "rhythm":  "RemapDiff",    # same override
-    "bass":     None,           # skip - bass song.ini left untouched
-    "keys":     None,           # skip - keys song.ini left untouched
+    "bass":     None,          # skip - bass song.ini left untouched
+    "keys":     None,          # skip - keys song.ini left untouched
     "drums":   "RemapDiff",    # override to the 0-6 remap instead
 
     Vocals not in overrides means it will fall back to DIFF_WRITE_MODE
