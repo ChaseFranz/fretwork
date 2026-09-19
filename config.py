@@ -87,9 +87,9 @@ RENDER_DEFAULT = {
     "mode": "dark",   # "light" or "dark" - causes plot to use selected values from RENDER_THEMES
  
     "color_d": "#B71FB7",
-    "color_nps": "#127BC1",
-    "color_vps": "#DD6C1B", 
-    "color_tps": "#2E9E5B", # drums-only
+    "color_nps": "#127BC1", # Notes for 5 fret / Hands for drums / Syllables for vocals
+    "color_vps": "#DD6C1B", # Variability for 5 fret / Travel for drums / Pitch for vocals
+    "color_kps": "#2E9E5B", # Kicks for drums / Percussion for vocals
 
     "linewidth": 1.5,
     "grid_alpha": 0.25,
