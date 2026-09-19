@@ -177,9 +177,11 @@ def _column_order_for(sheet_name):
 
 
 # run the analysis - loading from selected/default cache
-def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=None, xlsx_levels=None):
+def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=None,
+            diff_overrides=None, xlsx_levels=None):
     header = header or config.HEADER
     diff_mode = diff_mode if diff_mode is not None else config.DIFF_WRITE_MODE
+    diff_overrides = diff_overrides if diff_overrides is not None else config.DIFF_WRITE_OVERRIDES
     xlsx_levels = xlsx_levels if xlsx_levels is not None else config.XLSX_LEVELS
     selected_levels = _resolve_levels(xlsx_levels)
 
@@ -314,13 +316,18 @@ def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=No
             row_counts[instrument_key][level_key] += 1
 
     # song.ini write-back happens after metrics are computed for every song
+    # per-instrument mode resolves against diff_overrides first, falling back to diff_mode;
+    # an override of None always skips that instrument, even when diff_mode would write it
     if diff_mode in ("CalcTier", "RemapDiff"):
         for instrument_key in instruments.INSTRUMENT_KEYS:
+            instrument_mode = diff_overrides.get(instrument_key, diff_mode)
+            if instrument_mode is None:
+                continue
             diffs = difficulties_by_instrument[instrument_key]
             if not diffs:
                 continue
             ini_updater.sync_difficulty(
-                diff_mode, header, instrument=instrument_key,
+                instrument_mode, header, instrument=instrument_key,
                 songs=diffs.keys(), difficulties=diffs,
             )
 
@@ -392,7 +399,8 @@ def main():
                          help="Write CalcTier/RemapDiff into each instrument's own diff_* tag "
                               "(anchored to the Expert-level D - see module docstring), or "
                               "Restore every instrument's originals from backup (skips metrics/"
-                              "spreadsheet generation entirely). Default: config.DIFF_WRITE_MODE.")
+                              "spreadsheet generation entirely). Default: config.DIFF_WRITE_MODE. "
+                              "Per-instrument exceptions are config-only, see DIFF_WRITE_OVERRIDES.")
     parser.add_argument('--xlsx-levels', default=None,
                          help="Which EMHX levels to emit, e.g. X, EX, EMHX, or ALL. "
                               "Default: config.XLSX_LEVELS.")

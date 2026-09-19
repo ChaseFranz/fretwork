@@ -114,6 +114,8 @@ Drums use the 1x kick reading, Vocals only have the one D
   - `CalcTier`/`RemapDiff` writes selected value into every song's own `diff_*` tag, per instrument
   - `Restore` returns every instrument's `diff_*` values back to its `{header}_BackupData.csv` original, throws errors for songs moved/deleted
 
+**Per-instrument exceptions:** `DIFF_WRITE_OVERRIDES` in the config lets individual instruments use a different mode than `--diff-mode`/`DIFF_WRITE_MODE`, or skip writing.
+
 **Note: After updating `song.ini` data, you MUST SCAN SONGS for the new metadata to work.**
 
 ---
