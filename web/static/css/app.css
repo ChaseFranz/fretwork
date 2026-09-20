@@ -368,3 +368,17 @@
   #hint { position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
           z-index:1070; opacity:0; transition:opacity .18s; pointer-events:none; }
   #hint.on { opacity:1; }
+
+  /* The front page without JavaScript (section 24): main.js removes #static
+     before the app's first paint, so these rules are for a crawler's render,
+     a reader mode and a visitor with scripts off. The tokens are the page's. */
+  #static { max-width:72ch; padding:1.25rem 1rem 2rem; color:var(--fw-text); }
+  #static h1 { font-size:1.25rem; font-weight:600; margin:0 0 .6rem; }
+  #static h2 { font-size:.85rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--fw-brand-text); margin:1.6rem 0 .4rem; }
+  #static p { margin:0 0 .8rem; }
+  #static a { color:var(--fw-link); }
+  #static table { border-collapse:collapse; font-size:14px; }
+  #static th, #static td { padding:.25rem .8rem .25rem 0; border-bottom:1px solid var(--fw-border); text-align:left; vertical-align:top; }
+  #static td.r, #static th.r { text-align:right; }
+  #static ul { columns:2; column-gap:2rem; padding-left:1.2rem; margin:0 0 .8rem; font-size:14px; }
+  #static ul.one { columns:1; }

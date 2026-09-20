@@ -10,8 +10,9 @@ say("as html", (res.headers.get("content-type") || "").startsWith("text/html"), 
 const doc = new DOMParser().parseFromString(await res.text(), "text/html");
 say("one h1", doc.querySelectorAll("h1").length === 1, doc.querySelectorAll("h1").length);
 say("a heading per entry", doc.querySelectorAll("h2").length >= 3, doc.querySelectorAll("h2").length);
-say("one script on the page, the theme's", doc.querySelectorAll("script").length === 1 && doc.head.innerHTML.includes('localStorage.getItem("fw.theme")'));
-const back = [...doc.querySelectorAll("a")].find(a => a.getAttribute("href") === "./");
+const running = d => [...d.querySelectorAll("script")].filter(s => s.type !== "application/ld+json").length;
+say("one script on the page, the theme's", running(doc) === 1 && doc.head.innerHTML.includes('localStorage.getItem("fw.theme")'));
+const back = [...doc.querySelectorAll('a[href="./"]')].find(a => a.textContent === BOOT.ui.about_back);
 say("a link back to the charts, worded from the payload", back && back.textContent === BOOT.ui.about_back, back && back.textContent);
 say("no placeholder survived", !/__[A-Z][A-Z_]*__/.test(doc.body.textContent));
 say("the copyright notice quotes the licence holder", /Copyright \(c\) \d{4} Staycation\b/.test(doc.body.textContent));
@@ -23,7 +24,7 @@ for (const [page, key] of BOOT.docPages || []) {
   const r = a && await fetch(a.getAttribute("href"));
   const d = r && r.status === 200 ? new DOMParser().parseFromString(await r.text(), "text/html") : null;
   say("footer page " + page + " resolves, named " + JSON.stringify(BOOT.ui[key]), a && a.textContent === BOOT.ui[key] && d &&
-      d.querySelectorAll("h1").length === 1 && d.querySelectorAll("script").length === 1, a ? (r && r.status) : "no link");
+      d.querySelectorAll("h1").length === 1 && running(d) === 1, a ? (r && r.status) : "no link");
 }
 // the songs index (section 21): every song, a link per song page, from the footer
 {
@@ -40,7 +41,7 @@ for (const [page, key] of BOOT.docPages || []) {
   const d = new DOMParser().parseFromString(await r.text(), "text/html");
   say("the library page has its five blocks", d.querySelectorAll("h2").length === 5, d.querySelectorAll("h2").length);
   say("a bar per tier, the widest full", d.querySelectorAll(".bar").length > 0 && [...d.querySelectorAll(".bar")].some(b => b.style.width === "100%"));
-  say("the hardest charts link into the table and to their song pages", [...d.querySelectorAll('a[href^="./?code="]')].length >= 1 && [...d.querySelectorAll('a[href^="song/"]')].length >= 1);
+  say("the hardest charts link into the table (by fragment) and to their song pages", [...d.querySelectorAll('a[href^="./#code="]')].length >= 1 && [...d.querySelectorAll('a[href^="song/"]')].length >= 1 && !d.querySelector('a[href^="./?"]'));
   // section 22: the packs link their pages, the hardest blocks their lists, and both resolve as pages
   const game = d.querySelector('a[href^="game/"]'), list = d.querySelector('a[href^="list/"]');
   say("the library links the packs to their pages and the hardest to the lists", !!game && !!list, (game && game.getAttribute("href")) + " " + (list && list.getAttribute("href")));

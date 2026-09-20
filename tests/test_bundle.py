@@ -90,7 +90,7 @@ class AssetsAndSheetsTest(unittest.TestCase):
         (tmp / 'bootstrap.css').write_bytes(b'x')
         files = {'index.html': b'i', 'data/guitar.12345678.json': b'y', 'static/app.abcdef01.js': b'z'}
         names, written, removed = bundle.write_page(tmp, files)
-        self.assertEqual(written, 3)
+        self.assertEqual(sorted(written), ['data/guitar.12345678.json', 'index.html', 'static/app.abcdef01.js'])
         self.assertEqual(removed, 3)
         self.assertEqual(sorted(p.relative_to(tmp).as_posix() for p in tmp.rglob('*') if p.is_file()),
                          ['data/guitar.12345678.json', 'index.html', 'static/app.abcdef01.js'])

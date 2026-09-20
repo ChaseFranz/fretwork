@@ -63,7 +63,7 @@ def serve(header=None, xlsx_path=None, cache_path=None, port=8000, out_dir=None,
     renderer = GraphRenderer(header, cache_path, out_dir)
     resolved, packs_line = resolve_packs(renderer, packs_path or packs.PACKS_FILE)
 
-    built = page.build(header, xlsx_path, bootstrap_css, resolved=resolved)
+    built = page.build(header, xlsx_path, bootstrap_css, resolved=resolved, page_dates=page.PageDates.load(page.page_dates_path(header)))
     httpd = MetricsServer(port, {'/' + name: data for name, data in built.files.items()}, renderer)
 
     with httpd:

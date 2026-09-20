@@ -607,7 +607,14 @@ UI = {
     'song_sentence_tier': 'On {level} {type} it scores D {d}, Calc Tier {tier}.',
     'song_sentence_d':  'On {level} {type} it scores D {d}.',
     'song_game':        'From {game}, with every song of that setlist ranked by difficulty.',
-    'game_title':       '{game} setlist by difficulty',
+    # the line under a song page's heading: the game and the pack it came in (section 24)
+    'song_where':       'A {game} chart, from the {pack} pack.',
+    'song_where_custom': 'A Clone Hero custom chart, from the {pack} pack.',
+    'song_where_game':  'A {game} chart.',
+    'song_where_custom_only': 'A Clone Hero custom chart.',
+    'song_desc_lead':   'How hard is {song} by {artist} in {game}?',
+    'song_custom_game': 'Clone Hero',
+    'game_title':       '{game} song list ranked by difficulty',
     'game_intro':       'Every song in {game} ranked by fretwork\u2019s difficulty on Expert guitar, D, with the Calc Tier '
                         'and the percentile among the site\u2019s Expert Guitar charts, and the bass, keys, drums and vocals '
                         'charts beside it. A song opens its page; a number opens that chart\u2019s graph.',
@@ -623,7 +630,18 @@ UI = {
     'list_intro_custom': 'Ranked by fretwork\u2019s difficulty D on the Expert {sheet} chart, one entry per song at its '
                         'hardest part, from the custom charts on the site. The tier is Calc Tier, D on a log scale; the '
                         'percentile is where the chart sits among every Expert {sheet} chart on the site.',
+    'list_method':      'A difficulty list computed from the chart files, not a poll: fretwork reads every note of every chart '
+                        'and scores how busy it is, how much the hands move and how unevenly the work is spread, so two charts '
+                        'of the same song in different games get different numbers, and a custom chart is measured on the same '
+                        'scale as an official one. The pictures are the charts\u2019 own graphs, difficulty over time.',
     'list_game':        'Game',
+    'list_short_hardest': 'Hardest {sheet}',
+    'list_short_custom': 'Hardest {sheet} customs',
+    'list_short_easiest': 'Easiest {sheet}',
+    'more_games':       'Every game on the site',
+    'more_lists':       'Every list',
+    'breadcrumb_home':  'Charts',
+    'breadcrumb_lists': 'Lists',
     'lists':            'Lists',
     'lists_note':       'The site\u2019s ranked lists, one per instrument.',
     'list_full':        'The full list',
@@ -637,11 +655,22 @@ UI = {
     'songs_desc':       'All {n} songs with chart difficulty ratings on fretladder, A to Z, each with its page.',
     'methodology_title': 'How Guitar Hero chart difficulty is scored',
     'methodology_desc': 'The fretwork method behind the ratings: note density, fret movement and their spread, the D formula, and the Calc Tier and Remap Tier calibration.',
+    # the front page without JavaScript (section 24): what a crawler and a reader mode get
+    'home_h1':          'Difficulty ratings for every Guitar Hero, Rock Band and Clone Hero chart',
+    'home_intro':       '{charts} charts of {songs} songs from {packs} games and packs, on guitar, bass, keys, drums and vocals, '
+                        'each scored by [fretwork]({engine}) from the notes in the chart file: how busy it is, how much the hands '
+                        'move, how unevenly the work is spread and how long it goes on. Nothing is voted on or hand-assigned, '
+                        'so a Clone Hero custom sits on the same scale as a Guitar Hero III song. The table sorts and filters by '
+                        'instrument, level, game and difficulty, and every chart has a graph of its difficulty over time.',
+    'home_hardest':     'The hardest Expert {sheet} charts',
+    'home_games':       'Every game and pack, with its songs ranked by difficulty',
+    'home_lists':       'The lists',
+    'home_more':        'More',
     # the song page as a page, and the songs index (section 21)
     'songs':            'Songs',
     'songs_tip':        'Every song on the site, A to Z',
     'songs_intro':      'Every song on the site, {n} of them, A to Z by title; each opens the song\u2019s page with its difficulty on every instrument and level.',
-    'song_page_title':  '{song}: chart difficulty - {site}',
+    'song_page_title':  '{song}: {game} chart difficulty - {site}',
     'song_note':        'D is the difficulty fretwork computes from the chart\u2019s note density and movement, with the '
                         'percentile among charts of the same instrument and level on the site and the Calc Tier '
                         'anchored to the Expert chart; [how it is scored](methodology.html) and '

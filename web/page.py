@@ -8,8 +8,10 @@ page are relative, so it works at a domain root or under any sub-path.
 
 import collections
 import datetime
+import hashlib
 import html
 import json
+import pathlib
 import re
 
 import config
@@ -44,7 +46,9 @@ def robots_txt():
 
 # What serve and publish both need: the spreadsheet path, the sheets, the row
 # count, and every file the site is, {relative name: bytes}, graphs excepted.
-Built = collections.namedtuple('Built', 'xlsx_path sheets total files png_codes')   # png_codes: the graphs publish draws as PNGs (section 22)
+# png_codes: the graphs publish draws as PNGs (section 22); page_dates: the
+# per-page dates manifest this build stamped, for publish to save (section 24)
+Built = collections.namedtuple('Built', 'xlsx_path sheets total files png_codes page_dates')
 
 # The theme, decided before the first paint so a light-theme visitor never sees
 # a dark flash: the header toggle's stored choice (fw.theme, static/js/theme.js)
@@ -83,6 +87,73 @@ def styles_head(names):
 # words someone searches for (section 21).
 def site_title():
     return f"{config.SITE_NAME}: {labels.UI['site_title']}"
+
+
+# A link from a document page into the app (section 24): by fragment, so a
+# crawler sees one front page and not a query variant per chart; url.js reads
+# the fragment as the query. Every page-side link into the app goes through here.
+def app_link(param, value):
+    return f'./#{param}={html.escape(str(value))}'
+
+
+# The JSON-LD blocks a search feature reads (section 24). One <script> per page,
+# holding a list when a page has more than one; '<' is escaped as boot.py does.
+def ld_script(*blocks):
+    blocks = [b for b in blocks if b]
+    if not blocks:
+        return ''
+    doc = blocks[0] if len(blocks) == 1 else blocks
+    return '<script type="application/ld+json">' + json.dumps(doc, ensure_ascii=False).replace('<', '\\u003c') + '</script>'
+
+
+def _abs(name):
+    base = config.SITE_URL.rstrip('/') if config.SITE_URL else ''
+    return f'{base}/{name}' if base else name
+
+
+def breadcrumb_ld(items):
+    """items: [(name, page name or '' for the front page), ...], the page itself last."""
+    return {'@context': 'https://schema.org', '@type': 'BreadcrumbList',
+            'itemListElement': [{'@type': 'ListItem', 'position': i, 'name': name, 'item': _abs(page)}
+                                for i, (name, page) in enumerate(items, 1)]}
+
+
+def itemlist_ld(name, entries):
+    """entries: [(name, page name), ...] in rank order."""
+    return {'@context': 'https://schema.org', '@type': 'ItemList', 'name': name, 'numberOfItems': len(entries),
+            'itemListOrder': 'https://schema.org/ItemListOrderDescending',
+            'itemListElement': [{'@type': 'ListItem', 'position': i, 'name': n, 'url': _abs(page)}
+                                for i, (n, page) in enumerate(entries, 1)]}
+
+
+# The front page's WebSite block with its search: the app reads ?q= (url.js).
+def website_ld():
+    if not config.SITE_URL:
+        return None
+    base = config.SITE_URL.rstrip('/')
+    return {'@context': 'https://schema.org', '@type': 'WebSite', 'name': config.SITE_NAME, 'url': base + '/',
+            'description': labels.UI['description'],
+            'potentialAction': {'@type': 'SearchAction', 'target': {'@type': 'EntryPoint', 'urlTemplate': base + '/?q={search_term_string}'},
+                                'query-input': 'required name=search_term_string'}}
+
+
+# The library as a dataset, which Google Dataset Search indexes: the counts,
+# the engine it is based on, and the sheet files as its distribution.
+def dataset_ld(stats, manifest, when=None):
+    if not config.SITE_URL:
+        return None
+    base = config.SITE_URL.rstrip('/')
+    ld = {'@context': 'https://schema.org', '@type': 'Dataset',
+          'name': f'{config.SITE_NAME}: {labels.UI["site_title"]}',
+          'description': labels.UI['library_desc'].format(charts=f'{stats["rows"]:,}', songs=f'{stats["songs"]:,}', packs=stats.get('packs', 0)),
+          'url': f'{base}/{LIBRARY_PAGE}', 'license': labels.UI['license_url'], 'isAccessibleForFree': True,
+          'isBasedOn': labels.ENGINE_REPO, 'creator': {'@type': 'Organization', 'name': config.SITE_NAME, 'url': base + '/'},
+          'keywords': ['Guitar Hero', 'Rock Band', 'Clone Hero', 'chart difficulty', 'rhythm game'],
+          'distribution': [{'@type': 'DataDownload', 'name': sheet, 'encodingFormat': 'application/json', 'contentUrl': f'{base}/{entry["file"]}'}
+                           for sheet, entry in manifest.items()]}
+    if when:
+        ld['dateModified'] = f'{when:%Y-%m-%d}'
+    return ld
 
 
 # Description always; the social-preview tags need an absolute URL, so they are
@@ -127,12 +198,13 @@ def strapline(source, linked):
     return f'<a href="changelog.html" title="{html.escape(labels.UI["changelog_tip"])}">{text}</a>'
 
 
-def render_page(title, source, names, boot_json, public=False, linked=False):
+def render_page(title, source, names, boot_json, public=False, linked=False, static_html=''):
     values = {
         'TITLE': html.escape(title),
         'BRAND': html.escape(config.SITE_NAME),
         'SOURCE': strapline(source, linked),
-        'META': meta_head(public),
+        'META': meta_head(public) + ('\n' + ld_script(website_ld()) if public else ''),
+        'STATIC': static_html,
         'THEME': THEME_SCRIPT,
         'FAVICON': names['favicon'],
         'STYLES': styles_head(names),
@@ -191,7 +263,7 @@ def render_404(names):
 # words a search carries; description the page's own; a page under a folder
 # (game/, list/) gets <base href="../"> so its relative links resolve from the
 # root, and must then carry no fragment links (a base breaks them).
-def render_doc(name, title, body, names, page_title=None, description=None):
+def render_doc(name, title, body, names, page_title=None, description=None, ld=None, more=''):
     others = [(labels.UI[key], page) for page, key in labels.DOC_PAGES if page != name]
     links = '\n'.join(
         [f'    <li><a href="{html.escape(href)}">{html.escape(text)}</a></li>' for text, href in others] +
@@ -202,11 +274,13 @@ def render_doc(name, title, body, names, page_title=None, description=None):
         'FAVICON': names['favicon'],
         'BASE': '<base href="../">' if '/' in name else '',
         'TITLE': html.escape(full),
-        'META': meta_head(public=True, canonical=name, title=page_title or title, description=description),
+        'META': meta_head(public=True, canonical=name, title=page_title or title, description=description) + ('\n' + ld if ld else ''),
         'THEME': THEME_SCRIPT,
-        'BRAND': html.escape(f"{config.SITE_NAME} \u2013 {title}"),
+        'SITE': html.escape(config.SITE_NAME),
+        'HEADING': html.escape(page_title or title),
         'BACK': html.escape(labels.UI['about_back']),
         'BODY': body,
+        'MORE': more,
         'LINKS': links,
         'COPYRIGHT': rich_text(labels.UI['copyright']),
         'LICENSE_LABEL': html.escape(labels.UI['license_label']),
@@ -262,7 +336,7 @@ def render_changelog(resolved, codes, names):
                  charts=f'{sum(c for _, c in counts.values()):,}')) + '</p>']
     for date in sorted(by_date, reverse=True):
         changes, date_packs = by_date[date]
-        href = f'./?f.Added={date.strftime(packs.DATE)}&amp;f.Level=Expert'
+        href = f'./#f.Added={date.strftime(packs.DATE)}&amp;f.Level=Expert'
         parts.append(f'  <h2><a href="{href}" title="{html.escape(labels.UI["changelog_date_tip"])}">'
                      f'{html.escape(fmt_date(date))}</a></h2>')
         for change in changes:
@@ -482,13 +556,13 @@ def song_table(fact):
                 cells.append(f'<td class="none">{labels.MISSING_TEXT}</td>')
                 continue
             pct = '' if chart['pct'] is None else f'<small>{chart["pct"]}%</small>'
-            cells.append(f'<td><a href="./?code={html.escape(chart["code"])}">{chart["d"]:.2f}</a>{pct}</td>')
+            cells.append(f'<td><a href="{app_link("code", chart["code"])}">{chart["d"]:.2f}</a>{pct}</td>')
         rows.append(f'    <tr><td>{html.escape(part["type"])}{tier}</td>{"".join(cells)}</tr>')
     return ('  <div class="tbl"><table>\n    <thead><tr><th>' + html.escape(labels.label('Type')) + '</th>' + head + '</tr></thead>\n'
             '    <tbody>\n' + '\n'.join(rows) + '\n    </tbody>\n  </table></div>')
 
 
-def song_ld(key, fact, image=None):
+def song_ld(key, fact, image=None, game=None):
     base = config.SITE_URL.rstrip('/') if config.SITE_URL else ''
     ld = {'@context': 'https://schema.org', '@type': 'MusicRecording', 'name': fact['title'],
           'url': f'{base}/{SONG_DIR}/{key}.html' if base else f'{SONG_DIR}/{key}.html',
@@ -499,7 +573,29 @@ def song_ld(key, fact, image=None):
         ld['byArtist'] = {'@type': 'MusicGroup', 'name': fact['artist']}
     if fact['album']:
         ld['inAlbum'] = {'@type': 'MusicAlbum', 'name': fact['album']}
-    return json.dumps(ld, ensure_ascii=False).replace('<', '\\u003c')
+    crumbs = [(labels.UI['breadcrumb_home'], '')]
+    if game:
+        crumbs.append((game['name'], f'{GAME_DIR}/{game["slug"]}.html'))
+    crumbs.append((fact['title'], f'{SONG_DIR}/{key}.html'))
+    return json.dumps([ld, breadcrumb_ld(crumbs)], ensure_ascii=False).replace('<', '\\u003c')
+
+
+# The game a song page names in its title (section 24): the release it was
+# matched to, or Clone Hero for a custom, which is the word people type.
+def song_game_name(fact):
+    return fact['release'] if fact['official'] and fact['release'] else labels.UI['song_custom_game']
+
+
+# The line under a song page's heading: the game, and the pack when the pack
+# is not the game itself.
+def song_where(fact, game):
+    ui = labels.UI
+    pack = game['name'] if game else ''
+    if fact['official'] and fact['release']:
+        if pack and pack != fact['release']:
+            return ui['song_where'].format(game=fact['release'], pack=pack)
+        return ui['song_where_game'].format(game=fact['release'])
+    return ui['song_where_custom'].format(pack=pack) if pack else ui['song_where_custom_only']
 
 
 # The song in words (section 22): one sentence per part, the numbers the
@@ -527,10 +623,16 @@ def song_sentences(fact):
     return out
 
 
-def render_song_page(key, fact, names, game=None):
+# `disambiguate` adds the pack to a custom's title when another song page
+# carries the same song and artist (the same custom in two packs).
+def render_song_page(key, fact, names, game=None, disambiguate=False):
     ui = labels.UI
     by = f'{fact["title"]} by {fact["artist"]}' if fact['artist'] else fact['title']
+    game_name = song_game_name(fact)
+    if disambiguate and game and not fact['official']:
+        game_name = f'{game_name} ({game["name"]})'
     lines = share_lines(fact)
+    lead = ui['song_desc_lead'].format(song=fact['title'], artist=fact['artist'] or labels.MISSING_TEXT, game=song_game_name(fact))
     kind = labels.VALUE_LABELS.get('Official', {}).get('true' if fact['official'] else 'false', '')
     facts = [v for v in (fact['charter'], fact['release'], kind, fact['album'],
                          str(fact['year']) if fact['year'] else '', fact['genre']) if v]
@@ -538,7 +640,7 @@ def render_song_page(key, fact, names, game=None):
     # the picture: the first part's Expert graph, drawn by publish as a PNG (Built.png_codes);
     # its alt names the lines of the chart's family, read from the code's instrument letter
     picture = ('' if image is None else
-               f'<p class="pic"><a href="./?code={html.escape(image)}"><img src="graph/{html.escape(image)}.png" width="1920" height="840" loading="lazy" '
+               f'<p class="pic"><a href="{app_link("code", image)}"><img src="graph/{html.escape(image)}.png" width="1920" height="840" loading="lazy" '
                f'alt="{html.escape(labels.t_graph_alt(by, image))}"></a></p>')
     # the game it came in, when the registry names one
     where = ''
@@ -548,15 +650,15 @@ def render_song_page(key, fact, names, game=None):
         where = ('<p class="game">' + html.escape(before) +
                  f'<a href="{GAME_DIR}/{html.escape(game["slug"])}.html">{html.escape(game["name"])}</a>' + html.escape(after) + '</p>')
     values = {
-        'TITLE': html.escape(ui['song_page_title'].format(song=by, site=config.SITE_NAME)),
+        'TITLE': html.escape(ui['song_page_title'].format(song=by, game=game_name, site=config.SITE_NAME)),
         'FAVICON': names['favicon'],
-        'META': song_meta(key, by, '; '.join(lines), image),
+        'META': song_meta(key, by, ' '.join([lead, '; '.join(lines)]).strip(), image),
         'THEME': THEME_SCRIPT,
-        'LD': song_ld(key, fact, image),
+        'LD': song_ld(key, fact, image, game),
         'BRAND': html.escape(config.SITE_NAME),
         'KEY': key,
-        'SONG': html.escape(fact['title']),
-        'ARTIST': html.escape(fact['artist']),
+        'HEADING': html.escape(by),
+        'WHERE': html.escape(song_where(fact, game)),
         'FACTS': html.escape(' / '.join(facts)),
         'SENTENCES': ' '.join(html.escape(t) for t in song_sentences(fact)),
         'PICTURE': picture,
@@ -579,7 +681,11 @@ def render_song_pages(sheets, names, facts=None, resolved=None):
             folder = resolved.folder_by_code.get(fact['code'])
             if folder in slugs:
                 games[key] = {'name': by_folder[folder].name, 'slug': slugs[folder]}
-    return {f'{SONG_DIR}/{key}.html': render_song_page(key, fact, names, games.get(key)) for key, fact in facts.items()}
+    # a custom in two packs shares a title with itself: the pack tells them apart
+    seen = collections.Counter((f['title'].casefold(), f['artist'].casefold()) for f in facts.values())
+    return {f'{SONG_DIR}/{key}.html': render_song_page(key, fact, names, games.get(key),
+                                                       disambiguate=seen[(fact['title'].casefold(), fact['artist'].casefold())] > 1)
+            for key, fact in facts.items()}
 
 
 # Every song, A to Z by title, each a link to its page: the crawl path to the
@@ -622,14 +728,26 @@ def render_songs_index(facts, names):
 
 # Every page a crawler may index: the charts page, the document pages, the
 # song pages; lastmod is the spreadsheet's date when it has one.
-def render_sitemap(files, lastmod=None):
-    base = config.SITE_URL.rstrip('/')
-    when = f'<lastmod>{lastmod:%Y-%m-%d}</lastmod>' if lastmod else ''
+# `dates` is {page name: 'YYYY-MM-DD'}, the day each page's bytes last moved
+# (PageDates, section 24), so lastmod is selective; without it every page
+# carries the spreadsheet's date, as serve does.
+def sitemap_urls(files):
     urls = ['']
     urls += [name for name, _ in labels.DOC_PAGES if name in files]
     for folder in (GAME_DIR, LIST_DIR, SONG_DIR):
         urls += sorted(name for name in files if name.startswith(folder + '/'))
-    body = ''.join(f'<url><loc>{html.escape(base + "/" + name)}</loc>{when}</url>\n' for name in urls)
+    return urls
+
+
+def render_sitemap(files, lastmod=None, dates=None):
+    base = config.SITE_URL.rstrip('/')
+    fallback = f'{lastmod:%Y-%m-%d}' if lastmod else ''
+    urls = sitemap_urls(files)
+
+    def when(name):
+        day = (dates or {}).get(name or 'index.html', fallback)
+        return f'<lastmod>{day}</lastmod>' if day else ''
+    body = ''.join(f'<url><loc>{html.escape(base + "/" + name)}</loc>{when(name)}</url>\n' for name in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + body + '</urlset>\n').encode('utf-8')
 
@@ -653,7 +771,25 @@ def _chart_html(chart):
     if chart is None or chart['d'] is None:
         return labels.MISSING_TEXT
     pct = '' if chart['pct'] is None else f'<small>{chart["pct"]}%</small>'
-    return f'<a href="./?code={html.escape(chart["code"])}">{chart["d"]:.2f}</a>{pct}'
+    return f'<a href="{app_link("code", chart["code"])}">{chart["d"]:.2f}</a>{pct}'
+
+
+# The block under a game or list page's table (section 24): every game page
+# and every list, so a crawler that lands on one reaches all of them.
+def more_html(resolved, list_keys):
+    ui = labels.UI
+    slugs = pack_slugs(resolved)
+    games = ''.join(f'<li><a href="{GAME_DIR}/{slugs[p.folder]}.html">{html.escape(p.name)}</a></li>'
+                    for p in resolved.registry.packs if p.folder in slugs)
+    lists = ''.join(f'<li><a href="{LIST_DIR}/{list_slug(kind, sheet)}.html">{html.escape(list_short_title(kind, sheet))}</a></li>'
+                    for kind, sheet in list_keys)
+    return (f'<div class="more"><h2>{html.escape(ui["more_games"])}</h2><ul>{games}</ul>'
+            f'<h2>{html.escape(ui["more_lists"])}</h2><ul>{lists}</ul></div>')
+
+
+def list_short_title(kind, sheet):
+    key = {'hardest': 'list_short_hardest', 'hardest-customs': 'list_short_custom', 'easiest': 'list_short_easiest'}[kind]
+    return labels.UI[key].format(sheet=sheet.lower())
 
 
 def _kind_of(songs):
@@ -670,7 +806,7 @@ GUITAR_SHEET = next(iter(instruments.SHEET_GROUPS))
 OTHER_PARTS = [instruments.TYPE_LABELS[k] for sheet, keys in instruments.SHEET_GROUPS.items() if sheet != GUITAR_SHEET for k in keys]
 
 
-def render_game_page(pack, slug_, songs, names, tally):
+def render_game_page(pack, slug_, songs, names, tally, more=''):
     ui = labels.UI
     types = list(labels.VALUE_ORDER.get('Type', ()))
     guitar_parts = [t for t in types if t not in OTHER_PARTS]
@@ -700,20 +836,23 @@ def render_game_page(pack, slug_, songs, names, tally):
         parts.append(f'  <p class="note">{html.escape(ui["game_no_guitar"])}</p>')
     body = '<div class="lib">\n' + '\n'.join(parts) + '\n</div>'
     title = ui['game_title'].format(game=pack.name)
-    return render_doc(f'{GAME_DIR}/{slug_}.html', pack.name, body, names, page_title=title,
-                      description=f'{title}: {facts}.')
+    name = f'{GAME_DIR}/{slug_}.html'
+    ld = ld_script(itemlist_ld(title, [(song['title'], f'{SONG_DIR}/{key}.html') for _, _, _, key, song, _ in ranked]),
+                   breadcrumb_ld([(ui['breadcrumb_home'], ''), (pack.name, name)]))
+    return render_doc(name, pack.name, body, names, page_title=title, description=f'{title}: {facts}.', ld=ld, more=more)
 
 
-def render_game_pages(sheets, resolved, names):
+def render_game_pages(sheets, resolved, names, list_keys=()):
     slugs = pack_slugs(resolved)
     by_folder = charts_by_folder(sheets, resolved)
     tally = packs.tally(resolved, frames.codes_in(sheets))
+    more = more_html(resolved, list_keys)
     out = {}
     for pack in resolved.registry.packs:
         songs = by_folder.get(pack.folder)
         if not songs:
             continue
-        out[f'{GAME_DIR}/{slugs[pack.folder]}.html'] = render_game_page(pack, slugs[pack.folder], songs, names, tally)
+        out[f'{GAME_DIR}/{slugs[pack.folder]}.html'] = render_game_page(pack, slugs[pack.folder], songs, names, tally, more)
     return out
 
 
@@ -727,12 +866,11 @@ def list_slug(kind, sheet):
     return f'{kind}-{slug(sheet)}'
 
 
-def render_list_pages(sheets, resolved, names):
-    ui = labels.UI
-    slugs = pack_slugs(resolved)
-    by_name = resolved.registry.by_folder
+# Every list's entries, keyed (kind, sheet), in rank order: [(key, (chart, song, folder))].
+# The keys are the lists the site has, which the More blocks and the front page name.
+def list_pools(sheets, resolved):
     by_folder = charts_by_folder(sheets, resolved)
-    out = {}
+    pools = {}
     for sheet in sheets:
         # every Expert chart on this sheet, by song, keeping each song's extreme
         entries = {}
@@ -751,8 +889,24 @@ def render_list_pages(sheets, resolved, names):
                 pool.append((key, (min if easiest else max)(charts, key=lambda c: c[0]['d'])))
             pool.sort(key=lambda e: (e[1][0]['d'], e[1][1]['title'].casefold()), reverse=not easiest)
             pool = pool[:LIST_MOST]
-            if not pool:
-                continue
+            if pool:
+                pools[(kind, sheet)] = pool
+    return pools
+
+
+LIST_PICTURES = 3
+
+
+def render_list_pages(sheets, resolved, names, facts=None, pools=None):
+    ui = labels.UI
+    slugs = pack_slugs(resolved)
+    by_name = resolved.registry.by_folder
+    pools = list_pools(sheets, resolved) if pools is None else pools
+    more = more_html(resolved, list(pools))
+    out = {}
+    for (kind, sheet), pool in pools.items():
+        official, easiest = next((o, e) for k, o, e in LISTS if k == kind)
+        if True:
             title_key = 'list_easiest' if easiest else ('list_hardest' if official else 'list_hardest_custom')
             title = ui[title_key].format(n=len(pool), sheet=sheet.lower())
             intro = ui['list_intro_official' if official else 'list_intro_custom'].format(sheet=sheet.lower())
@@ -766,9 +920,22 @@ def render_list_pages(sheets, resolved, names):
                 tier = labels.MISSING_TEXT if chart['tier'] is None else str(chart['tier'])
                 rows.append([str(n), f'<a href="{SONG_DIR}/{key}.html">{html.escape(song["title"])}</a>', html.escape(song['artist']),
                              game, html.escape(part), _chart_html(chart), tier])
-            body = '<div class="lib">\n' + f'  <p class="intro">{html.escape(intro)}</p>\n' + _table(head, rows) + '\n</div>'
-            out[f'{LIST_DIR}/{list_slug(kind, sheet)}.html'] = render_doc(
-                f'{LIST_DIR}/{list_slug(kind, sheet)}.html', title, body, names, description=f'{title}, by fretwork\u2019s difficulty D.')
+            # the top entries' pictures (section 24): the song's own graph, the one publish draws
+            pics = []
+            for n, (key, (chart, song, folder)) in enumerate(pool[:LIST_PICTURES], 1):
+                code = song_image_code(facts[key]) if facts and key in facts else None
+                if code is None:
+                    continue
+                by = f'{song["title"]} by {song["artist"]}' if song['artist'] else song['title']
+                pics.append(f'<a href="{SONG_DIR}/{key}.html"><img src="graph/{html.escape(code)}.png" width="1920" height="840" loading="lazy" '
+                            f'alt="{html.escape(labels.t_graph_alt(by, code))}"><b>{n}. {html.escape(song["title"])}</b> {html.escape(song["artist"])}, D {chart["d"]:.2f}</a>')
+            pictures = f'  <p class="pics">{"".join(pics)}</p>\n' if pics else ''
+            body = ('<div class="lib">\n' + f'  <p class="intro">{html.escape(intro)}</p>\n' + f'  <p class="intro">{html.escape(ui["list_method"])}</p>\n'
+                    + pictures + _table(head, rows) + '\n</div>')
+            name = f'{LIST_DIR}/{list_slug(kind, sheet)}.html'
+            ld = ld_script(itemlist_ld(title, [(song['title'], f'{SONG_DIR}/{key}.html') for key, (chart, song, folder) in pool]),
+                           breadcrumb_ld([(ui['breadcrumb_home'], ''), (ui['library'], LIBRARY_PAGE), (title, name)]))
+            out[name] = render_doc(name, title, body, names, description=f'{title}, by fretwork\u2019s difficulty D.', ld=ld, more=more)
     return out
 
 
@@ -822,7 +989,7 @@ def _kind_label(official, custom):
 # frames.counts over the sheets the page serves, and from the pack join, so
 # the page and the table agree. Rendered into doc.html like the changelog:
 # static text, no script but the theme's.
-def render_library(resolved, sheets, names):
+def render_library(resolved, sheets, names, ld=None):
     ui = labels.UI
     stats = frames.counts(sheets)
     levels = list(reversed(labels.VALUE_ORDER['Level']))
@@ -898,13 +1065,13 @@ def render_library(resolved, sheets, names):
             # the title to the song's page (section 21), the number into the table on the chart
             title = (f'<a href="{SONG_DIR}/{html.escape(r["key"])}.html">{html.escape(r["title"])}</a>'
                      if r.get('key') and _KEY.match(r['key']) else html.escape(r['title']))
-            d = f'<a href="./?code={html.escape(r["code"])}">{r["d"]:,.2f}</a>'
+            d = f'<a href="{app_link("code", r["code"])}">{r["d"]:,.2f}</a>'
             tier = labels.MISSING_TEXT if r['tier'] is None else _n(r['tier'])
             rows.append([_n(rank), title, html.escape(r['artist']), html.escape(r['type']), d, tier])
         parts.append(_table([('#', 'r'), (labels.label('Song Title'), ''), (labels.label('Artist'), ''),
                              (labels.label('Type'), ''), (labels.label('D'), 'r'), (labels.label('CalcTier'), 'r')], rows))
         # the full lists (section 22)
-        links = [f'<a href="{LIST_DIR}/{list_slug(kind, sheet)}.html">{html.escape(ui[key].format(n=ui["list_full"], sheet=sheet.lower()))}</a>'
+        links = [f'<a href="{LIST_DIR}/{list_slug(kind, sheet)}.html">{html.escape(list_short_title(kind, sheet))}</a>'
                  for kind, key in (('hardest', 'list_hardest'), ('hardest-customs', 'list_hardest_custom'), ('easiest', 'list_easiest'))]
         parts.append('  <p class="note">' + ' <span class="sep">/</span> '.join(links) + '</p>')
 
@@ -918,7 +1085,7 @@ def render_library(resolved, sheets, names):
         songs, charts = tally[pack.folder]
         # the name to the pack's page (section 22), the date to the table on the Expert charts added with it
         name = f'<a href="{GAME_DIR}/{slugs[pack.folder]}.html">{html.escape(pack.name)}</a>'
-        href = f'./?f.Added={pack.added.strftime(packs.DATE)}&amp;f.Level=Expert'
+        href = f'./#f.Added={pack.added.strftime(packs.DATE)}&amp;f.Level=Expert'
         date = f'<a href="{href}" title="{html.escape(ui["changelog_date_tip"])}">{html.escape(pack.added.strftime(packs.DATE))}</a>'
         source = (f'<a href="{html.escape(pack.source)}" rel="noopener">{html.escape(ui["library_source"])}</a>'
                   if pack.source else '')
@@ -928,14 +1095,15 @@ def render_library(resolved, sheets, names):
                          (ui['library_charts'], 'r'), (labels.label('Official'), ''), (ui['library_source'], '')], rows))
     body = '<div class="lib">\n' + '\n'.join(parts) + '\n</div>'
     return render_doc(LIBRARY_PAGE, ui['library'], body, names, page_title=ui['library_title'],
-                      description=ui['library_desc'].format(charts=_n(stats['rows']), songs=_n(stats['songs']), packs=_n(len(registry.packs))))
+                      description=ui['library_desc'].format(charts=_n(stats['rows']), songs=_n(stats['songs']), packs=_n(len(registry.packs))), ld=ld)
 
 
 # The library page exists exactly when the changelog does: both need the pack join.
-def library_pages(resolved, sheets, names):
+def library_pages(resolved, sheets, names, manifest=None, when=None, stats=None):
     if resolved is None:
         return {}
-    return {LIBRARY_PAGE: render_library(resolved, sheets, names)}
+    ld = ld_script(dataset_ld({**(stats or frames.counts(sheets)), 'packs': len(resolved.registry.packs)}, manifest or {}, when))
+    return {LIBRARY_PAGE: render_library(resolved, sheets, names, ld=ld)}
 
 
 # Which sheet a code's instrument letter lands on, derived from the instrument
@@ -950,6 +1118,94 @@ def sheet_of_code(sheets):
     return out
 
 
+# The front page as a crawler, a reader mode and a visitor without scripts get
+# it (section 24): what the site is in the words people type, the hardest
+# Expert charts per instrument linking their song pages, every game page,
+# every list and the document pages. main.js removes it before the app's
+# first paint. Empty on serve without a pack join, where there are no such pages.
+def static_section(sheets, resolved, stats, list_keys, facts, has_songs_index):
+    ui = labels.UI
+    parts = [f'<h1>{html.escape(ui["home_h1"])}</h1>']
+    intro = ui['home_intro'].format(charts=_n(stats['rows']), songs=_n(stats['songs']),
+                                    packs=_n(len(resolved.registry.packs)) if resolved else '0', engine=labels.ENGINE_REPO)
+    parts.append(f'<p>{rich_text(intro)}</p>')
+    key_of_code = {}
+    for key, fact in (facts or {}).items():
+        for part in fact['parts']:
+            for chart in part['levels'].values():
+                key_of_code[chart['code']] = key
+    for sheet, block in stats['sheets'].items():
+        if not block['hardest']:
+            continue
+        rows = []
+        for n, r in enumerate(block['hardest'], 1):
+            key = key_of_code.get(r['code'])
+            song = (f'<a href="{SONG_DIR}/{key}.html">{html.escape(r["title"])}</a>' if key else html.escape(r['title']))
+            tier = labels.MISSING_TEXT if r['tier'] is None else str(r['tier'])
+            rows.append(f'<tr><td class="r">{n}</td><td>{song}</td><td>{html.escape(r["artist"])}</td><td>{html.escape(r["type"])}</td>'
+                        f'<td class="r">{r["d"]:,.2f}</td><td class="r">{tier}</td></tr>')
+        parts.append(f'<h2>{html.escape(ui["home_hardest"].format(sheet=sheet))}</h2>'
+                     f'<table><thead><tr><th class="r">#</th><th>{html.escape(labels.label("Song Title"))}</th><th>{html.escape(labels.label("Artist"))}</th>'
+                     f'<th>{html.escape(labels.label("Type"))}</th><th class="r">{html.escape(labels.label("D"))}</th><th class="r">{html.escape(labels.label("CalcTier"))}</th></tr></thead>'
+                     f'<tbody>{"".join(rows)}</tbody></table>')
+    if resolved is not None:
+        slugs = pack_slugs(resolved)
+        games = ''.join(f'<li><a href="{GAME_DIR}/{slugs[p.folder]}.html">{html.escape(p.name)}</a></li>'
+                        for p in resolved.registry.packs if p.folder in slugs)
+        if games:
+            parts.append(f'<h2>{html.escape(ui["home_games"])}</h2><ul>{games}</ul>')
+    lists = ''.join(f'<li><a href="{LIST_DIR}/{list_slug(kind, sheet)}.html">{html.escape(list_short_title(kind, sheet))}</a></li>'
+                    for kind, sheet in list_keys)
+    if lists:
+        parts.append(f'<h2>{html.escape(ui["home_lists"])}</h2><ul>{lists}</ul>')
+    docs = ''.join(f'<li><a href="{page}">{html.escape(ui[key])}</a></li>' for page, key in labels.DOC_PAGES
+                   if page != SONGS_PAGE or has_songs_index)
+    parts.append(f'<h2>{html.escape(ui["home_more"])}</h2><ul class="one">{docs}</ul>')
+    return '<section id="static">\n' + '\n'.join(parts) + '\n</section>'
+
+
+# The day each page's bytes last moved (section 24), so the sitemap's lastmod
+# is selective: publish keeps caches/<header>_pagedates.json, {name: [hash8,
+# date]}, and a page keeps its date while its bytes are the same. A page that
+# leaves the site leaves the manifest.
+class PageDates:
+    def __init__(self, previous=None):
+        self.previous = dict(previous or {})
+
+    @classmethod
+    def load(cls, path):
+        try:
+            return cls(json.loads(pathlib.Path(path).read_text(encoding='utf-8')))
+        except (OSError, ValueError):
+            return cls()
+
+    def stamp(self, files, today=None):
+        today = f'{today or datetime.date.today():%Y-%m-%d}'
+        out = {}
+        for name in sitemap_urls(files):
+            name = name or 'index.html'
+            digest = hashlib.sha1(files[name]).hexdigest()[:8]
+            before = self.previous.get(name)
+            out[name] = [digest, before[1] if before and before[0] == digest else today]
+        return out
+
+    @staticmethod
+    def save(path, stamped):
+        path = pathlib.Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(stamped, sort_keys=True), encoding='utf-8')
+
+
+def dates_of(stamped):
+    return {name: day for name, (_, day) in stamped.items()}
+
+
+# Where publish keeps the manifest between runs; serve reads it too, so the
+# sitemap it serves is the one publish wrote, and never writes it.
+def page_dates_path(header):
+    return timestamp.output_dir('cache') / f'{header}_pagedates.json'
+
+
 # What serve and publish both need: (xlsx_path, sheets, total rows, page body).
 # A published page names no internal file: the title is just the site and the
 # strapline is when the data was built. Serving locally keeps both, which is
@@ -958,7 +1214,7 @@ def sheet_of_code(sheets):
 # join: then the Added column is absent and the strapline is plain text. The
 # page-build columns are appended in a fixed order: Added, Copies, Pct, then the
 # link columns (Enchor, Leaderboard) for the links the registry knows.
-def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_path=None):
+def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_path=None, page_dates=None, indexnow_key=None):
     xlsx_path, sheets = frames.load_frames(header, xlsx_path)
     if any(frames.slug(name) == links_mod.SLUG for name in sheets):
         raise ValueError(f'a sheet slugs to {links_mod.SLUG!r}, the name of the links file under data/')
@@ -985,28 +1241,37 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_p
     if published is not None:
         links_file = links_mod.file_name(published)
         files[links_file] = published
+    when = sheet_date(header, xlsx_path)
     files['404.html'] = render_404(names)
     files['about.html'] = render_about(names)
     files['methodology.html'] = render_methodology(names)
     files.update(changelog_pages(resolved, sheets, names))
-    files.update(library_pages(resolved, sheets, names))
+    stats = frames.counts(sheets)
+    files.update(library_pages(resolved, sheets, names, manifest, when, stats))
     facts = song_facts(sheets)
     files.update(render_song_pages(sheets, names, facts, resolved))
     if facts:
         files[SONGS_PAGE] = render_songs_index(facts, names)
+    pools = list_pools(sheets, resolved) if resolved is not None else {}
     if resolved is not None:
-        files.update(render_game_pages(sheets, resolved, names))
-        files.update(render_list_pages(sheets, resolved, names))
+        files.update(render_game_pages(sheets, resolved, names, list(pools)))
+        files.update(render_list_pages(sheets, resolved, names, facts, pools))
     # the graphs publish draws as PNGs: the social preview and each song page's picture (section 22)
     png_codes = list(dict.fromkeys([OG_CODE] + [c for c in (song_image_code(f) for f in facts.values()) if c]))
-    if config.SITE_URL:
-        files[SITEMAP] = render_sitemap(files, sheet_date(header, xlsx_path))
     files['robots.txt'] = robots_txt().encode('utf-8')
+    if indexnow_key:
+        files[f'{indexnow_key}.txt'] = indexnow_key.encode('ascii')
     # the document pages first, so the footer lists only the ones this site has
     # (a serve with no cache has no changelog and no library page)
     doc_pages = [pair for pair in labels.DOC_PAGES if pair[0] in files]
     files['index.html'] = render_page(title, source, names,
                                       boot.boot_json(manifest, sheet_of_code(sheets), links_file, doc_pages,
                                                      site_url=config.SITE_URL if public else None),
-                                      public, linked=resolved is not None)
-    return Built(xlsx_path, sheets, total, files, png_codes)
+                                      public, linked=resolved is not None,
+                                      static_html=static_section(sheets, resolved, stats, list(pools), facts, SONGS_PAGE in files) if public else '')
+    # the dates a page's bytes last moved, then the sitemap that carries them; the
+    # sitemap and the key file are not pages, so they are stamped by neither
+    stamped = page_dates.stamp(files) if page_dates is not None else None
+    if config.SITE_URL:
+        files[SITEMAP] = render_sitemap(files, when, dates_of(stamped) if stamped else None)
+    return Built(xlsx_path, sheets, total, files, png_codes, stamped)

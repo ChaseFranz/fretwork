@@ -48,7 +48,11 @@ export function writeUrl() {
 // ?song= is read and never written: the page resolves it to the song's primary
 // chart and the URL then carries that code.
 export function readUrl() {
-  const got = new URLSearchParams(location.search);
+  // A document page links into the app by fragment (./#code=X, ./#song=K,
+  // section 24), so a crawler sees one front page rather than a query variant
+  // per chart; the fragment reads as the query, and writeUrl then writes the
+  // query form, so the address bar and Copy link are as they were.
+  const got = new URLSearchParams(location.search || (location.hash.length > 1 ? location.hash.slice(1) : ""));
   if (!got.toString()) return { code: null, song: null };
 
   const sheet = got.get("sheet");

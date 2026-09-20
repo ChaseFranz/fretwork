@@ -22,7 +22,16 @@ __THEME__
   body { margin:0; background:var(--bg); color:var(--text); padding:40px 20px 60px;
          font:15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   main { max-width:64ch; margin:0 auto; }
+  p.site { font-size:13px; margin:0 0 .4rem; }
+  p.site a { color:var(--dim); text-decoration:none; }
   h1 { font-size:1.15rem; font-weight:600; margin:0 0 .35rem; }
+  .more { margin:1.5rem 0 0; font-size:13px; }
+  .more h2 { margin:1rem 0 .3rem; }
+  .more ul { columns:2; column-gap:2rem; list-style:none; padding:0; }
+  .lib p.pics { display:flex; flex-wrap:wrap; gap:.8rem; margin:.8rem 0; }
+  .lib p.pics a { flex:1 1 200px; max-width:320px; font-size:12px; color:var(--dim); text-decoration:none; }
+  .lib p.pics img { width:100%; height:auto; border-radius:4px; display:block; margin-bottom:.2rem; }
+  .lib p.pics b { color:var(--text); font-weight:600; }
   .back { font-size:13px; }
   h2 { font-size:12px; text-transform:uppercase; letter-spacing:.6px;
        color:var(--brand); margin:2rem 0 .4rem; }
@@ -85,9 +94,11 @@ __THEME__
 </head>
 <body>
 <main>
-  <h1>__BRAND__</h1>
+  <p class="site"><a href="./">__SITE__</a></p>
+  <h1>__HEADING__</h1>
   <p class="back"><a href="./">__BACK__</a></p>
   __BODY__
+__MORE__
   <hr>
   <ul>__LINKS__</ul>
   <footer>__COPYRIGHT__ <a href="__LICENSE_URL__">__LICENSE_LABEL__</a></footer>

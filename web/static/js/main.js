@@ -51,6 +51,10 @@ function buildFooter() {
     link(UI.license_label, UI.license_url) + "</div>";
 }
 
+// The page a crawler and a reader mode get (section 24): the app replaces it
+// before its first paint, so a visitor with JavaScript never sees both.
+const staticSection = el("static");
+if (staticSection) staticSection.remove();
 labelChrome();
 initTheme();
 buildFooter();

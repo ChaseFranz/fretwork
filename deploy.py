@@ -43,6 +43,9 @@ after changing these values.
 
 import argparse
 import json
+import urllib.error
+import urllib.parse
+import urllib.request
 import os
 import pathlib
 import re
@@ -66,6 +69,11 @@ BUCKET_RE = re.compile(r'^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$')
 BUNDLE_TOP = {'index.html', '404.html', 'about.html', 'changelog.html', 'library.html', 'songs.html', 'methodology.html', 'robots.txt',
               'sitemap.xml', 'static', 'data', 'graph', SONG_DIR, GAME_DIR, LIST_DIR}
 REQUIRED = ('index.html', 'graph/manifest.json')                   # proof it came from publish
+# the IndexNow key file publish writes at the root when .env names a key (section 24)
+KEY_RE = re.compile(r'^[0-9a-f]{32}$')
+KEY_FILE = re.compile(r'^[0-9a-f]{32}\.txt$')
+INDEXNOW = 'https://api.indexnow.org/indexnow'
+INDEXNOW_MOST = 10000
 GRAPHS = assets.GRAPH_DIR
 
 # `aws s3 cp --metadata-directive REPLACE` replaces ALL metadata, and does not
@@ -102,13 +110,16 @@ def settings(env_path):
         sys.exit(f"FRETWORK_BUCKET={values['FRETWORK_BUCKET']!r} is not a valid bucket name")
     header = values.get('FRETWORK_HEADER') or config.HEADER
     site_dir = values.get('FRETWORK_SITE_DIR') or pathlib.Path(config.SITE_DIR) / header
-    return bucket, values.get('FRETWORK_DISTRIBUTION'), header, pathlib.Path(site_dir).expanduser()
+    key = (values.get('FRETWORK_INDEXNOW_KEY') or '').strip().lower()
+    if key and not KEY_RE.match(key):
+        sys.exit(f"FRETWORK_INDEXNOW_KEY must be 32 hex digits, not {values['FRETWORK_INDEXNOW_KEY']!r}")
+    return bucket, values.get('FRETWORK_DISTRIBUTION'), header, pathlib.Path(site_dir).expanduser(), key or None
 
 
 # Anything publish would not have written means this is not the site's own folder.
 def check_site(site_dir, need_output):
     if site_dir.exists():
-        strays = sorted(p.name for p in site_dir.iterdir() if p.name not in BUNDLE_TOP)
+        strays = sorted(p.name for p in site_dir.iterdir() if p.name not in BUNDLE_TOP and not KEY_FILE.match(p.name))
         if strays:
             shown = ', '.join(strays[:5]) + (' ...' if len(strays) > 5 else '')
             sys.exit(f"{site_dir}/ holds files publish did not write ({shown}); refusing to "
@@ -223,8 +234,44 @@ def skipped_dirs(site_dir):
     return [d for d in IMMUTABLE_DIRS if not (pathlib.Path(site_dir) / d).is_dir()]
 
 
+# Tells the IndexNow engines (Bing, Yandex, Seznam, Naver; DuckDuckGo reads
+# Bing) which pages changed: one POST, the key proven by the key file at the
+# root. `urls` are page names; every sitemap URL when nothing more specific is
+# known (a --no-publish deploy). Google takes no part in IndexNow. Returns the
+# request body sent, or None when there is no key or nothing to send; a
+# refusal is printed, never raised, since the site is already deployed.
+def indexnow(key, site_url, names, dry_run=False):
+    if not key or not names:
+        return None
+    base = site_url.rstrip('/')
+    urls = [f'{base}/{n}' if n != 'index.html' else base + '/' for n in list(dict.fromkeys(names))[:INDEXNOW_MOST]]
+    body = {'host': urllib.parse.urlsplit(base).hostname, 'key': key, 'keyLocation': f'{base}/{key}.txt', 'urlList': urls}
+    print(f"    IndexNow: {len(urls)} URL{'s' if len(urls) != 1 else ''}" + ('  (dry run)' if dry_run else ''))
+    if dry_run:
+        return body
+    req = urllib.request.Request(INDEXNOW, data=json.dumps(body).encode('utf-8'),
+                                 headers={'Content-Type': 'application/json; charset=utf-8'}, method='POST')
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            print(f"    IndexNow answered {r.status}")
+    except urllib.error.HTTPError as err:
+        print(f"    IndexNow refused: {err.code} {err.reason}")
+    except (urllib.error.URLError, TimeoutError) as err:
+        print(f"    IndexNow unreachable: {err}")
+    return body
+
+
+def sitemap_names(site_dir):
+    try:
+        text = (pathlib.Path(site_dir) / 'sitemap.xml').read_text(encoding='utf-8')
+    except OSError:
+        return []
+    base = config.SITE_URL.rstrip('/')
+    return [loc[len(base) + 1:] or 'index.html' for loc in re.findall(r'<loc>(.*?)</loc>', text) if loc.startswith(base)]
+
+
 def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False, headers_only=False):
-    bucket, distribution, header, site_dir = settings(env_path)
+    bucket, distribution, header, site_dir, indexnow_key = settings(env_path)
     if not bucket:
         sys.exit(f"FRETWORK_BUCKET is not set - copy .env.example to {env_path} and fill it in")
     if shutil.which('aws') is None:
@@ -239,8 +286,9 @@ def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False, headers_only=False
 
     do_publish = do_publish and not dry_run
     check_site(site_dir, need_output=not do_publish)
+    changed = None
     if do_publish:
-        publish(header=header, out_dir=site_dir)
+        changed = publish(header=header, out_dir=site_dir, indexnow_key=indexnow_key)
         check_site(site_dir, need_output=True)
 
     print(f"\nDeploying {site_dir}/ -> s3://{bucket}/" + ("  (dry run)" if dry_run else ""))
@@ -260,6 +308,12 @@ def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False, headers_only=False
         run(cmd, dry_run)
     if not dry_run:
         verify(bucket, site_dir)
+    # the pages that changed, to the engines that take a list (after the
+    # invalidation, so what they fetch is what was deployed)
+    if indexnow_key and config.SITE_URL:
+        pages = [n for n in (changed if changed is not None else sitemap_names(site_dir))
+                 if n == 'index.html' or n.endswith('.html')]
+        indexnow(indexnow_key, config.SITE_URL, pages, dry_run)
     print("\nDry run - nothing was published or sent\n" if dry_run else "\nDone\n")
 
 
