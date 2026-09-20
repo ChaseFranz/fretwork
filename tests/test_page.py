@@ -197,7 +197,7 @@ class SongPagesTest(unittest.TestCase):
         self.assertEqual(sorted(pages), ['song/0000000000a1.html', 'song/0000000000a2.html', 'song/0000000000a3.html'])
         self.assertTrue(all(len(b) < 5600 for b in pages.values()), [len(b) for b in pages.values()])
         # the game it came in, linked (section 22)
-        self.assertIn('From <a href="game/pack-one.html">Pack One</a>, with every song of that setlist ranked by difficulty.', pages['song/0000000000a1.html'].decode('utf-8'))
+        self.assertIn('From <a href="game/pack-one.html">Pack One</a>, whose every song is ranked by difficulty on its page.', pages['song/0000000000a1.html'].decode('utf-8'))
         self.assertIn('href="game/pack-two.html"', pages['song/0000000000a3.html'].decode('utf-8'))
 
     def test_songs_index(self):
@@ -312,7 +312,7 @@ class GameAndListPagesTest(unittest.TestCase):
         self.assertIn('not a poll', hardest)
         self.assertIn('"@type": "ItemList"', hardest)
         self.assertIn('"name": "The library", "item": "https://fretladder.com/library.html"', hardest)
-        self.assertIn('<div class="more"><h2>Every game on the site</h2><ul><li><a href="game/pack-one.html">Pack One</a></li>', hardest)
+        self.assertIn('<div class="more"><h2>Every source on the site: the games, their DLC and the custom packs</h2><ul><li><a href="game/pack-one.html">Pack One</a></li>', hardest)
         self.assertIn('<a href="list/easiest-bass.html">Easiest bass</a>', hardest)
         self.assertNotIn('<p class="pics">', hardest)
         facts = page.song_facts(self.f)
@@ -345,7 +345,7 @@ class FindabilityTest(unittest.TestCase):
         self.assertEqual(out.count('<h1>'), 1)
         self.assertIn('<h1>Difficulty ratings for Guitar Hero, Rock Band and Clone Hero charts</h1>', out)
         self.assertNotIn('every Guitar Hero', out)
-        self.assertIn('5 charts of 3 songs from 2 games and packs', out)
+        self.assertIn('5 charts of 3 songs from 2 sources, the games, their DLC and the custom packs', out)
         self.assertIn('<a href="https://github.com/Staycation44/fretwork" rel="noopener">fretwork</a>', out)
         # the hardest per sheet link their song pages, the games and lists their pages, the document pages theirs
         self.assertIn('<h2>The hardest Expert Guitar charts</h2>', out)
