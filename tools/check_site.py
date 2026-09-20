@@ -2,12 +2,14 @@
 """
 CHECK_SITE - The live-site checks from README step 7, as one command.
 
-Twelve GET requests against a published fretladder bundle, wherever it is served:
+Fifteen GET requests against a published fretladder bundle, wherever it is served:
 the page and its strapline, compression, the about page, robots.txt, the social
 preview image, the module script and stylesheets by their real names (read out
 of the page, so a renamed asset needs no edit here), the 404 mapping, and the
-shared-link form, the sheet files and the script's cache class. One line per check, then a summary; the exit code is the
-number of failures. Skips are not failures.
+shared-link form, the sheet files and the script's cache class, a song page, the
+front page's guide as a crawler reads it, and the IndexNow key file when the bundle
+holds one. One line per check, then a summary; the exit code is the number of
+failures. Skips are not failures.
 
     python tools/check_site.py                                # https://fretladder.com
     python tools/check_site.py --site site/Local              # and the live strapline must match that bundle's
@@ -22,6 +24,7 @@ Stdlib only and no repo import, so it runs anywhere and a test can load it.
 
 import argparse
 import json
+import os
 import re
 import secrets
 import sys
@@ -87,7 +90,7 @@ class Report:
             print(f'FAIL #{n} {name}: {detail}')
 
 
-def run(base, site_strapline=None, want_strapline=None):
+def run(base, site_strapline=None, want_strapline=None, key_file=None):
     base = base.rstrip('/')
     local = base.startswith('http://')
     rep = Report()
@@ -235,6 +238,25 @@ def run(base, site_strapline=None, want_strapline=None):
         rep.say(13, 'song page', status == 200 and ctype.startswith('text/html') and 'og:title' in text and 'http-equiv="refresh"' not in text,
                 f'{songs[0]}: status {status}, type {ctype!r}, og:title {"present" if "og:title" in text else "absent"}')
 
+    # 14. the front page as a crawler reads it (section 24): the guide in the raw HTML with its one
+    # h1 and links to the song, game and list pages, the WebSite block, and no query variant of the page linked
+    guide = re.search(r'<details id="static" open>(.*?)</details>', page, re.S)
+    words = guide.group(1) if guide else ''
+    rep.say(14, 'front page guide for crawlers',
+            guide is not None and page.count('<h1') == 1 and '<h1>' in words and 'href="song/' in words
+            and 'href="game/' in words and 'href="list/' in words and '"@type": "WebSite"' in page and 'href="./?' not in page,
+            f'guide {"present" if guide else "absent"}, h1 {page.count("<h1")}, song links {words.count(chr(104) + "ref=" + chr(34) + "song/")}, '
+            f'WebSite block {"present" if chr(34) + "WebSite" + chr(34) in page else "absent"}')
+
+    # 15. the IndexNow key file, when the bundle names one: served as text at the root, holding the key
+    if key_file is None:
+        rep.say(15, 'IndexNow key file', True, 'no key file in the bundle' if site_strapline else 'no --site given', skipped=True)
+    else:
+        status, headers, body = fetch(f'{base}/{key_file}')
+        ctype = headers.get('content-type', '')
+        rep.say(15, 'IndexNow key file', status == 200 and ctype.startswith('text/plain') and body.decode('ascii', 'replace').strip() == key_file[:-4],
+                f'{key_file}: status {status}, type {ctype!r}, body {body[:40]!r}')
+
     print(f'{rep.ok + rep.skip + rep.failed} checks: {rep.ok} ok, {rep.skip} skip, {rep.failed} failed')
     return rep.failed
 
@@ -247,13 +269,16 @@ def main():
     group.add_argument('--strapline', help='text the page must contain')
     args = ap.parse_args()
 
-    site_strapline = None
+    site_strapline = key_file = None
     if args.site:
         with open(f'{args.site.rstrip("/")}/index.html', encoding='utf-8') as f:
             site_strapline = strapline(f.read())
         if site_strapline is None:
             sys.exit(f'no strapline found in {args.site}/index.html')
-    sys.exit(run(args.base_url, site_strapline, args.strapline))
+        # the IndexNow key file publish wrote, if any: a 32-hex .txt at the bundle's root
+        keys = [n for n in os.listdir(args.site) if re.fullmatch(r'[0-9a-f]{32}\.txt', n)]
+        key_file = keys[0] if keys else None
+    sys.exit(run(args.base_url, site_strapline, args.strapline, key_file))
 
 
 if __name__ == '__main__':

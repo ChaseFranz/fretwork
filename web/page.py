@@ -138,19 +138,20 @@ def website_ld():
 
 
 # The library as a dataset, which Google Dataset Search indexes: the counts,
-# the engine it is based on, and the sheet files as its distribution.
-def dataset_ld(stats, manifest, when=None):
+# the engine it is based on and what it measures. No distribution: the sheet
+# files are hashed and the next deploy deletes them; and no licence, since the
+# engine's MIT covers its code and the charts are their charters'.
+def dataset_ld(stats, when=None):
     if not config.SITE_URL:
         return None
     base = config.SITE_URL.rstrip('/')
     ld = {'@context': 'https://schema.org', '@type': 'Dataset',
           'name': f'{config.SITE_NAME}: {labels.UI["site_title"]}',
           'description': labels.UI['library_desc'].format(charts=f'{stats["rows"]:,}', songs=f'{stats["songs"]:,}', packs=stats.get('packs', 0)),
-          'url': f'{base}/{LIBRARY_PAGE}', 'license': labels.UI['license_url'], 'isAccessibleForFree': True,
+          'url': f'{base}/{LIBRARY_PAGE}', 'isAccessibleForFree': True,
           'isBasedOn': labels.ENGINE_REPO, 'creator': {'@type': 'Organization', 'name': config.SITE_NAME, 'url': base + '/'},
           'keywords': ['Guitar Hero', 'Rock Band', 'Clone Hero', 'chart difficulty', 'rhythm game'],
-          'distribution': [{'@type': 'DataDownload', 'name': sheet, 'encodingFormat': 'application/json', 'contentUrl': f'{base}/{entry["file"]}'}
-                           for sheet, entry in manifest.items()]}
+          'variableMeasured': [labels.label('D'), labels.label('CalcTier'), labels.label('RemapDiff'), labels.label('Pct')]}
     if when:
         ld['dateModified'] = f'{when:%Y-%m-%d}'
     return ld
@@ -167,6 +168,7 @@ def meta_head(public, canonical='', title=None, description=None):
         url = config.SITE_URL.rstrip('/')
         tags.append(f'<link rel="canonical" href="{html.escape(url)}/{html.escape(canonical)}">')
         for prop, content in (('og:type', 'website'), ('og:url', f'{url}/{canonical}' if canonical else url),
+                              ('og:site_name', config.SITE_NAME),
                               ('og:title', title or site_title()), ('og:description', description),
                               ('og:image', f'{url}/{OG_IMAGE}')):
             tags.append(f'<meta property="{prop}" content="{html.escape(content)}">')
@@ -586,6 +588,22 @@ def song_game_name(fact):
     return fact['release'] if fact['official'] and fact['release'] else labels.UI['song_custom_game']
 
 
+# The description a result shows (section 24): the question, then whole parts
+# while they fit DESCRIPTION_MOST characters, the first part always, so the
+# text a search engine cuts is never cut mid-list.
+DESCRIPTION_MOST = 155
+
+
+def song_description(lead, lines):
+    out = lead
+    for k, line in enumerate(lines):
+        more = ('; ' if k else ' ') + line
+        if k and len(out + more) > DESCRIPTION_MOST:
+            break
+        out += more
+    return out.strip()
+
+
 # The line under a song page's heading: the game, and the pack when the pack
 # is not the game itself.
 def song_where(fact, game):
@@ -629,7 +647,7 @@ def render_song_page(key, fact, names, game=None, disambiguate=False):
     ui = labels.UI
     by = f'{fact["title"]} by {fact["artist"]}' if fact['artist'] else fact['title']
     game_name = song_game_name(fact)
-    if disambiguate and game and not fact['official']:
+    if disambiguate and game and game['name'] != game_name:
         game_name = f'{game_name} ({game["name"]})'
     lines = share_lines(fact)
     lead = ui['song_desc_lead'].format(song=fact['title'], artist=fact['artist'] or labels.MISSING_TEXT, game=song_game_name(fact))
@@ -652,7 +670,7 @@ def render_song_page(key, fact, names, game=None, disambiguate=False):
     values = {
         'TITLE': html.escape(ui['song_page_title'].format(song=by, game=game_name, site=config.SITE_NAME)),
         'FAVICON': names['favicon'],
-        'META': song_meta(key, by, ' '.join([lead, '; '.join(lines)]).strip(), image),
+        'META': song_meta(key, by, song_description(lead, lines), image),
         'THEME': THEME_SCRIPT,
         'LD': song_ld(key, fact, image, game),
         'BRAND': html.escape(config.SITE_NAME),
@@ -889,12 +907,13 @@ def list_pools(sheets, resolved):
                 pool.append((key, (min if easiest else max)(charts, key=lambda c: c[0]['d'])))
             pool.sort(key=lambda e: (e[1][0]['d'], e[1][1]['title'].casefold()), reverse=not easiest)
             pool = pool[:LIST_MOST]
-            if pool:
+            if len(pool) >= LIST_LEAST:
                 pools[(kind, sheet)] = pool
     return pools
 
 
 LIST_PICTURES = 3
+LIST_LEAST = 2      # "The 1 hardest ..." is not a list; a sheet with one song has no page (section 24)
 
 
 def render_list_pages(sheets, resolved, names, facts=None, pools=None):
@@ -1102,7 +1121,7 @@ def render_library(resolved, sheets, names, ld=None):
 def library_pages(resolved, sheets, names, manifest=None, when=None, stats=None):
     if resolved is None:
         return {}
-    ld = ld_script(dataset_ld({**(stats or frames.counts(sheets)), 'packs': len(resolved.registry.packs)}, manifest or {}, when))
+    ld = ld_script(dataset_ld({**(stats or frames.counts(sheets)), 'packs': len(resolved.registry.packs)}, when))
     return {LIBRARY_PAGE: render_library(resolved, sheets, names, ld=ld)}
 
 
@@ -1118,14 +1137,19 @@ def sheet_of_code(sheets):
     return out
 
 
-# The front page as a crawler, a reader mode and a visitor without scripts get
-# it (section 24): what the site is in the words people type, the hardest
-# Expert charts per instrument linking their song pages, every game page,
-# every list and the document pages. main.js removes it before the app's
-# first paint. Empty on serve without a pack join, where there are no such pages.
+# The front page's guide (section 24): what the site is in the words people
+# type, the hardest Expert charts per instrument linking their song pages,
+# every game page, every list and the document pages, as a <details> block
+# above the footer. Open in the HTML, so a crawler that does not run scripts,
+# a reader mode and a visitor without scripts get a page; closed by the inline
+# script right after it, before the first paint, so a visitor with scripts
+# sees the app with one summary line under the table and can open it. The
+# same content for everyone, and in the DOM Google renders: nothing is removed
+# or hidden from one and shown to the other. Empty on serve without a pack
+# join, where there are no such pages.
 def static_section(sheets, resolved, stats, list_keys, facts, has_songs_index):
     ui = labels.UI
-    parts = [f'<h1>{html.escape(ui["home_h1"])}</h1>']
+    parts = [f'<summary>{html.escape(ui["home_summary"])}</summary>', f'<h1>{html.escape(ui["home_h1"])}</h1>']
     intro = ui['home_intro'].format(charts=_n(stats['rows']), songs=_n(stats['songs']),
                                     packs=_n(len(resolved.registry.packs)) if resolved else '0', engine=labels.ENGINE_REPO)
     parts.append(f'<p>{rich_text(intro)}</p>')
@@ -1161,7 +1185,8 @@ def static_section(sheets, resolved, stats, list_keys, facts, has_songs_index):
     docs = ''.join(f'<li><a href="{page}">{html.escape(ui[key])}</a></li>' for page, key in labels.DOC_PAGES
                    if page != SONGS_PAGE or has_songs_index)
     parts.append(f'<h2>{html.escape(ui["home_more"])}</h2><ul class="one">{docs}</ul>')
-    return '<section id="static">\n' + '\n'.join(parts) + '\n</section>'
+    return ('<details id="static" open>\n' + '\n'.join(parts) + '\n</details>\n'
+            '<script>document.getElementById("static").open=false</script>')
 
 
 # The day each page's bytes last moved (section 24), so the sitemap's lastmod

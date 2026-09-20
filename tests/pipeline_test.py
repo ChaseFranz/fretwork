@@ -312,7 +312,7 @@ def run_all(work, header, args):
              'publish should refuse the fixture without its registry, before writing anything')
     st.run('publish.py', '--header', header, '--no-bootstrap', '--packs', str(registry))
     st.check('spreadsheet is from' not in st.out, 'publish complained about the pair')
-    st.check(sorted(os.listdir(site)) == sorted(deploy.BUNDLE_TOP), f'site holds {sorted(os.listdir(site))}')
+    st.check(sorted(n for n in os.listdir(site) if not deploy.KEY_FILE.match(n)) == sorted(deploy.BUNDLE_TOP), f'site holds {sorted(os.listdir(site))}')
     changelog = (site / 'changelog.html').read_text(encoding='utf-8')
     st.check(changelog.count('<h2') == 3 and f'{len(lib.charted)} songs' in changelog
              and f'{sum(lib.rows_by_sheet.values())} charts' in changelog and not PLACEHOLDER.search(changelog),
@@ -337,10 +337,11 @@ def run_all(work, header, args):
     st.check(len(index) < 42000, f'index.html is {len(index)} bytes with the fallback CSS inlined; the rows should be in data/')
     # section 24: the page a crawler gets, before any script runs: one h1, the words, the hardest linking their
     # song pages, every game page and list linked, the WebSite block; and the brand is not the h1
-    static = re.search(r'<section id="static">(.*?)</section>', index, re.S)
-    st.check(static is not None and index.count('<h1') == 1 and '<h1>' in static.group(1)
-             and 'Difficulty ratings for every Guitar Hero, Rock Band and Clone Hero chart' in static.group(1)
-             and '<p class="h6 mb-0 fw-semibold" id="brand">' in index, 'the static section and the one h1')
+    static = re.search(r'<details id="static" open>(.*?)</details>\n<script>document.getElementById\("static"\).open=false</script>', index, re.S)
+    st.check(static is not None and index.count('<h1') == 1 and '<h1>' in static.group(1) and '<summary>' in static.group(1)
+             and 'Difficulty ratings for Guitar Hero, Rock Band and Clone Hero charts' in static.group(1)
+             and '<p class="h6 mb-0 fw-semibold" id="brand">' in index and index.index('<details id="static"') > index.index('id="body"')
+             and index.index('<details id="static"') < index.index('<footer'), 'the guide: a details block above the footer, the one h1')
     game_files = sorted(p.name for p in (site / 'game').iterdir())
     st.check(static is not None and all(f'href="game/{g}"' in static.group(1) for g in game_files)
              and all(f'href="list/{l}"' in static.group(1) for l in sorted(p.name for p in (site / 'list').iterdir()))
@@ -441,7 +442,7 @@ def run_all(work, header, args):
     st.check(one.count('<script') == 3 and 'og:title' in one and f'#song={song_pages[0][:-5]}' in one
              and 'if(location.search)location.replace(location.search)' in one and 'http-equiv="refresh"' not in one
              and '"@type": "MusicRecording"' in one and one.count('href="./#code=') >= 1 and './?' not in one and '<base href="../">' in one
-             and '"@type": "BreadcrumbList"' in one and 'chart difficulty - ' in one and 'How hard is ' in one
+             and '"@type": "BreadcrumbList"' in one and 'chart difficulty</title>' in one and 'How hard is ' in one
              and len(one) < 6000 and not re.search(r'__(TITLE|FAVICON|META|THEME|KEY|SONG|ARTIST|FACTS|SENTENCES|PICTURE|TABLE|GAME|NOTE|OPEN|LD|BRAND)__', one)   # A2's title is __SHOUT__ on purpose
              and assets.cache_class(f'song/{song_pages[0]}') == assets.CACHE_WEEK,
              f'song page: {len(one)} bytes, {one.count("<script")} scripts')
@@ -450,7 +451,8 @@ def run_all(work, header, args):
     lists = sorted(p.name for p in (site / 'list').iterdir())
     st.check(len(games) == 3 and all(re.fullmatch(r'[a-z0-9-]+\.html', g) for g in games), f'game/ holds {games}')
     st.check(len(lists) >= 3 and 'hardest-guitar.html' in lists and 'easiest-guitar.html' in lists, f'list/ holds {lists}')
-    st.check('hardest-drums.html' in lists and 'hardest-vocals.html' in lists, f'the drums and vocals lists: {lists}')
+    # the fixture's two vocals songs make a list; its one official drums song does not (LIST_LEAST, section 24)
+    st.check('hardest-vocals.html' in lists and 'hardest-drums.html' not in lists, f'the vocals list and no one-song drums list: {lists}')
     game_page = (site / 'game' / games[0]).read_text(encoding='utf-8')
     st.check('song list ranked by difficulty' in game_page and '<base href="../">' in game_page and 'href="song/' in game_page
              and game_page.count('<script>') == 1 and '"@type": "ItemList"' in game_page and '"@type": "BreadcrumbList"' in game_page
@@ -488,7 +490,7 @@ def run_all(work, header, args):
     st.check(static == want_static, f'static files {static} vs {want_static}')
     st.check(all(re.fullmatch(r'[a-z]+\.[0-9a-f]{8}\.(js|css|svg)', n) for n in static), 'a static file is not hashed')
     st.check(re.search(r'<script type="module" src="static/app\.[0-9a-f]{8}\.js"></script>', index) is not None
-             and index.count('<script') == 4 and index.index(page.THEME_SCRIPT) < index.index('<link rel="stylesheet"'), 'the module tag and the theme script before the styles')
+             and index.count('<script') == 5 and index.index(page.THEME_SCRIPT) < index.index('<link rel="stylesheet"'), 'the module tag and the theme script before the styles')
     st.check(page.THEME_SCRIPT in (site / '404.html').read_text(encoding='utf-8'), 'the 404 page carries the theme script')
     st.done(f'{len(codes)} graphs, {len(static)} hashed static files, {len(data_files)} sheet files, fallback styles inlined')
 
@@ -497,7 +499,8 @@ def run_all(work, header, args):
         st = Stage('publish (bootstrap)', work, env, args.python)
         css = pathlib.Path(args.bootstrap_css)
         shutil.copy(css, work / 'caches' / f'bootstrap-{bootstrap.BOOTSTRAP_VERSION}.min.css')
-        st.run('publish.py', '--header', header, '--packs', str(registry))
+        st.run('publish.py', '--header', header, '--packs', str(registry), '--indexnow-key', INDEXNOW_KEY.upper())
+        st.check((site / f'{INDEXNOW_KEY}.txt').read_text(encoding='ascii') == INDEXNOW_KEY, 'the IndexNow key file, lowercased, at the root')
         boot_files = list((site / 'static').glob('bootstrap.*.css'))
         st.check(len(boot_files) == 1 and boot_files[0].read_bytes() == css.read_bytes(), 'hashed bootstrap.css differs from the source')
         index = (site / 'index.html').read_text(encoding='utf-8')
@@ -513,7 +516,7 @@ def run_all(work, header, args):
                  f'pagedates after a second publish: song {dates[f"song/{aged_song}"][1]}, index {dates["index.html"][1]}')
         st.check(re.search(rf'curves: 0 rendered, {len(codes)} unchanged', st.out), 'curves re-rendered on a no-op')
         st.check(len(list((site / 'graph').glob('*.png'))) == len(lib.charted) and re.search(r'pictures: 0 rendered, \d+ unchanged', st.out), 'the song pictures were re-rendered or lost on the second publish')
-        st.check(sorted(os.listdir(site)) == sorted(deploy.BUNDLE_TOP), f'site holds {sorted(os.listdir(site))}')
+        st.check(sorted(n for n in os.listdir(site) if not deploy.KEY_FILE.match(n)) == sorted(deploy.BUNDLE_TOP), f'site holds {sorted(os.listdir(site))}')
         st.done('bootstrap linked, 0 graphs re-rendered')
     else:
         print('skip publish (bootstrap): no --bootstrap-css given')
@@ -523,6 +526,7 @@ def run_all(work, header, args):
     log.write_text('')
     st.run('deploy.py', '--env', 'indexnow.env', '--dry-run')
     st.check('IndexNow: ' in st.out and '(dry run)' in st.out and 'IndexNow answered' not in st.out, 'the dry run names IndexNow and sends nothing')
+    st.check((site / f'{INDEXNOW_KEY}.txt').is_file(), 'the key file is in the folder the dry run accepted (deploy.KEY_FILE lets it past the guard)')
     lines = log.read_text().splitlines()
     st.check(len(lines) == 9 and all(l.startswith('s3 sync') and l.endswith('--dryrun') for l in lines), f'aws.log {lines}')
     st.check(f"site/{header}/graph/ s3://fixture-bucket/graph/ --delete --cache-control 'public, max-age=604800'" in lines[0], lines[0])
@@ -573,13 +577,15 @@ def run_all(work, header, args):
                 break
             except Exception:
                 time.sleep(0.1)
-        proc = st.run('tools/check_site.py', f'http://127.0.0.1:{port}', expect=None)
+        proc = st.run('tools/check_site.py', f'http://127.0.0.1:{port}', '--site', str(site), expect=None)   # --site: the strapline and the key file from the bundle
     finally:
         server.terminate()
         server.wait(timeout=10)
     st.check(proc.returncode == 0, f'check_site exited {proc.returncode}')
-    st.check(st.out.count('\nok  ') + st.out.startswith('ok  ') == 10 and st.out.count('skip ') == 3, 'expected 10 ok and 3 skip')
-    st.done('9 ok, 3 skip against the fixture bundle')
+    # fifteen checks since section 24: the guide (#14) and the key file (#15) pass here; the plain file server skips
+    # compression and the immutable header, and the fixture has no social preview chart
+    st.check(st.out.count('\nok  ') + st.out.startswith('ok  ') == 12 and st.out.count('skip ') == 3, 'expected 12 ok and 3 skip')
+    st.done('12 ok, 3 skip against the fixture bundle')
 
     # ---- section 00: the in-process assertions that need outputs ---------------------------
     st = Stage('section 00', work, env, args.python)

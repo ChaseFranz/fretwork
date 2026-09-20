@@ -51,10 +51,17 @@ function buildFooter() {
     link(UI.license_label, UI.license_url) + "</div>";
 }
 
-// The page a crawler and a reader mode get (section 24): the app replaces it
-// before its first paint, so a visitor with JavaScript never sees both.
-const staticSection = el("static");
-if (staticSection) staticSection.remove();
+// The site guide above the footer (section 24): open in the HTML for a crawler
+// and a visitor without scripts, closed by the inline script after it before
+// the first paint; closed here too in case that script did not run. It stays
+// in the DOM, the same content for everyone and for the renderer Google indexes.
+const guide = el("static");
+if (guide) guide.open = false;
+// A fragment link (./#code=X) pasted into a tab where the app is already open
+// only changes the hash: navigate to its query form, which readUrl handles.
+window.addEventListener("hashchange", () => {
+  if (location.hash.length > 1 && location.hash.includes("=")) location.replace(location.pathname + "?" + location.hash.slice(1));
+});
 labelChrome();
 initTheme();
 buildFooter();

@@ -384,8 +384,9 @@ function gripDown(e) {
 }
 function gripMove(e) {
   if (!paneDrag) return;
-  const head = document.querySelector(".fw-head"), foot = document.querySelector(".fw-foot");
-  const room = window.innerHeight - (head ? head.offsetHeight : 0) - (foot ? foot.offsetHeight : 0) - 120;
+  // the header, the footer and the site guide's summary line (section 24) keep their rows; the table keeps 120px
+  const head = document.querySelector(".fw-head"), foot = document.querySelector(".fw-foot"), guide = document.getElementById("static");
+  const room = window.innerHeight - (head ? head.offsetHeight : 0) - (foot ? foot.offsetHeight : 0) - (guide ? guide.offsetHeight : 0) - 120;
   state.paneH = Math.round(Math.max(PANE_MIN, Math.min(Math.max(room, PANE_MIN), paneDrag.height + (paneDrag.from - e.clientY))));
   pane().style.height = state.paneH + "px";
 }
