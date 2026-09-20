@@ -445,7 +445,7 @@ def song_image_code(fact):
 
 # The packs as pages (section 22): a slug per registered pack from its name,
 # made unique in registry order, and the folder each song's primary chart is
-# in, so a song page can name its game and a game page can list its songs.
+# in, so a song page can name its source and a source page can list its songs.
 def slug(name):
     out = re.sub(r'[^a-z0-9]+', '-', str(name).casefold()).strip('-')
     return out or 'pack'
@@ -463,7 +463,7 @@ def pack_slugs(resolved):
     return slugs
 
 
-# Every Expert chart by the folder it is in, by song, by part: what a game page
+# Every Expert chart by the folder it is in, by song, by part: what a source page
 # lists. A song shipped in two packs appears on both pages with each pack's own
 # numbers (they are the same chart when the notes are).
 def charts_by_folder(sheets, resolved):
@@ -582,10 +582,11 @@ def song_ld(key, fact, image=None, game=None):
     return json.dumps([ld, breadcrumb_ld(crumbs)], ensure_ascii=False).replace('<', '\\u003c')
 
 
-# The game a song page names in its title (section 24): the release it was
-# matched to, or Clone Hero for a custom, which is the word people type.
-def song_game_name(fact):
-    return fact['release'] if fact['official'] and fact['release'] else labels.UI['song_custom_game']
+# The source a song page names in its title (section 24): the release it was
+# matched to (a game or a game's DLC), or Clone Hero for a custom, which is
+# the word people type.
+def song_source_name(fact):
+    return fact['release'] if fact['official'] and fact['release'] else labels.UI['song_custom_source']
 
 
 # The description a result shows (section 24): the question, then whole parts
@@ -604,15 +605,15 @@ def song_description(lead, lines):
     return out.strip()
 
 
-# The line under a song page's heading: the game, and the pack when the pack
-# is not the game itself.
+# The line under a song page's heading: the source, and the pack when the
+# pack is not the source itself (a DLC pack under a game's release name).
 def song_where(fact, game):
     ui = labels.UI
     pack = game['name'] if game else ''
     if fact['official'] and fact['release']:
         if pack and pack != fact['release']:
-            return ui['song_where'].format(game=fact['release'], pack=pack)
-        return ui['song_where_game'].format(game=fact['release'])
+            return ui['song_where'].format(source=fact['release'], pack=pack)
+        return ui['song_where_source'].format(source=fact['release'])
     return ui['song_where_custom'].format(pack=pack) if pack else ui['song_where_custom_only']
 
 
@@ -646,11 +647,11 @@ def song_sentences(fact):
 def render_song_page(key, fact, names, game=None, disambiguate=False):
     ui = labels.UI
     by = f'{fact["title"]} by {fact["artist"]}' if fact['artist'] else fact['title']
-    game_name = song_game_name(fact)
+    game_name = song_source_name(fact)
     if disambiguate and game and game['name'] != game_name:
         game_name = f'{game_name} ({game["name"]})'
     lines = share_lines(fact)
-    lead = ui['song_desc_lead'].format(song=fact['title'], artist=fact['artist'] or labels.MISSING_TEXT, game=song_game_name(fact))
+    lead = ui['song_desc_lead'].format(song=fact['title'], artist=fact['artist'] or labels.MISSING_TEXT, source=song_source_name(fact))
     kind = labels.VALUE_LABELS.get('Official', {}).get('true' if fact['official'] else 'false', '')
     facts = [v for v in (fact['charter'], fact['release'], kind, fact['album'],
                          str(fact['year']) if fact['year'] else '', fact['genre']) if v]
@@ -660,15 +661,15 @@ def render_song_page(key, fact, names, game=None, disambiguate=False):
     picture = ('' if image is None else
                f'<p class="pic"><a href="{app_link("code", image)}"><img src="graph/{html.escape(image)}.png" width="1920" height="840" loading="lazy" '
                f'alt="{html.escape(labels.t_graph_alt(by, image))}"></a></p>')
-    # the game it came in, when the registry names one
+    # the source it came in, when the registry names one
     where = ''
     if game:
         # the anchor is built here: rich_text admits bare page names only, and this one is under game/
-        before, _, after = ui['song_game'].partition('{game}')
+        before, _, after = ui['song_source'].partition('{source}')
         where = ('<p class="game">' + html.escape(before) +
                  f'<a href="{GAME_DIR}/{html.escape(game["slug"])}.html">{html.escape(game["name"])}</a>' + html.escape(after) + '</p>')
     values = {
-        'TITLE': html.escape(ui['song_page_title'].format(song=by, game=game_name, site=config.SITE_NAME)),
+        'TITLE': html.escape(ui['song_page_title'].format(song=by, source=game_name, site=config.SITE_NAME)),
         'FAVICON': names['favicon'],
         'META': song_meta(key, by, song_description(lead, lines), image),
         'THEME': THEME_SCRIPT,
@@ -777,7 +778,8 @@ def sheet_date(header, xlsx_path):
         return None
 
 
-# --- a page per game or pack, and the ranked lists (section 22) --------------------------
+# --- a page per source (the registry's packs: a game, a game's DLC or a custom pack;
+# the folder is game/, named before the distinction) and the ranked lists (section 22) ---
 
 GAME_DIR = assets.GAME_DIR
 LIST_DIR = assets.LIST_DIR
@@ -792,7 +794,7 @@ def _chart_html(chart):
     return f'<a href="{app_link("code", chart["code"])}">{chart["d"]:.2f}</a>{pct}'
 
 
-# The block under a game or list page's table (section 24): every game page
+# The block under a source or list page's table (section 24): every source page
 # and every list, so a crawler that lands on one reaches all of them.
 def more_html(resolved, list_keys):
     ui = labels.UI
@@ -801,7 +803,7 @@ def more_html(resolved, list_keys):
                     for p in resolved.registry.packs if p.folder in slugs)
     lists = ''.join(f'<li><a href="{LIST_DIR}/{list_slug(kind, sheet)}.html">{html.escape(list_short_title(kind, sheet))}</a></li>'
                     for kind, sheet in list_keys)
-    return (f'<div class="more"><h2>{html.escape(ui["more_games"])}</h2><ul>{games}</ul>'
+    return (f'<div class="more"><h2>{html.escape(ui["more_sources"])}</h2><ul>{games}</ul>'
             f'<h2>{html.escape(ui["more_lists"])}</h2><ul>{lists}</ul></div>')
 
 
@@ -846,14 +848,14 @@ def render_game_page(pack, slug_, songs, names, tally, more=''):
         rows.append([str(n), f'<a href="{SONG_DIR}/{key}.html">{html.escape(song["title"])}</a>', html.escape(song['artist']),
                      _chart_html(g), tier, *(_chart_html(song['parts'].get(part)) for part in OTHER_PARTS)])
     n_songs, n_charts = tally.get(pack.folder, (len(songs), 0))
-    facts = ui['game_facts'].format(songs=_n(n_songs), charts=_n(n_charts), kind=_kind_of(songs).lower(), date=fmt_date(pack.added))
-    parts = [f'  <p class="intro">{html.escape(ui["game_intro"].format(game=pack.name))}</p>',
+    facts = ui['source_facts'].format(songs=_n(n_songs), charts=_n(n_charts), kind=_kind_of(songs).lower(), date=fmt_date(pack.added))
+    parts = [f'  <p class="intro">{html.escape(ui["source_intro"].format(source=pack.name))}</p>',
              '  <p class="totals">' + html.escape(facts) + (f' <a href="{html.escape(pack.source)}" rel="noopener">{html.escape(ui["library_source"])}</a>' if pack.source else '') + '</p>',
              _table(head, rows)]
     if any(g is None for *_, g in ranked):
-        parts.append(f'  <p class="note">{html.escape(ui["game_no_guitar"])}</p>')
+        parts.append(f'  <p class="note">{html.escape(ui["source_no_guitar"])}</p>')
     body = '<div class="lib">\n' + '\n'.join(parts) + '\n</div>'
-    title = ui['game_title'].format(game=pack.name)
+    title = ui['source_title'].format(source=pack.name)
     name = f'{GAME_DIR}/{slug_}.html'
     ld = ld_script(itemlist_ld(title, [(song['title'], f'{SONG_DIR}/{key}.html') for _, _, _, key, song, _ in ranked]),
                    breadcrumb_ld([(ui['breadcrumb_home'], ''), (pack.name, name)]))
@@ -876,7 +878,7 @@ def render_game_pages(sheets, resolved, names, list_keys=()):
 
 # The lists: per sheet, the hardest official songs, the hardest customs and
 # the easiest official songs on Expert, one entry per song at its hardest (or
-# easiest) part, LIST_MOST at most. The game column links the pack's page.
+# easiest) part, LIST_MOST at most. The source column links the pack's page.
 LISTS = (('hardest', True, False), ('hardest-customs', False, False), ('easiest', True, True))
 
 
@@ -929,7 +931,7 @@ def render_list_pages(sheets, resolved, names, facts=None, pools=None):
             title_key = 'list_easiest' if easiest else ('list_hardest' if official else 'list_hardest_custom')
             title = ui[title_key].format(n=len(pool), sheet=sheet.lower())
             intro = ui['list_intro_official' if official else 'list_intro_custom'].format(sheet=sheet.lower())
-            head = [('#', 'r'), (labels.label('Song Title'), ''), (labels.label('Artist'), ''), (ui['list_game'], ''),
+            head = [('#', 'r'), (labels.label('Song Title'), ''), (labels.label('Artist'), ''), (ui['list_source'], ''),
                     (labels.label('Type'), ''), (labels.label('D'), 'r'), (labels.label('CalcTier'), 'r')]
             rows = []
             for n, (key, (chart, song, folder)) in enumerate(pool, 1):
@@ -1177,7 +1179,7 @@ def static_section(sheets, resolved, stats, list_keys, facts, has_songs_index):
         games = ''.join(f'<li><a href="{GAME_DIR}/{slugs[p.folder]}.html">{html.escape(p.name)}</a></li>'
                         for p in resolved.registry.packs if p.folder in slugs)
         if games:
-            parts.append(f'<h2>{html.escape(ui["home_games"])}</h2><ul>{games}</ul>')
+            parts.append(f'<h2>{html.escape(ui["home_sources"])}</h2><ul>{games}</ul>')
     lists = ''.join(f'<li><a href="{LIST_DIR}/{list_slug(kind, sheet)}.html">{html.escape(list_short_title(kind, sheet))}</a></li>'
                     for kind, sheet in list_keys)
     if lists:
