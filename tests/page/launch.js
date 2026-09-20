@@ -15,9 +15,15 @@ say("no query string on the opening view", location.search === "", location.sear
 say("brand is the site name", document.getElementById("brand").textContent.startsWith(UI.title),
     document.getElementById("brand").textContent);
 // section 24: the section a crawler reads is gone once the app has booted, and the brand is not a heading
-say("the static section is removed at boot", document.getElementById("static") === null);
-say("no h1 is left in the app, and the brand is a paragraph", document.querySelectorAll("h1").length === 0 && document.getElementById("brand").tagName === "P",
+const guide = document.getElementById("static");
+say("the guide is in the DOM, closed, between the table and the footer", guide && guide.tagName === "DETAILS" && !guide.open &&
+    (guide.compareDocumentPosition(document.getElementById("foot")) & Node.DOCUMENT_POSITION_FOLLOWING) && (document.getElementById("body").compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING),
+    guide && (guide.tagName + " open=" + guide.open));
+say("it holds the page's one h1 and the brand is a paragraph", document.querySelectorAll("h1").length === 1 && guide.querySelector("h1") !== null && document.getElementById("brand").tagName === "P",
     document.querySelectorAll("h1").length + " " + document.getElementById("brand").tagName);
+say("its summary is one short line and it opens on a click", guide.querySelector("summary").getBoundingClientRect().height < 40 && (click(guide.querySelector("summary")), guide.open),
+    guide.querySelector("summary").getBoundingClientRect().height);
+guide.open = false;
 say("strapline is a public one", /^Updated \d{1,2} [A-Z][a-z]+ \d{4}  -  [\d,]+ charts$/
     .test(document.getElementById("src").textContent), document.getElementById("src").textContent);
 say("Expert is the only lit level", JSON.stringify(lit("levels")) === '["Expert"]', lit("levels"));

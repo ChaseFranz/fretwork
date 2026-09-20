@@ -178,6 +178,21 @@ class IndexNowTest(unittest.TestCase):
         with unittest.mock.patch.object(deploy.urllib.request, 'urlopen', refuse), contextlib.redirect_stdout(io.StringIO()) as out:
             self.assertIsNotNone(deploy.indexnow(key, 'https://fretladder.com', ['about.html']))
         self.assertIn('IndexNow refused: 422', out.getvalue())
+        # a reset or a bad status line escapes urllib as http.client's own or a bare OSError: printed, never raised
+        import http.client
+        for exc in (http.client.RemoteDisconnected('closed'), http.client.BadStatusLine('x'), ConnectionResetError(104, 'reset')):
+            def drop(req, timeout=0, exc=exc):
+                raise exc
+            with unittest.mock.patch.object(deploy.urllib.request, 'urlopen', drop), contextlib.redirect_stdout(io.StringIO()) as out:
+                self.assertIsNotNone(deploy.indexnow(key, 'https://fretladder.com', ['about.html']))
+            self.assertIn('IndexNow unreachable', out.getvalue())
+
+    def test_the_cap_is_said(self):
+        key = 'ef' * 16
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            body = deploy.indexnow(key, 'https://fretladder.com', [f'song/{i:012x}.html' for i in range(10_004)], dry_run=True)
+        self.assertEqual(len(body['urlList']), 10_000)
+        self.assertIn('4 not sent', out.getvalue())
 
     def test_key_setting_and_key_file(self):
         with tempfile.TemporaryDirectory() as tmp:

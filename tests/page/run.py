@@ -68,6 +68,14 @@ def _second_sheet_code(plain):
     return sheet, file["rows"][0][file["columns"].index("Code")]
 
 
+# every code on a sheet, in the sheet's own order
+def _sheet_codes(plain, sheet):
+    data = json.loads(ISLAND.search(plain.read_text(encoding="utf-8")).group(1))["data"]
+    file = json.loads((plain.parent / data[sheet]["file"]).read_text(encoding="utf-8"))
+    at = file["columns"].index("Code")
+    return [r[at] for r in file["rows"]]
+
+
 # All levels named, so the opening chips (Official, Expert) do not narrow the view.
 ALL_LEVELS = "&f.Level=Expert,Hard,Medium,Easy"
 
@@ -172,9 +180,16 @@ def bass_code_query_with_sheet(plain):
     return "?" + urllib.parse.urlencode({"sheet": sheet, "code": code})
 
 
-# the fragment form a document page links (section 24): ./#code=X
+# the fragment form a document page links (section 24): ./#code=X, and a comparison, ./#code=X&vs=Y
 def bass_code_fragment(plain):
     return "#code=" + _second_sheet_code(plain)[1]
+
+
+def bass_code_fragment_with_vs(plain):
+    sheet, code = _second_sheet_code(plain)
+    codes = _sheet_codes(plain, sheet)
+    other = next((c for c in codes if c != code), code)
+    return "#code=" + code + "&vs=" + other
 
 
 # Optional keys: queries (strings or callables taking plain.html; one launch each),
@@ -186,7 +201,7 @@ SUITES = [
     ("order.js",     {}),
     ("keys.js",      {}),
     ("launch.js",    {}),
-    ("fragment.js",  {"queries": [bass_code_fragment]}),
+    ("fragment.js",  {"queries": [bass_code_fragment, bass_code_fragment_with_vs]}),
     ("roundtrip.js", {"queries": [roundtrip_query], "storage": {"fw.hidden": '["Artist"]'}}),   # a stale saved hidden set, no fw.v
     ("load.js",      {"queries": [bass_code_query, bass_code_query_with_sheet, ""], "delay": {"data/": 2000}}),   # long enough for a slow CI runner to evaluate the suite first
     ("fields.js",    {"queries": ["", "?r.Difficulty=:3", "?r.Year=2000:2010", album_query, genre_query]}),
@@ -239,7 +254,7 @@ def stage(site, work, suites):
     found = ANCHOR.findall(src)
     assert len(found) == 1, f"module tag found {len(found)} times, expected once"
     anchor = found[0]
-    assert src.count("<script") == 4, "index.html should hold the theme script, the WebSite block, the island and one module tag"
+    assert src.count("<script") == 5, "index.html should hold the theme script, the WebSite block, the island, one module tag and the guide's closer"
     assert not any(name in src for name, _ in suites), "index.html is not pristine"
     for name in sorted(deploy.BUNDLE_TOP - {"index.html", "static", "data", "graph"}):   # every entry page
         if (site / name).is_file():

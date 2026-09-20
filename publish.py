@@ -26,6 +26,7 @@ that.
 
 import argparse
 import pathlib
+import re
 import sys
 
 import config
@@ -144,9 +145,12 @@ def main():
                         help=f"pack registry to join and list (default: {packs.PACKS_FILE.name} in the repo root)")
     args = parser.parse_args()
 
+    key = (args.indexnow_key or '').strip().lower() or None
+    if key and not re.fullmatch(r'[0-9a-f]{32}', key):
+        parser.error(f"--indexnow-key must be 32 hex digits, not {args.indexnow_key!r}")
     publish(header=args.header, xlsx_path=args.xlsx, cache_path=args.cache,
             out_dir=args.out_dir, use_bootstrap=not args.no_bootstrap, force=args.force,
-            allow_mismatch=args.allow_mismatch, packs_path=args.packs, indexnow_key=args.indexnow_key)
+            allow_mismatch=args.allow_mismatch, packs_path=args.packs, indexnow_key=key)
 
 
 if __name__ == '__main__':

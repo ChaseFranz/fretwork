@@ -42,6 +42,7 @@ after changing these values.
 """
 
 import argparse
+import http.client
 import json
 import urllib.error
 import urllib.parse
@@ -244,7 +245,10 @@ def indexnow(key, site_url, names, dry_run=False):
     if not key or not names:
         return None
     base = site_url.rstrip('/')
-    urls = [f'{base}/{n}' if n != 'index.html' else base + '/' for n in list(dict.fromkeys(names))[:INDEXNOW_MOST]]
+    names = list(dict.fromkeys(names))
+    if len(names) > INDEXNOW_MOST:
+        print(f"    IndexNow takes {INDEXNOW_MOST:,} URLs per request; {len(names) - INDEXNOW_MOST:,} not sent")
+    urls = [f'{base}/{n}' if n != 'index.html' else base + '/' for n in names[:INDEXNOW_MOST]]
     body = {'host': urllib.parse.urlsplit(base).hostname, 'key': key, 'keyLocation': f'{base}/{key}.txt', 'urlList': urls}
     print(f"    IndexNow: {len(urls)} URL{'s' if len(urls) != 1 else ''}" + ('  (dry run)' if dry_run else ''))
     if dry_run:
@@ -256,7 +260,9 @@ def indexnow(key, site_url, names, dry_run=False):
             print(f"    IndexNow answered {r.status}")
     except urllib.error.HTTPError as err:
         print(f"    IndexNow refused: {err.code} {err.reason}")
-    except (urllib.error.URLError, TimeoutError) as err:
+    except (OSError, http.client.HTTPException) as err:
+        # URLError and TimeoutError are OSErrors; a reset or a bad status line
+        # from getresponse() escapes urllib as http.client's own, so both families
         print(f"    IndexNow unreachable: {err}")
     return body
 
@@ -312,7 +318,7 @@ def deploy(env_path=ENV_FILE, do_publish=True, dry_run=False, headers_only=False
     # invalidation, so what they fetch is what was deployed)
     if indexnow_key and config.SITE_URL:
         pages = [n for n in (changed if changed is not None else sitemap_names(site_dir))
-                 if n == 'index.html' or n.endswith('.html')]
+                 if n.endswith('.html') and n != '404.html']      # the 404 page is noindex and in no sitemap
         indexnow(indexnow_key, config.SITE_URL, pages, dry_run)
     print("\nDry run - nothing was published or sent\n" if dry_run else "\nDone\n")
 

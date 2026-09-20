@@ -104,7 +104,7 @@ class LibraryPageTest(unittest.TestCase):
         self.assertEqual(with_ld.count('<script>'), 1)
         self.assertEqual(with_ld.count('<script type="application/ld+json">'), 1)
         self.assertIn('"@type": "Dataset"', with_ld)
-        self.assertIn('"contentUrl": "https://fretladder.com/data/guitar.1.json"', with_ld)
+        self.assertIn('"dateModified": "2026-09-19"', with_ld)
         self.assertNotRegex(out, r'__[A-Z][A-Z_]*__')
 
     def test_library_pages_need_the_pack_join(self):
@@ -156,7 +156,7 @@ class SongPagesTest(unittest.TestCase):
         f['Guitar']['Pct'] = [50, 100, 80, 100]
         facts = page.song_facts(f)
         out = page.render_song_page('0000000000a1', facts['0000000000a1'], names).decode('utf-8')
-        self.assertIn('<title>Alpha by a: Clone Hero chart difficulty - Fretladder</title>', out)
+        self.assertIn('<title>Alpha by a: Clone Hero chart difficulty</title>', out)
         self.assertIn('<base href="../">', out)
         self.assertIn('<meta property="og:title" content="Alpha by a">', out)
         self.assertIn('<meta property="og:description" content="How hard is Alpha by a in Clone Hero? Expert Lead: D 10.00, Calc Tier 3, at or above 50%; Expert Bass: D 4.00, Calc Tier 1">', out)
@@ -176,10 +176,10 @@ class SongPagesTest(unittest.TestCase):
         self.assertIn('"byArtist": {"@type": "MusicGroup", "name": "a"}', out)
         # section 24: the game in the title, the question in the description, the artist in the h1,
         # the breadcrumb beside the recording, and every app link by fragment
-        self.assertIn('<title>Alpha by a: Clone Hero chart difficulty - Fretladder</title>', out)
+        self.assertIn('<title>Alpha by a: Clone Hero chart difficulty</title>', out)
         self.assertIn('content="How hard is Alpha by a in Clone Hero? Expert Lead: D 10.00', out)
         self.assertIn('<h1>Alpha by a</h1>', out)
-        self.assertIn('<p class="by">A Clone Hero custom chart.</p>', out)     # rendered without its game here; with one, FindabilityTest
+        self.assertIn('<p class="by">A Clone Hero custom chart.</p>', out)     # rendered without its game here; with one, FindabilityTest below
         self.assertIn('"@type": "BreadcrumbList"', out)
         self.assertIn('{"@type": "ListItem", "position": 2, "name": "Alpha", "item": "https://fretladder.com/song/0000000000a1.html"}', out)
         # every level of every part, each a link into the table on that chart
@@ -284,11 +284,20 @@ class GameAndListPagesTest(unittest.TestCase):
         self.assertNotRegex(one, r'__[A-Z][A-Z_]*__')
 
     def test_list_pages(self):
+        # one song is not a list (LIST_LEAST, section 24): the bass lists and the customs list need a second song
+        self.assertEqual(sorted(page.render_list_pages(self.f, self.r, self.names)), ['list/easiest-guitar.html', 'list/hardest-guitar.html'])
+        # Delta, official, on both sheets (a song's kind is the song's, so its bass chart counts as official too); Epsilon, a second custom
+        rows = [('Guitar', '00000005XG', 'Delta', 'd', 'Lead', 15.0, 4, True, '0000000000a5', 'h5'), ('Bass', '00000005XB', 'Delta', 'd', 'Bass', 3.0, 1, True, '0000000000a5', 'h6'),
+                ('Guitar', '00000006XG', 'Epsilon', 'e', 'Lead', 12.0, 3, False, '0000000000a6', 'h7')]
+        for sheet, code, title, artist, part, d, tier, official, key, h in rows:
+            self.f[sheet] = pd.concat([self.f[sheet], pd.DataFrame([{'Code': code, 'Song Title': title, 'Artist': artist, 'Type': part, 'Level': 'Expert',
+                                                                     'D': d, 'CalcTier': tier, 'Official': official, 'SongKey': key, 'NotesHash': h}])], ignore_index=True)
+            self.r.folder_by_code[code] = 'one'
         pages = page.render_list_pages(self.f, self.r, self.names)
         self.assertEqual(sorted(pages), ['list/easiest-bass.html', 'list/easiest-guitar.html', 'list/hardest-bass.html',
                                          'list/hardest-customs-guitar.html', 'list/hardest-guitar.html'])
         hardest = pages['list/hardest-guitar.html'].decode('utf-8')
-        self.assertIn('<title>The 2 hardest Guitar Hero and Rock Band songs on Expert guitar - Fretladder</title>', hardest)
+        self.assertIn('<title>The 3 hardest Guitar Hero and Rock Band songs on Expert guitar - Fretladder</title>', hardest)
         # official only, one entry per song at its hardest part, the game linked
         self.assertNotIn('0000000000a2', hardest)                                    # Beta is custom
         self.assertLess(hardest.index('song/0000000000a3.html'), hardest.index('song/0000000000a1.html'))
@@ -316,3 +325,148 @@ class GameAndListPagesTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FindabilityTest(unittest.TestCase):
+    """Section 24: the front page's guide, the titles, the description, the dates, the JSON-LD, the key file."""
+
+    def setUp(self):
+        self.f = small_frames()
+        self.r = LibraryPageTest().resolved()
+        self.facts = page.song_facts(self.f)
+        self.names = {'favicon': 'static/f.svg', 'script': 'static/app.x.js', 'style': 'static/app.x.css', 'bootstrap': 'static/b.css'}
+
+    def test_static_section_is_a_details_block_closed_before_the_first_paint(self):
+        stats = frames.counts(self.f)
+        pools = page.list_pools(self.f, self.r)
+        out = page.static_section(self.f, self.r, stats, list(pools), self.facts, True)
+        self.assertTrue(out.startswith('<details id="static" open>\n<summary>'))
+        self.assertTrue(out.endswith('</details>\n<script>document.getElementById("static").open=false</script>'))
+        self.assertEqual(out.count('<h1>'), 1)
+        self.assertIn('<h1>Difficulty ratings for Guitar Hero, Rock Band and Clone Hero charts</h1>', out)
+        self.assertNotIn('every Guitar Hero', out)
+        self.assertIn('5 charts of 3 songs from 2 games and packs', out)
+        self.assertIn('<a href="https://github.com/Staycation44/fretwork" rel="noopener">fretwork</a>', out)
+        # the hardest per sheet link their song pages, the games and lists their pages, the document pages theirs
+        self.assertIn('<h2>The hardest Expert Guitar charts</h2>', out)
+        self.assertIn('<td class="r">1</td><td><a href="song/0000000000a2.html">Beta</a></td>', out)
+        self.assertIn('<li><a href="game/pack-one.html">Pack One</a></li>', out)
+        self.assertIn('<li><a href="list/hardest-guitar.html">Hardest guitar</a></li>', out)
+        self.assertIn('<li><a href="library.html">The library</a></li>', out)
+        self.assertNotIn('href="./?', out)
+        # without a songs index the Songs page is not linked; without a pack join, no games
+        self.assertNotIn('songs.html', page.static_section(self.f, self.r, stats, list(pools), self.facts, False))
+        self.assertNotIn('game/', page.static_section(self.f, None, stats, [], self.facts, True))
+
+    def test_render_page_carries_the_guide_above_the_footer_and_the_website_block(self):
+        out = page.render_page('t', 's', self.names, '{}', public=True, linked=True, static_html='<details id="static" open><summary>s</summary><h1>x</h1></details>')
+        out = out.decode('utf-8') if isinstance(out, bytes) else out
+        self.assertIn('<p class="h6 mb-0 fw-semibold" id="brand">Fretladder</p>', out)
+        self.assertLess(out.index('id="body"'), out.index('<details id="static"'))
+        self.assertLess(out.index('<details id="static"'), out.index('<footer'))
+        self.assertEqual(out.count('<h1'), 1)
+        self.assertIn('"@type": "WebSite"', out)
+        self.assertIn('"urlTemplate": "https://fretladder.com/?q={search_term_string}"', out)
+        self.assertIn('<meta property="og:site_name" content="Fretladder">', out)
+        serve = page.render_page('t', 's', self.names, '{}', public=False)
+        serve = serve.decode('utf-8') if isinstance(serve, bytes) else serve
+        self.assertNotIn('id="static"', serve)
+        self.assertNotIn('ld+json', serve)
+
+    def test_song_titles_name_the_game_and_tell_customs_apart(self):
+        official = dict(self.facts['0000000000a1'], official=True, release='Guitar Hero III')
+        out = page.render_song_page('0000000000a1', official, self.names, {'name': 'Guitar Hero III', 'slug': 'gh3'}).decode('utf-8')
+        self.assertIn('<title>Alpha by a: Guitar Hero III chart difficulty</title>', out)
+        self.assertIn('<p class="by">A Guitar Hero III chart.</p>', out)
+        self.assertIn('content="How hard is Alpha by a in Guitar Hero III? Expert Lead: D 10.00', out)
+        self.assertIn('{"@type": "ListItem", "position": 2, "name": "Guitar Hero III", "item": "https://fretladder.com/game/gh3.html"}', out)
+        dlc = page.render_song_page('0000000000a1', official, self.names, {'name': 'GH3 DLC', 'slug': 'gh3-dlc'}).decode('utf-8')
+        self.assertIn('<p class="by">A Guitar Hero III chart, from the GH3 DLC pack.</p>', dlc)
+        custom = page.render_song_page('0000000000a1', self.facts['0000000000a1'], self.names, {'name': 'Pack One', 'slug': 'pack-one'}, disambiguate=True).decode('utf-8')
+        self.assertIn('<title>Alpha by a: Clone Hero (Pack One) chart difficulty</title>', custom)
+        self.assertIn('<p class="by">A Clone Hero custom chart, from the Pack One pack.</p>', custom)
+        alone = page.render_song_page('0000000000a1', self.facts['0000000000a1'], self.names).decode('utf-8')
+        self.assertIn('<p class="by">A Clone Hero custom chart.</p>', alone)
+        # the same custom in two packs: both titles carry their pack, and no two pages share a title
+        f = small_frames()
+        f['Guitar'].loc[3, 'Song Title'] = 'Alpha'
+        f['Guitar'].loc[3, 'Artist'] = 'a'
+        pages = page.render_song_pages(f, self.names, page.song_facts(f), self.r)
+        titles = [re.search(r'<title>(.*?)</title>', p.decode('utf-8')).group(1) for p in pages.values()]
+        self.assertEqual(sum(1 for t in titles if t.startswith('Alpha by a: Clone Hero (Pack')), 2, titles)
+        self.assertEqual(len(set(titles)), len(titles), titles)
+
+    def test_song_description_keeps_whole_parts_within_a_result(self):
+        lead = 'How hard is X by Y in Z?'
+        parts = ['Expert Lead: D 100.00, Calc Tier 7, at or above 90%', 'Expert Bass: D 50.00, Calc Tier 5, at or above 80%',
+                 'Expert Keys: D 20.00, Calc Tier 3, at or above 70%', 'Expert Drums: D 10.00, Calc Tier 2, at or above 60%']
+        out = page.song_description(lead, parts)
+        self.assertTrue(out.startswith(lead + ' ' + parts[0]))
+        self.assertLessEqual(len(out), page.DESCRIPTION_MOST)
+        self.assertTrue(out.endswith(parts[1]), out)                      # two whole parts fit, the third does not
+        self.assertEqual(page.song_description(lead, [parts[0] * 3]), lead + ' ' + parts[0] * 3)    # the first part always
+        self.assertEqual(page.song_description(lead, []), lead)
+
+    def test_lists_need_two_songs(self):
+        pools = page.list_pools(self.f, self.r)
+        self.assertNotIn(('hardest', 'Bass'), pools)                     # one bass song is not a list
+        self.assertNotIn(('hardest-customs', 'Guitar'), pools)           # nor one custom
+        self.assertIn(('hardest', 'Guitar'), pools)
+        self.assertNotIn('list/hardest-bass.html', page.render_list_pages(self.f, self.r, self.names, self.facts, pools))
+
+    def test_page_dates_keep_a_date_while_the_bytes_stay(self):
+        files = {'index.html': b'a', 'about.html': b'b', 'song/k.html': b'c', 'static/x.js': b'js', 'sitemap.xml': b'x'}
+        first = page.PageDates().stamp(files, today=datetime.date(2026, 9, 1))
+        self.assertEqual(set(first), {'index.html', 'about.html', 'song/k.html'})       # pages only, never the assets or the sitemap
+        self.assertEqual(first['song/k.html'][1], '2026-09-01')
+        later = page.PageDates(first).stamp({**files, 'about.html': b'changed'}, today=datetime.date(2026, 9, 19))
+        self.assertEqual(later['song/k.html'], first['song/k.html'])
+        self.assertEqual(later['about.html'][1], '2026-09-19')
+        self.assertEqual(later['index.html'][1], '2026-09-01')
+        gone = page.PageDates(later).stamp({'index.html': b'a'}, today=datetime.date(2026, 9, 20))
+        self.assertEqual(list(gone), ['index.html'])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'sub' / 'dates.json'
+            page.PageDates.save(path, later)
+            self.assertEqual(page.PageDates.load(path).previous, later)
+            self.assertEqual(page.PageDates.load(pathlib.Path(tmp) / 'missing.json').previous, {})
+        sitemap = page.render_sitemap({'index.html': b'', 'about.html': b'', 'song/k.html': b''}, datetime.date(2026, 9, 19), page.dates_of(later)).decode('utf-8')
+        self.assertIn('<url><loc>https://fretladder.com/</loc><lastmod>2026-09-01</lastmod></url>', sitemap)
+        self.assertIn('<url><loc>https://fretladder.com/about.html</loc><lastmod>2026-09-19</lastmod></url>', sitemap)
+        self.assertIn('<url><loc>https://fretladder.com/song/k.html</loc><lastmod>2026-09-01</lastmod></url>', sitemap)
+        plain = page.render_sitemap({'index.html': b'', 'about.html': b''}, datetime.date(2026, 9, 19)).decode('utf-8')
+        self.assertEqual(plain.count('<lastmod>2026-09-19</lastmod>'), 2)
+
+    def test_build_stamps_dates_and_writes_the_key_file(self):
+        import unittest.mock
+        with unittest.mock.patch.object(page.frames, 'load_frames', return_value=(pathlib.Path('Fixture_metrics_09192026-1755.xlsx'), small_frames())), \
+             unittest.mock.patch.object(page.assets, 'load_assets', return_value=({}, self.names)):
+            built = page.build('Fixture', None, None, public=True, resolved=self.r, page_dates=page.PageDates(), indexnow_key='a' * 32)
+        self.assertEqual(built.files['a' * 32 + '.txt'], b'a' * 32)
+        self.assertEqual(set(built.page_dates), set(n or 'index.html' for n in page.sitemap_urls(built.files)))
+        self.assertNotIn('sitemap.xml', built.page_dates)
+        sitemap = built.files['sitemap.xml'].decode('utf-8')
+        self.assertEqual(sitemap.count('<lastmod>'), sitemap.count('<url>'))
+        self.assertNotIn('a' * 32, sitemap)
+        index = built.files['index.html'].decode('utf-8')
+        self.assertIn('<details id="static" open>', index)
+        self.assertIn('<li><a href="game/pack-one.html">Pack One</a></li>', index)
+        self.assertEqual(index.count('<script'), 5)                       # the theme, the WebSite block, the island, the module, the guide's closer
+
+    def test_ld_blocks(self):
+        crumbs = page.breadcrumb_ld([('Charts', ''), ('Pack', 'game/p.html')])
+        self.assertEqual(crumbs['itemListElement'][0]['item'], 'https://fretladder.com/')
+        self.assertEqual(crumbs['itemListElement'][1], {'@type': 'ListItem', 'position': 2, 'name': 'Pack', 'item': 'https://fretladder.com/game/p.html'})
+        items = page.itemlist_ld('L', [('A', 'song/a.html'), ('B', 'song/b.html')])
+        self.assertEqual(items['numberOfItems'], 2)
+        self.assertEqual(items['itemListElement'][1]['url'], 'https://fretladder.com/song/b.html')
+        data = page.dataset_ld({'rows': 5, 'songs': 3, 'packs': 2}, datetime.date(2026, 9, 19))
+        self.assertEqual(data['dateModified'], '2026-09-19')
+        self.assertEqual(data['isBasedOn'], 'https://github.com/Staycation44/fretwork')
+        self.assertNotIn('distribution', data)                            # the sheet files are hashed and the next deploy deletes them
+        self.assertNotIn('license', data)                                 # the engine's MIT is the code's, not the charts'
+        self.assertEqual(page.ld_script(None), '')
+        one = page.ld_script({'a': '</script>'})
+        self.assertNotIn('</script>"', one)
+        self.assertTrue(one.startswith('<script type="application/ld+json">{'))
+        self.assertIn('[{"a": 1}, {"b": 2}]', page.ld_script({'a': 1}, {'b': 2}))

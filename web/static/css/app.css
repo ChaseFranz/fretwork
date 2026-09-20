@@ -369,16 +369,22 @@
           z-index:1070; opacity:0; transition:opacity .18s; pointer-events:none; }
   #hint.on { opacity:1; }
 
-  /* The front page without JavaScript (section 24): main.js removes #static
-     before the app's first paint, so these rules are for a crawler's render,
-     a reader mode and a visitor with scripts off. The tokens are the page's. */
-  #static { max-width:72ch; padding:1.25rem 1rem 2rem; color:var(--fw-text); }
-  #static h1 { font-size:1.25rem; font-weight:600; margin:0 0 .6rem; }
-  #static h2 { font-size:.85rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--fw-brand-text); margin:1.6rem 0 .4rem; }
-  #static p { margin:0 0 .8rem; }
+  /* The site guide above the footer (section 24): a <details> open in the HTML
+     (a crawler, a reader mode, a visitor without scripts get a page) and closed
+     before the first paint for the app, where its summary is one line the
+     visitor can open; open, it takes at most 45vh and scrolls, so the table
+     keeps its room. The tokens are the page's. */
+  #static { flex:0 0 auto; border-top:1px solid var(--fw-border); padding:.1rem 1rem; font-size:11px; line-height:1.5; color:var(--fw-text); }
+  #static summary { cursor:pointer; color:var(--fw-dim); list-style-position:inside; }
+  #static summary:hover { color:var(--fw-text); }
+  #static[open] { max-height:45vh; overflow:auto; padding-bottom:1rem; font-size:12px; }
+  #static h1 { font-size:1.1rem; font-weight:600; margin:.6rem 0 .5rem; max-width:72ch; }
+  #static h2 { font-size:.8rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--fw-brand-text); margin:1.2rem 0 .4rem; }
+  #static p { margin:0 0 .6rem; max-width:72ch; }
   #static a { color:var(--fw-link); }
-  #static table { border-collapse:collapse; font-size:14px; }
-  #static th, #static td { padding:.25rem .8rem .25rem 0; border-bottom:1px solid var(--fw-border); text-align:left; vertical-align:top; }
+  #static table { border-collapse:collapse; font-size:12px; }
+  #static th, #static td { padding:.2rem .8rem .2rem 0; border-bottom:1px solid var(--fw-border); text-align:left; vertical-align:top; }
   #static td.r, #static th.r { text-align:right; }
-  #static ul { columns:2; column-gap:2rem; padding-left:1.2rem; margin:0 0 .8rem; font-size:14px; }
+  #static ul { columns:3; column-gap:2rem; padding-left:1.2rem; margin:0 0 .6rem; }
   #static ul.one { columns:1; }
+  @media (max-width: 640px) { #static ul { columns:2; } }

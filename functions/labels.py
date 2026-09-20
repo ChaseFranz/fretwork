@@ -500,9 +500,9 @@ def help_text(column):
 UI = {
     'title':            'Fretwork',            # overridden by config.SITE_NAME at serve time
     # the front page's <title> and og:title after the name: the words a search carries (section 21)
-    'site_title':       'difficulty ratings for Clone Hero and Guitar Hero charts',
-    'description':      'Difficulty ratings for Clone Hero and Guitar Hero charts, '
-                        'scored from note density and fret movement.',
+    'site_title':       'difficulty ratings for Guitar Hero, Rock Band and Clone Hero charts',
+    'description':      'Difficulty ratings for Guitar Hero, Rock Band and Clone Hero charts on guitar, bass, keys, '
+                        'drums and vocals, scored from the notes in every chart file.',
     'updated':          'Updated {date}',
     'chart_count':      '{n} charts',
     # what "beta" actually means here, rather than a bare badge
@@ -641,7 +641,6 @@ UI = {
     'more_games':       'Every game on the site',
     'more_lists':       'Every list',
     'breadcrumb_home':  'Charts',
-    'breadcrumb_lists': 'Lists',
     'lists':            'Lists',
     'lists_note':       'The site\u2019s ranked lists, one per instrument.',
     'list_full':        'The full list',
@@ -656,7 +655,8 @@ UI = {
     'methodology_title': 'How Guitar Hero chart difficulty is scored',
     'methodology_desc': 'The fretwork method behind the ratings: note density, fret movement and their spread, the D formula, and the Calc Tier and Remap Tier calibration.',
     # the front page without JavaScript (section 24): what a crawler and a reader mode get
-    'home_h1':          'Difficulty ratings for every Guitar Hero, Rock Band and Clone Hero chart',
+    'home_summary':     'The hardest charts, every game and every list',
+    'home_h1':          'Difficulty ratings for Guitar Hero, Rock Band and Clone Hero charts',
     'home_intro':       '{charts} charts of {songs} songs from {packs} games and packs, on guitar, bass, keys, drums and vocals, '
                         'each scored by [fretwork]({engine}) from the notes in the chart file: how busy it is, how much the hands '
                         'move, how unevenly the work is spread and how long it goes on. Nothing is voted on or hand-assigned, '
@@ -670,7 +670,8 @@ UI = {
     'songs':            'Songs',
     'songs_tip':        'Every song on the site, A to Z',
     'songs_intro':      'Every song on the site, {n} of them, A to Z by title; each opens the song\u2019s page with its difficulty on every instrument and level.',
-    'song_page_title':  '{song}: {game} chart difficulty - {site}',
+    # no site suffix: the song pages are the site's longest titles, and a result shows the site's name on its own line
+    'song_page_title':  '{song}: {game} chart difficulty',
     'song_note':        'D is the difficulty fretwork computes from the chart\u2019s note density and movement, with the '
                         'percentile among charts of the same instrument and level on the site and the Calc Tier '
                         'anchored to the Expert chart; [how it is scored](methodology.html) and '
