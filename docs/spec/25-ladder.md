@@ -1,6 +1,6 @@
 # 25. The ladder: every song page links its neighbours
 
-**Status:** Implemented 2026-09-19, awaiting the maintainer's deploy. Written from the first Search Console Pages report (exported 2026-09-19, data to 2026-09-13: 1 page indexed, 2,308 "Discovered - currently not indexed", 1 "Page with redirect") and a five-agent panel over it (three lenses proposing, two judges scoring; the transcript is the session's, the verdicts are summarised under Why).
+**Status:** Landed (2026-09-19, e7153b6..176fe50; live as fretladder-v1.8.0, deployed 20:55 -0500). Written from the first Search Console Pages report (exported 2026-09-19, data to 2026-09-13: 1 page indexed, 2,308 "Discovered - currently not indexed", 1 "Page with redirect") and a five-agent panel over it (three lenses proposing, two judges scoring; the transcript is the session's, the verdicts are summarised under Why).
 
 **Effort:** S. One computation over the facts every song page already has, one block on the song page, the picture's real size, one live check.
 
