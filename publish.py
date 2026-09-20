@@ -107,7 +107,8 @@ def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
     resolved = resolve_packs(cache, packs_path or packs.PACKS_FILE)
     bootstrap_css = bootstrap.ensure_bootstrap(use_bootstrap)
     dates = page.PageDates.load(page.page_dates_path(header))
-    built = page.build(header, xlsx_path, bootstrap_css, public=True, resolved=resolved, page_dates=dates, indexnow_key=indexnow_key)
+    built = page.build(header, xlsx_path, bootstrap_css, public=True, resolved=resolved, page_dates=dates, indexnow_key=indexnow_key,
+                       png_size=bundle.png_size(out_dir) or page.PNG_SIZE)
     check_pair(header, built.xlsx_path, renderer.cache_path, allow_mismatch)
 
     print(f"\nPublishing {built.xlsx_path}")

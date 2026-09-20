@@ -235,8 +235,11 @@ def run(base, site_strapline=None, want_strapline=None, key_file=None):
         status, headers, body = fetch(f'{base}/{songs[0]}')
         text = body.decode('utf-8', 'replace')
         ctype = headers.get('content-type', '')
-        rep.say(13, 'song page', status == 200 and ctype.startswith('text/html') and 'og:title' in text and 'http-equiv="refresh"' not in text,
-                f'{songs[0]}: status {status}, type {ctype!r}, og:title {"present" if "og:title" in text else "absent"}')
+        # since section 25 a song page links its neighbours, so a page with no song/ link is a ladder that rendered empty
+        rep.say(13, 'song page', status == 200 and ctype.startswith('text/html') and 'og:title' in text and 'http-equiv="refresh"' not in text
+                and 'href="song/' in text,
+                f'{songs[0]}: status {status}, type {ctype!r}, og:title {"present" if "og:title" in text else "absent"}, '
+                f'song links {text.count(chr(104) + "ref=" + chr(34) + "song/")}')
 
     # 14. the front page as a crawler reads it (section 24): the guide in the raw HTML with its one
     # h1 and links to the song, game and list pages, the WebSite block, and no query variant of the page linked

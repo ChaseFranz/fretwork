@@ -419,7 +419,9 @@ def song_facts(sheets):
                 level = _text(r.get('Level'))
                 if level in levels and level not in have:
                     have[level] = {'code': str(r['Code']), 'd': r['D'] if _isnum(r.get('D')) else None,
-                                   'pct': int(r['Pct']) if _isnum(r.get('Pct')) else None, 'sheet': r['_sheet']}
+                                   'pct': int(r['Pct']) if _isnum(r.get('Pct')) else None, 'sheet': r['_sheet'],
+                                   'notes': int(r['NoteCount']) if _isnum(r.get('NoteCount')) else None,
+                                   'secs': float(r['DurationS']) if _isnum(r.get('DurationS')) else None}
             parts.append({'type': part, 'tier': tier, 'levels': have})
         main = own[0]
         year = main.get('Year')
@@ -430,6 +432,115 @@ def song_facts(sheets):
                       'year': int(year) if _isnum(year) and int(year) > 0 else None,
                       'code': str(main['Code']), 'parts': parts}
     return facts
+
+
+# The song's primary Expert chart (section 25): the first part with an Expert
+# level that has a D, as {sheet, d, tier, part, code, notes, secs}; None without.
+def primary_expert(fact):
+    for part in fact['parts']:
+        chart = part['levels'].get('Expert')
+        if chart and chart['d'] is not None:
+            return {'sheet': chart['sheet'], 'd': chart['d'], 'tier': part['tier'], 'part': part['type'], 'code': chart['code'],
+                    'notes': chart.get('notes'), 'secs': chart.get('secs')}
+    return None
+
+
+# The ladder every song page stands on (section 25), computed once for every
+# song from the facts: its rank among the site's songs on its primary Expert
+# part's sheet and among its source's, the two songs above and below on each,
+# and the artist's other songs. Every song page then links four to nine other
+# song pages, so the folder is a graph a crawler can walk rather than 2,260
+# leaves off two hubs, and every sentence on it is a number this page alone
+# can state. No prose: the data is the content. A source ladder needs three
+# songs; the site ladder any two.
+LADDER_NEAR = 2
+LADDER_ARTIST = 5
+LADDER_SOURCE_LEAST = 3
+
+
+def song_ladders(facts, resolved=None):
+    prim = {key: p for key, p in ((key, primary_expert(f)) for key, f in facts.items()) if p}
+    by_sheet, by_source, by_artist = {}, {}, {}
+    for key, p in prim.items():
+        by_sheet.setdefault(p['sheet'], []).append((-p['d'], facts[key]['title'].casefold(), key))
+        if resolved is not None:
+            folder = resolved.folder_by_code.get(facts[key]['code'])
+            if folder is not None:
+                by_source.setdefault((folder, p['sheet']), []).append((-p['d'], facts[key]['title'].casefold(), key))
+        artist = facts[key]['artist'].casefold()
+        if artist:
+            by_artist.setdefault(artist, []).append((-p['d'], facts[key]['title'].casefold(), key))
+    for table in (by_sheet, by_source, by_artist):
+        for v in table.values():
+            v.sort()
+
+    def around(ranked, key):
+        keys = [k for _, _, k in ranked]
+        i = keys.index(key)
+        return i + 1, len(keys), keys[max(0, i - LADDER_NEAR):i], keys[i + 1:i + 1 + LADDER_NEAR]
+    out = {}
+    for key, p in prim.items():
+        rank, n, harder, easier = around(by_sheet[p['sheet']], key)
+        ladder = {'sheet': p['sheet'], 'd': p['d'], 'tier': p['tier'], 'notes': p['notes'], 'secs': p['secs'],
+                  'site': {'rank': rank, 'n': n, 'harder': harder, 'easier': easier}, 'source': None, 'artist': []}
+        if resolved is not None:
+            folder = resolved.folder_by_code.get(facts[key]['code'])
+            group = by_source.get((folder, p['sheet']), [])
+            if len(group) >= LADDER_SOURCE_LEAST:
+                rank, n, harder, easier = around(group, key)
+                ladder['source'] = {'rank': rank, 'n': n, 'harder': harder, 'easier': easier}
+        artist = facts[key]['artist'].casefold()
+        if artist:
+            ladder['artist'] = [k for _, _, k in by_artist[artist] if k != key][:LADDER_ARTIST]
+        out[key] = ladder
+    return out
+
+
+# The ladder as HTML for one song page: the rank sentence and the shape, then
+# the neighbours on the site, in the source, and by the artist, each a link to
+# its song page with its Expert D and tier beside.
+def song_ladder_html(key, ladder, facts, game=None):
+    ui = labels.UI
+    if not ladder:
+        return ''
+    sheet = ladder['sheet'].lower()
+
+    def name(k):
+        f, p = facts[k], primary_expert(facts[k])
+        tier = ui['song_neighbour_tier'].format(tier=p['tier']) if p and p['tier'] is not None else ''
+        text = ui['song_neighbour'].format(song=f['title'], artist=f['artist'] or labels.MISSING_TEXT, d=f'{p["d"]:.2f}' if p else labels.MISSING_TEXT, tier=tier)
+        return f'<a href="{SONG_DIR}/{k}.html">{html.escape(text)}</a>'
+
+    def pair(block):
+        bits = []
+        if block['harder']:
+            bits.append(html.escape(ui['song_harder']) + ': ' + ', '.join(name(k) for k in reversed(block['harder'])))
+        if block['easier']:
+            bits.append(html.escape(ui['song_easier']) + ': ' + ', '.join(name(k) for k in block['easier']))
+        return '; '.join(bits)
+    if ladder['source'] and game:
+        rank = ui['song_rank'].format(rank=ladder['source']['rank'], n=ladder['source']['n'], source=game['name'], sheet=sheet,
+                                      site_rank=ladder['site']['rank'], site_n=f'{ladder["site"]["n"]:,}')
+    else:
+        rank = ui['song_rank_site'].format(site_rank=ladder['site']['rank'], site_n=f'{ladder["site"]["n"]:,}', sheet=sheet)
+    shape = ''
+    if ladder['notes'] and ladder['secs']:
+        m, s = divmod(int(round(ladder['secs'])), 60)
+        shape = ' ' + ui['song_shape'].format(notes=f'{ladder["notes"]:,}', length=f'{m}:{s:02d}', nps=f'{ladder["notes"] / ladder["secs"]:.1f}')
+    parts = [f'  <p class="rank">{html.escape(rank + shape)}</p>']
+    rows = []
+    site = pair(ladder['site'])
+    if site:
+        rows.append(f'<p><b>{html.escape(ui["song_nearby"].format(sheet=sheet))}</b>: {site}</p>')
+    if ladder['source'] and game:
+        src = pair(ladder['source'])
+        if src:
+            rows.append(f'<p><b>{html.escape(ui["song_in_source"].format(source=game["name"]))}</b>: {src}</p>')
+    if ladder['artist']:
+        rows.append(f'<p><b>{html.escape(ui["song_more_by"].format(artist=facts[key]["artist"]))}</b>: ' + ', '.join(name(k) for k in ladder['artist']) + '</p>')
+    if rows:
+        parts.append('  <div class="ladder">' + ''.join(rows) + '</div>')
+    return '\n'.join(parts)
 
 
 # The chart whose graph is the song's picture: the preview line's chart, the
@@ -644,7 +755,15 @@ def song_sentences(fact):
 
 # `disambiguate` adds the pack to a custom's title when another song page
 # carries the same song and artist (the same custom in two packs).
-def render_song_page(key, fact, names, game=None, disambiguate=False):
+# The song pictures' pixel size: plot.py saves the figure with a tight bounding
+# box, so the file is smaller than figsize x dpi (1908x774 today, not 1920x840);
+# publish reads it off a PNG it holds (bundle.png_size) and passes it here, so
+# the <img> attributes never lie and the page does not shift when the picture
+# lands. The default is the measured size, for serve and the tests.
+PNG_SIZE = (1908, 774)
+
+
+def render_song_page(key, fact, names, game=None, disambiguate=False, ladder=None, facts=None, png_size=PNG_SIZE):
     ui = labels.UI
     by = f'{fact["title"]} by {fact["artist"]}' if fact['artist'] else fact['title']
     game_name = song_source_name(fact)
@@ -653,13 +772,13 @@ def render_song_page(key, fact, names, game=None, disambiguate=False):
     lines = share_lines(fact)
     lead = ui['song_desc_lead'].format(song=fact['title'], artist=fact['artist'] or labels.MISSING_TEXT, source=song_source_name(fact))
     kind = labels.VALUE_LABELS.get('Official', {}).get('true' if fact['official'] else 'false', '')
-    facts = [v for v in (fact['charter'], fact['release'], kind, fact['album'],
-                         str(fact['year']) if fact['year'] else '', fact['genre']) if v]
+    bits = [v for v in (fact['charter'], fact['release'], kind, fact['album'],
+                        str(fact['year']) if fact['year'] else '', fact['genre']) if v]
     image = song_image_code(fact)
     # the picture: the first part's Expert graph, drawn by publish as a PNG (Built.png_codes);
     # its alt names the lines of the chart's family, read from the code's instrument letter
     picture = ('' if image is None else
-               f'<p class="pic"><a href="{app_link("code", image)}"><img src="graph/{html.escape(image)}.png" width="1920" height="840" loading="lazy" '
+               f'<p class="pic"><a href="{app_link("code", image)}"><img src="graph/{html.escape(image)}.png" width="{png_size[0]}" height="{png_size[1]}" loading="lazy" '
                f'alt="{html.escape(labels.t_graph_alt(by, image))}"></a></p>')
     # the source it came in, when the registry names one
     where = ''
@@ -678,10 +797,11 @@ def render_song_page(key, fact, names, game=None, disambiguate=False):
         'KEY': key,
         'HEADING': html.escape(by),
         'WHERE': html.escape(song_where(fact, game)),
-        'FACTS': html.escape(' / '.join(facts)),
+        'FACTS': html.escape(' / '.join(bits)),
         'SENTENCES': ' '.join(html.escape(t) for t in song_sentences(fact)),
         'PICTURE': picture,
         'TABLE': song_table(fact),
+        'LADDER': song_ladder_html(key, ladder, facts, game) if ladder and facts else '',
         'GAME': where,
         'NOTE': rich_text(ui['song_note']),
         'OPEN': html.escape(ui['share_open'].format(site=config.SITE_NAME)),
@@ -689,9 +809,10 @@ def render_song_page(key, fact, names, game=None, disambiguate=False):
     return fill(assets.read_text('song.html'), values)
 
 
-def render_song_pages(sheets, names, facts=None, resolved=None):
+def render_song_pages(sheets, names, facts=None, resolved=None, png_size=PNG_SIZE):
     if facts is None:
         facts = song_facts(sheets)
+    ladders = song_ladders(facts, resolved)
     games = {}
     if resolved is not None:
         slugs = pack_slugs(resolved)
@@ -703,7 +824,8 @@ def render_song_pages(sheets, names, facts=None, resolved=None):
     # a custom in two packs shares a title with itself: the pack tells them apart
     seen = collections.Counter((f['title'].casefold(), f['artist'].casefold()) for f in facts.values())
     return {f'{SONG_DIR}/{key}.html': render_song_page(key, fact, names, games.get(key),
-                                                       disambiguate=seen[(fact['title'].casefold(), fact['artist'].casefold())] > 1)
+                                                       disambiguate=seen[(fact['title'].casefold(), fact['artist'].casefold())] > 1,
+                                                       ladder=ladders.get(key), facts=facts, png_size=png_size)
             for key, fact in facts.items()}
 
 
@@ -918,7 +1040,7 @@ LIST_PICTURES = 3
 LIST_LEAST = 2      # "The 1 hardest ..." is not a list; a sheet with one song has no page (section 24)
 
 
-def render_list_pages(sheets, resolved, names, facts=None, pools=None):
+def render_list_pages(sheets, resolved, names, facts=None, pools=None, png_size=PNG_SIZE):
     ui = labels.UI
     slugs = pack_slugs(resolved)
     by_name = resolved.registry.by_folder
@@ -948,7 +1070,7 @@ def render_list_pages(sheets, resolved, names, facts=None, pools=None):
                 if code is None:
                     continue
                 by = f'{song["title"]} by {song["artist"]}' if song['artist'] else song['title']
-                pics.append(f'<a href="{SONG_DIR}/{key}.html"><img src="graph/{html.escape(code)}.png" width="1920" height="840" loading="lazy" '
+                pics.append(f'<a href="{SONG_DIR}/{key}.html"><img src="graph/{html.escape(code)}.png" width="{png_size[0]}" height="{png_size[1]}" loading="lazy" '
                             f'alt="{html.escape(labels.t_graph_alt(by, code))}"><b>{n}. {html.escape(song["title"])}</b> {html.escape(song["artist"])}, D {chart["d"]:.2f}</a>')
             pictures = f'  <p class="pics">{"".join(pics)}</p>\n' if pics else ''
             body = ('<div class="lib">\n' + f'  <p class="intro">{html.escape(intro)}</p>\n' + f'  <p class="intro">{html.escape(ui["list_method"])}</p>\n'
@@ -1241,7 +1363,7 @@ def page_dates_path(header):
 # join: then the Added column is absent and the strapline is plain text. The
 # page-build columns are appended in a fixed order: Added, Copies, Pct, then the
 # link columns (Enchor, Leaderboard) for the links the registry knows.
-def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_path=None, page_dates=None, indexnow_key=None):
+def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_path=None, page_dates=None, indexnow_key=None, png_size=PNG_SIZE):
     xlsx_path, sheets = frames.load_frames(header, xlsx_path)
     if any(frames.slug(name) == links_mod.SLUG for name in sheets):
         raise ValueError(f'a sheet slugs to {links_mod.SLUG!r}, the name of the links file under data/')
@@ -1276,13 +1398,13 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_p
     stats = frames.counts(sheets)
     files.update(library_pages(resolved, sheets, names, manifest, when, stats))
     facts = song_facts(sheets)
-    files.update(render_song_pages(sheets, names, facts, resolved))
+    files.update(render_song_pages(sheets, names, facts, resolved, png_size=png_size))
     if facts:
         files[SONGS_PAGE] = render_songs_index(facts, names)
     pools = list_pools(sheets, resolved) if resolved is not None else {}
     if resolved is not None:
         files.update(render_game_pages(sheets, resolved, names, list(pools)))
-        files.update(render_list_pages(sheets, resolved, names, facts, pools))
+        files.update(render_list_pages(sheets, resolved, names, facts, pools, png_size=png_size))
     # the graphs publish draws as PNGs: the social preview and each song page's picture (section 22)
     png_codes = list(dict.fromkeys([OG_CODE] + [c for c in (song_image_code(f) for f in facts.values()) if c]))
     files['robots.txt'] = robots_txt().encode('utf-8')

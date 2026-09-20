@@ -130,7 +130,7 @@ class SongPagesTest(unittest.TestCase):
         # the folder's parts in VALUE_ORDER order, every level each has, the tier once per part
         self.assertEqual([(p['type'], p['tier'], sorted(p['levels'])) for p in a1['parts']],
                          [('Lead', 3, ['Expert', 'Hard']), ('Bass', 1, ['Expert'])])
-        self.assertEqual(a1['parts'][0]['levels']['Hard'], {'code': '00000001HG', 'd': 5.0, 'pct': 80, 'sheet': 'Guitar'})
+        self.assertEqual(a1['parts'][0]['levels']['Hard'], {'code': '00000001HG', 'd': 5.0, 'pct': 80, 'sheet': 'Guitar', 'notes': None, 'secs': None})
         self.assertEqual(a1['code'], '00000001XG')
         self.assertEqual(page.song_image_code(a1), '00000001XG')
         self.assertEqual(page.share_lines(a1), ['Expert Lead: D 10.00, Calc Tier 3, at or above 50%', 'Expert Bass: D 4.00, Calc Tier 1'])
@@ -164,7 +164,7 @@ class SongPagesTest(unittest.TestCase):
         # the picture (section 22): the first part's Expert graph, as og:image, in the JSON-LD and on the page
         self.assertIn('<meta property="og:image" content="https://fretladder.com/graph/00000001XG.png">', out)
         self.assertIn('<meta name="twitter:card" content="summary_large_image">', out)
-        self.assertIn('<img src="graph/00000001XG.png" width="1920" height="840" loading="lazy" alt="Difficulty graph of Alpha by a', out)
+        self.assertIn('<img src="graph/00000001XG.png" width="1908" height="774" loading="lazy" alt="Difficulty graph of Alpha by a', out)
         self.assertIn('"image": "https://fretladder.com/graph/00000001XG.png"', out)
         # the song in words
         self.assertIn('On Expert Lead it scores D 10.00, Calc Tier 3, at or above 50% of the site\u2019s Expert Guitar charts. On Expert Bass it scores D 4.00, Calc Tier 1.', out)
@@ -195,7 +195,7 @@ class SongPagesTest(unittest.TestCase):
         self.assertNotRegex(out, r'__[A-Z][A-Z_]*__')
         pages = page.render_song_pages(f, names, facts, LibraryPageTest().resolved())
         self.assertEqual(sorted(pages), ['song/0000000000a1.html', 'song/0000000000a2.html', 'song/0000000000a3.html'])
-        self.assertTrue(all(len(b) < 5600 for b in pages.values()), [len(b) for b in pages.values()])
+        self.assertTrue(all(len(b) < 7000 for b in pages.values()), [len(b) for b in pages.values()])     # about 6.5 KB with the ladder (section 25)
         # the game it came in, linked (section 22)
         self.assertIn('From <a href="game/pack-one.html">Pack One</a>, whose every song is ranked by difficulty on its page.', pages['song/0000000000a1.html'].decode('utf-8'))
         self.assertIn('href="game/pack-two.html"', pages['song/0000000000a3.html'].decode('utf-8'))
@@ -318,7 +318,7 @@ class GameAndListPagesTest(unittest.TestCase):
         facts = page.song_facts(self.f)
         with_pics = page.render_list_pages(self.f, self.r, self.names, facts)['list/hardest-guitar.html'].decode('utf-8')
         self.assertEqual(with_pics.count('<p class="pics">'), 1)
-        self.assertIn('<a href="song/0000000000a3.html"><img src="graph/00000003XG.png" width="1920" height="840" loading="lazy" alt="Difficulty graph of Gamma by c:', with_pics)
+        self.assertIn('<a href="song/0000000000a3.html"><img src="graph/00000003XG.png" width="1908" height="774" loading="lazy" alt="Difficulty graph of Gamma by c:', with_pics)
         self.assertIn('<b>1. Gamma</b> c, D 20.50</a>', with_pics)
         self.assertNotIn('href="./?', with_pics)
 
@@ -470,3 +470,74 @@ class FindabilityTest(unittest.TestCase):
         self.assertNotIn('</script>"', one)
         self.assertTrue(one.startswith('<script type="application/ld+json">{'))
         self.assertIn('[{"a": 1}, {"b": 2}]', page.ld_script({'a': 1}, {'b': 2}))
+
+
+class LadderTest(unittest.TestCase):
+    """Section 25: every song page stands on a ladder of its neighbours, from the data alone."""
+
+    def setUp(self):
+        self.f = small_frames()
+        self.r = LibraryPageTest().resolved()
+        self.names = {'favicon': 'static/f.svg', 'script': 'static/app.x.js', 'style': 'static/app.x.css', 'bootstrap': 'static/b.css'}
+        # a fourth song by Alpha's artist in Pack One, so the source group reaches three and the artist has two
+        self.f['Guitar'] = pd.concat([self.f['Guitar'], pd.DataFrame([{'Code': '00000005XG', 'Song Title': 'Delta', 'Artist': 'a', 'Type': 'Lead', 'Level': 'Expert',
+                                                                       'D': 15.0, 'CalcTier': 4, 'Official': True, 'SongKey': '0000000000a5', 'NotesHash': 'h5',
+                                                                       'NoteCount': 900, 'DurationS': 120.0}])], ignore_index=True)
+        self.r.folder_by_code['00000005XG'] = 'one'
+        self.facts = page.song_facts(self.f)
+
+    def test_primary_expert_and_ladders(self):
+        p = page.primary_expert(self.facts['0000000000a1'])
+        self.assertEqual((p['sheet'], p['d'], p['tier'], p['part'], p['code']), ('Guitar', 10.0, 3, 'Lead', '00000001XG'))
+        self.assertEqual((p['notes'], p['secs']), (None, None))
+        self.assertEqual(page.primary_expert(self.facts['0000000000a5'])['notes'], 900)
+        ladders = page.song_ladders(self.facts, self.r)
+        # the site: Gamma 20.50 and Beta 20.50 (ties by title), Delta 15, Alpha 10
+        a1 = ladders['0000000000a1']
+        self.assertEqual((a1['site']['rank'], a1['site']['n']), (4, 4))
+        self.assertEqual(a1['site']['harder'], ['0000000000a3', '0000000000a5'])          # the two above, nearest last
+        self.assertEqual(a1['site']['easier'], [])
+        # the source: Pack One holds Alpha, Beta and Delta on Guitar, three songs, so it has a ladder; Pack Two (Gamma alone) has none
+        self.assertEqual((a1['source']['rank'], a1['source']['n'], a1['source']['harder'], a1['source']['easier']), (3, 3, ['0000000000a2', '0000000000a5'], []))
+        self.assertIsNone(ladders['0000000000a3']['source'])
+        # the artist: Delta is by a too
+        self.assertEqual(a1['artist'], ['0000000000a5'])
+        self.assertEqual(ladders['0000000000a5']['artist'], ['0000000000a1'])
+        self.assertEqual(ladders['0000000000a2']['artist'], [])
+        # no pack join: no source ladder, the site ladder stands
+        self.assertIsNone(page.song_ladders(self.facts, None)['0000000000a1']['source'])
+
+    def test_ladder_html(self):
+        ladders = page.song_ladders(self.facts, self.r)
+        out = page.song_ladder_html('0000000000a5', ladders['0000000000a5'], self.facts, {'name': 'Pack One', 'slug': 'pack-one'})
+        self.assertIn('<p class="rank">Ranked #2 of 3 songs in Pack One on Expert guitar, and #3 of the 4 songs on the site with an Expert guitar chart. 900 notes over 2:00, 7.5 a second on average.</p>', out)
+        self.assertIn('<b>Nearby on Expert guitar</b>: harder: <a href="song/0000000000a3.html">Gamma by c (D 20.50)</a>, <a href="song/0000000000a2.html">Beta by b (D 20.50, tier 5)</a>; easier: <a href="song/0000000000a1.html">Alpha by a (D 10.00, tier 3)</a>', out)
+        self.assertIn('<b>In Pack One</b>: harder: <a href="song/0000000000a2.html">Beta by b (D 20.50, tier 5)</a>; easier: <a href="song/0000000000a1.html">Alpha by a (D 10.00, tier 3)</a>', out)
+        self.assertIn('<b>More by a</b>: <a href="song/0000000000a1.html">Alpha by a (D 10.00, tier 3)</a>', out)
+        # without a source, the site sentence alone; without a ladder, nothing
+        alone = page.song_ladder_html('0000000000a3', ladders['0000000000a3'], self.facts, None)
+        self.assertIn('<p class="rank">Ranked #2 of the 4 songs on the site with an Expert guitar chart.</p>', alone)   # Beta ties at 20.50 and sorts first by title
+        self.assertNotIn('<b>In ', alone)
+        self.assertEqual(page.song_ladder_html('x', None, self.facts, None), '')
+
+    def test_song_pages_carry_the_ladder_and_the_picture_s_real_size(self):
+        pages = page.render_song_pages(self.f, self.names, self.facts, self.r, png_size=(1908, 774))
+        one = pages['song/0000000000a1.html'].decode('utf-8')
+        self.assertIn('<p class="rank">Ranked #3 of 3 songs in Pack One', one)
+        self.assertGreaterEqual(one.count('href="song/'), 3)
+        self.assertIn('width="1908" height="774"', one)
+        self.assertLess(one.index('</table>'), one.index('<p class="rank">'))
+        self.assertLess(one.index('<div class="ladder">'), one.index('<p class="game">'))
+        self.assertIn('0000000000a5', one)                                            # the artist's other song
+        self.assertNotRegex(one, r'__[A-Z][A-Z_]*__')
+
+    def test_png_size_reads_a_picture_and_falls_back(self):
+        from web import bundle
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIsNone(bundle.png_size(tmp))
+            graph = pathlib.Path(tmp) / 'graph'
+            graph.mkdir()
+            (graph / 'A.png').write_bytes(b'\x89PNG\r\n\x1a\n' + b'\x00\x00\x00\x0dIHDR' + (1908).to_bytes(4, 'big') + (774).to_bytes(4, 'big') + b'\x08')
+            self.assertEqual(bundle.png_size(tmp), (1908, 774))
+            (graph / '0.png').write_bytes(b'not a png')
+            self.assertEqual(bundle.png_size(tmp), (1908, 774))                     # the bad file is skipped

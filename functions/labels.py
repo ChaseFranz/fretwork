@@ -609,6 +609,18 @@ UI = {
     'song_sentence_tier': 'On {level} {type} it scores D {d}, Calc Tier {tier}.',
     'song_sentence_d':  'On {level} {type} it scores D {d}.',
     'song_source':      'From {source}, whose every song is ranked by difficulty on its page.',
+    # the ladder under the table (section 25): the song's place among the site's songs and its
+    # source's on its primary Expert part, its shape, and the songs beside it, every word a number
+    'song_rank':        'Ranked #{rank} of {n} songs in {source} on Expert {sheet}, and #{site_rank} of the {site_n} songs on the site with an Expert {sheet} chart.',
+    'song_rank_site':   'Ranked #{site_rank} of the {site_n} songs on the site with an Expert {sheet} chart.',
+    'song_shape':       '{notes} notes over {length}, {nps} a second on average.',
+    'song_nearby':      'Nearby on Expert {sheet}',
+    'song_in_source':   'In {source}',
+    'song_harder':      'harder',
+    'song_easier':      'easier',
+    'song_more_by':     'More by {artist}',
+    'song_neighbour':   '{song} by {artist} (D {d}{tier})',
+    'song_neighbour_tier': ', tier {tier}',
     # the line under a song page's heading: the source and the pack it came in (section 24)
     'song_where':       'A {source} chart, from the {pack} pack.',
     'song_where_custom': 'A Clone Hero custom chart, from the {pack} pack.',
