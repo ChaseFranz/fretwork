@@ -44,6 +44,7 @@ after changing these values.
 import argparse
 import http.client
 import json
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -75,6 +76,7 @@ KEY_RE = re.compile(r'^[0-9a-f]{32}$')
 KEY_FILE = re.compile(r'^[0-9a-f]{32}\.txt$')
 INDEXNOW = 'https://api.indexnow.org/indexnow'
 INDEXNOW_MOST = 10000
+INDEXNOW_RETRY_S = 30      # a 403 right after the key file first appears is the engine not seeing it yet
 GRAPHS = assets.GRAPH_DIR
 
 # `aws s3 cp --metadata-directive REPLACE` replaces ALL metadata, and does not
@@ -255,15 +257,24 @@ def indexnow(key, site_url, names, dry_run=False):
         return body
     req = urllib.request.Request(INDEXNOW, data=json.dumps(body).encode('utf-8'),
                                  headers={'Content-Type': 'application/json; charset=utf-8'}, method='POST')
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            print(f"    IndexNow answered {r.status}")
-    except urllib.error.HTTPError as err:
-        print(f"    IndexNow refused: {err.code} {err.reason}")
-    except (OSError, http.client.HTTPException) as err:
-        # URLError and TimeoutError are OSErrors; a reset or a bad status line
-        # from getresponse() escapes urllib as http.client's own, so both families
-        print(f"    IndexNow unreachable: {err}")
+    # 403 is "key not valid": on the deploy that first puts the key file up, the
+    # engine has not fetched it yet, so one more try after a pause
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                print(f"    IndexNow answered {r.status}")
+            break
+        except urllib.error.HTTPError as err:
+            print(f"    IndexNow refused: {err.code} {err.reason}")
+            if err.code != 403 or attempt:
+                break
+            print(f"    the key file may be new to the engine; trying again in {INDEXNOW_RETRY_S} s")
+            time.sleep(INDEXNOW_RETRY_S)
+        except (OSError, http.client.HTTPException) as err:
+            # URLError and TimeoutError are OSErrors; a reset or a bad status line
+            # from getresponse() escapes urllib as http.client's own, so both families
+            print(f"    IndexNow unreachable: {err}")
+            break
     return body
 
 

@@ -1,6 +1,6 @@
 # 24. Findability: getting indexed, and matching the words people type
 
-**Status:** In progress (2026-09-19). Written the evening of the v1.6.0 deploy, from the maintainer's "really think hard about the SEO of this website, I want it really easy to find", against `main` at `88eee92`, with the live site measured from the outside.
+**Status:** Landed (2026-09-19, c8c7286..a6e285f; live as fretladder-v1.7.0, deployed 19:49 -0500): the on-site half. Written the evening of the v1.6.0 deploy, from the maintainer's "really think hard about the SEO of this website, I want it really easy to find", against `main` at `88eee92`, with the live site measured from the outside; reviewed before the deploy by five lenses and two skeptics per finding, which turned the removed section into the details block and found the rest of what the second commit fixed.
 
 **Effort:** M for the on-site half (this section); the off-site half is the maintainer's and is listed at the end.
 
@@ -75,6 +75,7 @@ Rejected for now: splitting `songs.html` by letter (2,301 links on one page is w
 - A fragment link is client-side only: a visitor without JavaScript who clicks a number lands on the front page's guide, which is the right fallback. A fragment pasted into a tab where the app is already open changes only the hash, so `main.js` listens for `hashchange` and navigates to the query form.
 - `lastmod` moves for every song page on a full re-render, which is correct; a change to `song.html`'s template moves them all too, and that is also correct.
 - The IndexNow key file is a top-level `.txt` in the bundle: it must pass `deploy.BUNDLE_TOP`'s guard and `bundle.prune_page`'s sweep by pattern, since its name is the key.
+- The deploy that first puts the key file up is refused by IndexNow with 403 ("key not valid"): the engine fetches `keyLocation` on the first request and had not seen the file seconds after it appeared (measured 2026-09-19: 403 at once, 200 thirty seconds later). `deploy.indexnow` tries once more after `INDEXNOW_RETRY_S`; a 403 that survives the retry is a wrong key or a key file that is not served.
 
 ## Off-site: the maintainer's half
 

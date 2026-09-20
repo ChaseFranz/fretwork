@@ -187,6 +187,41 @@ class IndexNowTest(unittest.TestCase):
                 self.assertIsNotNone(deploy.indexnow(key, 'https://fretladder.com', ['about.html']))
             self.assertIn('IndexNow unreachable', out.getvalue())
 
+    def test_a_403_is_tried_once_more_after_a_pause(self):
+        key = 'ab' * 16
+        calls = []
+
+        def forbid_then_accept(req, timeout=0):
+            calls.append(1)
+            if len(calls) == 1:
+                raise urllib.error.HTTPError(req.full_url, 403, 'Forbidden', {}, None)
+
+            class Answer:
+                status = 200
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *a):
+                    return False
+            return Answer()
+        with unittest.mock.patch.object(deploy.urllib.request, 'urlopen', forbid_then_accept), \
+             unittest.mock.patch.object(deploy.time, 'sleep') as slept, contextlib.redirect_stdout(io.StringIO()) as out:
+            deploy.indexnow(key, 'https://fretladder.com', ['about.html'])
+        self.assertEqual(len(calls), 2)
+        slept.assert_called_once_with(deploy.INDEXNOW_RETRY_S)
+        self.assertIn('IndexNow refused: 403', out.getvalue())
+        self.assertIn('IndexNow answered 200', out.getvalue())
+
+        def forbid(req, timeout=0):
+            calls.append(1)
+            raise urllib.error.HTTPError(req.full_url, 403, 'Forbidden', {}, None)
+        calls.clear()
+        with unittest.mock.patch.object(deploy.urllib.request, 'urlopen', forbid), unittest.mock.patch.object(deploy.time, 'sleep'), \
+             contextlib.redirect_stdout(io.StringIO()):
+            deploy.indexnow(key, 'https://fretladder.com', ['about.html'])
+        self.assertEqual(len(calls), 2)                                    # once more, not forever
+
     def test_the_cap_is_said(self):
         key = 'ef' * 16
         with contextlib.redirect_stdout(io.StringIO()) as out:
