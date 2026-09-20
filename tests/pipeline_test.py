@@ -443,7 +443,8 @@ def run_all(work, header, args):
              and 'if(location.search)location.replace(location.search)' in one and 'http-equiv="refresh"' not in one
              and '"@type": "MusicRecording"' in one and one.count('href="./#code=') >= 1 and './?' not in one and '<base href="../">' in one
              and '"@type": "BreadcrumbList"' in one and 'chart difficulty</title>' in one and 'How hard is ' in one
-             and len(one) < 6000 and not re.search(r'__(TITLE|FAVICON|META|THEME|KEY|SONG|ARTIST|FACTS|SENTENCES|PICTURE|TABLE|GAME|NOTE|OPEN|LD|BRAND)__', one)   # A2's title is __SHOUT__ on purpose
+             and one.count('href="song/') >= 1 and '<p class="rank">Ranked #' in one          # the ladder (section 25)
+             and len(one) < 9000 and not re.search(r'__(TITLE|FAVICON|META|THEME|KEY|SONG|ARTIST|FACTS|SENTENCES|PICTURE|TABLE|GAME|NOTE|OPEN|LD|BRAND)__', one)   # A2's title is __SHOUT__ on purpose
              and assets.cache_class(f'song/{song_pages[0]}') == assets.CACHE_WEEK,
              f'song page: {len(one)} bytes, {one.count("<script")} scripts')
     # section 22: a page per pack under game/, the lists under list/, the song page's picture and words

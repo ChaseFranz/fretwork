@@ -78,6 +78,18 @@ def write_page(out_dir, files):
     return list(files), written, prune_page(out, files)
 
 
+# The pixel size of the song pictures (section 25): read off the first PNG in
+# graph/ from the previous publish, since the pages are written before this
+# one's pictures are drawn; the size changes only with plot.py, and then the
+# publish after corrects the attributes. None when there is no picture yet.
+def png_size(out_dir):
+    for path in sorted(pathlib.Path(out_dir, GRAPH_DIR).glob('*.png')) if pathlib.Path(out_dir, GRAPH_DIR).is_dir() else []:
+        head = path.read_bytes()[:24]
+        if head[:8] == b'\x89PNG\r\n\x1a\n' and head[12:16] == b'IHDR':
+            return int.from_bytes(head[16:20], 'big'), int.from_bytes(head[20:24], 'big')
+    return None
+
+
 # The bytes of a chart's notes and of its Expert anchor, and the spans and
 # streams that ride beside them per family (a drum chart's roll spans, a
 # vocals chart's talkie and percussion streams), through the cache's own
