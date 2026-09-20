@@ -3,6 +3,11 @@
 import pathlib
 import tempfile
 import unittest
+import urllib.error
+import unittest.mock
+import json
+import io
+import contextlib
 
 import deploy
 from web import assets
@@ -127,3 +132,76 @@ class CacheClassTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class IndexNowTest(unittest.TestCase):
+    """Section 24: the request deploy builds, the key .env names, the key file past the site-folder guard."""
+
+    def test_request_body(self):
+        key = 'ab' * 16
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            body = deploy.indexnow(key, 'https://fretladder.com/', ['index.html', 'song/k.html', 'song/k.html', 'list/hardest-guitar.html'], dry_run=True)
+        self.assertEqual(body['host'], 'fretladder.com')
+        self.assertEqual(body['keyLocation'], f'https://fretladder.com/{key}.txt')
+        self.assertEqual(body['urlList'], ['https://fretladder.com/', 'https://fretladder.com/song/k.html', 'https://fretladder.com/list/hardest-guitar.html'])
+        self.assertIn('IndexNow: 3 URLs  (dry run)', out.getvalue())
+        self.assertIsNone(deploy.indexnow(None, 'https://fretladder.com', ['index.html']))
+        self.assertIsNone(deploy.indexnow(key, 'https://fretladder.com', []))
+
+    def test_a_real_send_posts_json_and_survives_a_refusal(self):
+        key = 'cd' * 16
+        seen = {}
+
+        class Answer:
+            status = 202
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def fake_open(req, timeout=0):
+            seen['url'] = req.full_url
+            seen['body'] = json.loads(req.data)
+            seen['type'] = req.get_header('Content-type')
+            return Answer()
+        with unittest.mock.patch.object(deploy.urllib.request, 'urlopen', fake_open), contextlib.redirect_stdout(io.StringIO()) as out:
+            deploy.indexnow(key, 'https://fretladder.com', ['about.html'])
+        self.assertEqual(seen['url'], deploy.INDEXNOW)
+        self.assertEqual(seen['body']['urlList'], ['https://fretladder.com/about.html'])
+        self.assertEqual(seen['type'], 'application/json; charset=utf-8')
+        self.assertIn('IndexNow answered 202', out.getvalue())
+
+        def refuse(req, timeout=0):
+            raise urllib.error.HTTPError(req.full_url, 422, 'Unprocessable', {}, None)
+        with unittest.mock.patch.object(deploy.urllib.request, 'urlopen', refuse), contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertIsNotNone(deploy.indexnow(key, 'https://fretladder.com', ['about.html']))
+        self.assertIn('IndexNow refused: 422', out.getvalue())
+
+    def test_key_setting_and_key_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = pathlib.Path(tmp) / 'a.env'
+            env.write_text('FRETWORK_BUCKET=bucket\nFRETWORK_INDEXNOW_KEY=' + 'AB' * 16 + '\n')
+            self.assertEqual(deploy.settings(env)[4], 'ab' * 16)
+            env.write_text('FRETWORK_BUCKET=bucket\n')
+            self.assertIsNone(deploy.settings(env)[4])
+            env.write_text('FRETWORK_BUCKET=bucket\nFRETWORK_INDEXNOW_KEY=short\n')
+            with self.assertRaises(SystemExit):
+                deploy.settings(env)
+            site = pathlib.Path(tmp) / 'site'
+            site.mkdir()
+            (site / 'index.html').write_text('x')
+            (site / ('ab' * 16 + '.txt')).write_text('ab' * 16)
+            deploy.check_site(site, need_output=False)                       # the key file passes the guard
+            (site / 'stray.txt').write_text('x')
+            with self.assertRaises(SystemExit):
+                deploy.check_site(site, need_output=False)
+
+    def test_sitemap_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            site = pathlib.Path(tmp)
+            (site / 'sitemap.xml').write_text('<urlset><url><loc>https://fretladder.com/</loc></url><url><loc>https://fretladder.com/song/k.html</loc></url>'
+                                              '<url><loc>https://elsewhere.example/x</loc></url></urlset>')
+            self.assertEqual(deploy.sitemap_names(site), ['index.html', 'song/k.html'])
+            self.assertEqual(deploy.sitemap_names(site / 'nope'), [])

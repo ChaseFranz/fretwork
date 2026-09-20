@@ -176,7 +176,7 @@ class ColumnAndChangelogTest(unittest.TestCase):
         html_out = page.render_changelog(res, list(cache['codes']), {'favicon': 'static/favicon.00000000.svg'}).decode('utf-8')
         h2 = re.findall(r'<h2><a href="([^"]+)"[^>]*>([^<]+)</a></h2>', html_out)
         self.assertEqual([t for _, t in h2], ['9 September 2026', '7 September 2026'])
-        self.assertTrue(h2[0][0].startswith('./?f.Added=2026-09-09&amp;f.Level=Expert'))
+        self.assertTrue(h2[0][0].startswith('./#f.Added=2026-09-09&amp;f.Level=Expert'))     # by fragment: one front page to a crawler (section 24)
         items = re.findall(r'<p class="item">(.*?)</p>', html_out)
         self.assertTrue(items[0].startswith('Site <a href='))          # a change before that date's packs
         self.assertIn('<strong>Beta</strong>, 1 songs, 1 charts.', items[1])

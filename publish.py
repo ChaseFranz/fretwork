@@ -95,8 +95,9 @@ def resolve_packs(cache, packs_path):
     return resolved
 
 
+# Returns the page files this publish rewrote, which deploy tells IndexNow about.
 def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
-            use_bootstrap=True, force=False, allow_mismatch=False, packs_path=None):
+            use_bootstrap=True, force=False, allow_mismatch=False, packs_path=None, indexnow_key=None):
     header = header or config.HEADER
     out_dir = pathlib.Path(out_dir).expanduser() if out_dir else pathlib.Path(config.SITE_DIR) / header
 
@@ -104,11 +105,13 @@ def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
     cache = renderer.cache()   # a missing cache fails here, before anything is written
     resolved = resolve_packs(cache, packs_path or packs.PACKS_FILE)
     bootstrap_css = bootstrap.ensure_bootstrap(use_bootstrap)
-    built = page.build(header, xlsx_path, bootstrap_css, public=True, resolved=resolved)
+    dates = page.PageDates.load(page.page_dates_path(header))
+    built = page.build(header, xlsx_path, bootstrap_css, public=True, resolved=resolved, page_dates=dates, indexnow_key=indexnow_key)
     check_pair(header, built.xlsx_path, renderer.cache_path, allow_mismatch)
 
     print(f"\nPublishing {built.xlsx_path}")
     page_files, written, removed = bundle.write_page(out_dir, built.files)
+    page.PageDates.save(page.page_dates_path(header), built.page_dates)
     codes = frames.codes_in(built.sheets)
     # the PNGs: the social preview and each song page's picture (Built.png_codes,
     # section 22); every other graph is the curve JSON the page draws
@@ -120,6 +123,7 @@ def publish(header=None, xlsx_path=None, cache_path=None, out_dir=None,
     banner.print_published(out_dir, page_files, written, removed, counts, graph_files,
                            packs_line=f"packs: {len(resolved.registry.packs)} registered from {resolved.registry.path.name}",
                            preview=(page.OG_CODE, page.OG_CODE in have))
+    return written
 
 
 def main():
@@ -134,13 +138,15 @@ def main():
     parser.add_argument('--force', action='store_true', help="re-render every graph")
     parser.add_argument('--allow-mismatch', action='store_true',
                         help="publish even if the spreadsheet and cache are from different builds")
+    parser.add_argument('--indexnow-key', default=None,
+                        help="32 hex digits: write <key>.txt at the site root for IndexNow (deploy.py passes FRETWORK_INDEXNOW_KEY)")
     parser.add_argument('--packs', default=None,
                         help=f"pack registry to join and list (default: {packs.PACKS_FILE.name} in the repo root)")
     args = parser.parse_args()
 
     publish(header=args.header, xlsx_path=args.xlsx, cache_path=args.cache,
             out_dir=args.out_dir, use_bootstrap=not args.no_bootstrap, force=args.force,
-            allow_mismatch=args.allow_mismatch, packs_path=args.packs)
+            allow_mismatch=args.allow_mismatch, packs_path=args.packs, indexnow_key=args.indexnow_key)
 
 
 if __name__ == '__main__':

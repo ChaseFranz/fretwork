@@ -25,6 +25,7 @@ def print_stopped():
 
 def print_published(out_dir, page_files, written, removed, counts, graph_files, packs_line=None, preview=None):
     out = pathlib.Path(out_dir)
+    written = len(written) if isinstance(written, (list, tuple, set)) else written
     paths = [out / name for name in page_files + graph_files]
     size_mb = sum(q.stat().st_size for q in paths if q.is_file()) / 1_048_576
     print(f"\nPublished to {out_dir}/")

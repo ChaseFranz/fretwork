@@ -12,6 +12,7 @@ import hashlib
 import json
 import pathlib
 import pickle
+import re
 import tempfile
 
 from tqdm import tqdm
@@ -48,6 +49,8 @@ def write_if_changed(path, data):
 # rules, and is never touched from here.
 PAGE_TOP = ('index.html', '404.html', 'about.html', 'changelog.html', 'library.html', 'songs.html', 'methodology.html',
             'robots.txt', 'sitemap.xml', 'bootstrap.css')
+# the IndexNow key file (section 24): a top-level <32 hex>.txt named by the key
+KEY_FILE = re.compile(r'^[0-9a-f]{32}\.txt$')
 SWEPT_DIRS = (*assets.IMMUTABLE_DIRS, assets.SONG_DIR, assets.GAME_DIR, assets.LIST_DIR)
 
 
@@ -57,6 +60,7 @@ def prune_page(out, files):
              if path.is_file() and path.resolve() not in keep]
     stale += [out / name for name in PAGE_TOP
               if (out / name).is_file() and (out / name).resolve() not in keep]
+    stale += [p for p in out.iterdir() if p.is_file() and KEY_FILE.match(p.name) and p.resolve() not in keep]
     for path in stale:
         path.unlink()
     for d in SWEPT_DIRS:
@@ -70,7 +74,7 @@ def prune_page(out, files):
 # Returns (names, count rewritten, count removed).
 def write_page(out_dir, files):
     out = pathlib.Path(out_dir)
-    written = sum(write_if_changed(out / name, data) for name, data in files.items())
+    written = [name for name, data in files.items() if write_if_changed(out / name, data)]
     return list(files), written, prune_page(out, files)
 
 

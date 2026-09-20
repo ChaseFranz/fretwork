@@ -16,6 +16,7 @@ Linux and WSL only: the stub is a shebang script with no extension.
 
 import argparse
 import csv
+import datetime
 import html
 import html.parser
 import json
@@ -151,6 +152,9 @@ def run_all(work, header, args):
     (work / 'deploy.env').write_text(
         f'FRETWORK_BUCKET=fixture-bucket\nFRETWORK_DISTRIBUTION=E1FIXTURE0000\n'
         f'FRETWORK_HEADER={header}\nFRETWORK_SITE_DIR=site/{header}\n', encoding='utf-8')
+    # the same with an IndexNow key, for the dry run only: a real deploy with a key would POST to the real endpoint
+    INDEXNOW_KEY = 'f1' + '0' * 30
+    (work / 'indexnow.env').write_text((work / 'deploy.env').read_text(encoding='utf-8') + f'FRETWORK_INDEXNOW_KEY={INDEXNOW_KEY}\n', encoding='utf-8')
     log = work / 'aws.log'
     env = {**os.environ, 'PATH': f"{work / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}",
            'AWS_STUB_LOG': str(log), 'PYTHONUNBUFFERED': '1'}
@@ -316,10 +320,10 @@ def run_all(work, header, args):
     # section 20: the library page, its totals the sheets' own, five blocks, the hardest linked into the table
     library = (site / 'library.html').read_text(encoding='utf-8')
     st.check(library.count('<h2>') == 5 and f'{len(lib.charted)} songs' in library
-             and f'{sum(lib.rows_by_sheet.values())} charts' in library and library.count('<a href="./?code=') >= 3
-             and '<span class="bar" style="width:100.0%">' in library and library.count('<script') == 1
+             and f'{sum(lib.rows_by_sheet.values())} charts' in library and library.count('<a href="./#code=') >= 3 and './?' not in library
+             and '<span class="bar" style="width:100.0%">' in library and library.count('<script>') == 1 and '"@type": "Dataset"' in library
              and not PLACEHOLDER.search(library),
-             f'library.html: {library.count("<h2>")} blocks, {library.count(chr(60) + "a href=" + chr(34) + "./?code=")} chart links')
+             f'library.html: {library.count("<h2>")} blocks, {library.count(chr(60) + "a href=" + chr(34) + "./#code=")} chart links')
     index = (site / 'index.html').read_text(encoding='utf-8')
     st.check('<a href="changelog.html"' in index, 'strapline is not linked to the changelog')
     st.check('["library.html", "library"]' in index and '["changelog.html", "changelog"]' in index, 'the footer lists the library page and the changelog')
@@ -330,9 +334,20 @@ def run_all(work, header, args):
     st.check(b'__SHOUT__ Two Tier' in (site / boot_island(index)['data']['Guitar']['file']).read_bytes(), 'the placeholder-shaped title did not survive publish')
     st.check('<style>' in index and 'static/bootstrap.' not in index, 'fallback CSS not inlined')
     # five sheets' manifests, the explainer and the words for every column shown: about 29 KB with the fallback CSS
-    st.check(len(index) < 31000, f'index.html is {len(index)} bytes with the fallback CSS inlined; the rows should be in data/')
+    st.check(len(index) < 42000, f'index.html is {len(index)} bytes with the fallback CSS inlined; the rows should be in data/')
+    # section 24: the page a crawler gets, before any script runs: one h1, the words, the hardest linking their
+    # song pages, every game page and list linked, the WebSite block; and the brand is not the h1
+    static = re.search(r'<section id="static">(.*?)</section>', index, re.S)
+    st.check(static is not None and index.count('<h1') == 1 and '<h1>' in static.group(1)
+             and 'Difficulty ratings for every Guitar Hero, Rock Band and Clone Hero chart' in static.group(1)
+             and '<p class="h6 mb-0 fw-semibold" id="brand">' in index, 'the static section and the one h1')
+    game_files = sorted(p.name for p in (site / 'game').iterdir())
+    st.check(static is not None and all(f'href="game/{g}"' in static.group(1) for g in game_files)
+             and all(f'href="list/{l}"' in static.group(1) for l in sorted(p.name for p in (site / 'list').iterdir()))
+             and static.group(1).count('href="song/') >= 3 and 'href="./?' not in index, 'the static section links every game, list and the hardest songs')
+    st.check('"@type": "WebSite"' in index and '"urlTemplate": "https://fretladder.com/?q={search_term_string}"' in index, 'the WebSite block')
     st.check(f'<title>{html.escape(page.site_title())}</title>' in index and 'Clone Hero' in page.site_title()
-             and '<h1 class="h6 mb-0 fw-semibold" id="brand">Fretladder</h1>' in index, 'title and brand')
+             and '<p class="h6 mb-0 fw-semibold" id="brand">Fretladder</p>' in index, 'title and brand')
     m = STRAPLINE.search(index)
     st.check(m and int(m.group(1).replace(',', '')) == len(total), f'strapline {m and m.group(0)}')
     st.check('Less < More' not in index, 'row text reached the island')
@@ -423,9 +438,10 @@ def run_all(work, header, args):
              f'song/ holds {len(song_pages)} pages for {len(song_keys)} keys, {len(lib.charted)} charted songs')
     one = (site / 'song' / song_pages[0]).read_text(encoding='utf-8')
     # section 21: a page, not a redirect: the forward only with a query, the table of every level, the JSON-LD
-    st.check(one.count('<script') == 3 and 'og:title' in one and f'?song={song_pages[0][:-5]}' in one
+    st.check(one.count('<script') == 3 and 'og:title' in one and f'#song={song_pages[0][:-5]}' in one
              and 'if(location.search)location.replace(location.search)' in one and 'http-equiv="refresh"' not in one
-             and '"@type": "MusicRecording"' in one and one.count('href="./?code=') >= 1 and '<base href="../">' in one
+             and '"@type": "MusicRecording"' in one and one.count('href="./#code=') >= 1 and './?' not in one and '<base href="../">' in one
+             and '"@type": "BreadcrumbList"' in one and 'chart difficulty - ' in one and 'How hard is ' in one
              and len(one) < 6000 and not re.search(r'__(TITLE|FAVICON|META|THEME|KEY|SONG|ARTIST|FACTS|SENTENCES|PICTURE|TABLE|GAME|NOTE|OPEN|LD|BRAND)__', one)   # A2's title is __SHOUT__ on purpose
              and assets.cache_class(f'song/{song_pages[0]}') == assets.CACHE_WEEK,
              f'song page: {len(one)} bytes, {one.count("<script")} scripts')
@@ -436,8 +452,10 @@ def run_all(work, header, args):
     st.check(len(lists) >= 3 and 'hardest-guitar.html' in lists and 'easiest-guitar.html' in lists, f'list/ holds {lists}')
     st.check('hardest-drums.html' in lists and 'hardest-vocals.html' in lists, f'the drums and vocals lists: {lists}')
     game_page = (site / 'game' / games[0]).read_text(encoding='utf-8')
-    st.check('setlist by difficulty' in game_page and '<base href="../">' in game_page and 'href="song/' in game_page
-             and game_page.count('<script') == 1 and not PLACEHOLDER.search(game_page.replace('__SHOUT__', '')), f'game page {games[0]}')
+    st.check('song list ranked by difficulty' in game_page and '<base href="../">' in game_page and 'href="song/' in game_page
+             and game_page.count('<script>') == 1 and '"@type": "ItemList"' in game_page and '"@type": "BreadcrumbList"' in game_page
+             and '<div class="more">' in game_page and 'song list ranked by difficulty</h1>' in game_page and './?' not in game_page,
+             f'game page {games[0]}')
     st.check(all(f'<th class="r">{part}</th>' in game_page for part in ('Bass', 'Keys', 'Drums', 'Vocals')), 'the game page has a column per other part')
     # the vocals song page reads Expert on its one level, and the drum chart's picture names its lines
     b2_key = by_folder['B2 - Drum Mid']['song_key']
@@ -453,12 +471,24 @@ def run_all(work, header, args):
     folders = sum(1 for d in ('song', 'game', 'list') for _ in (site / d).iterdir())
     st.check(sitemap.count('<url>') == 1 + sum(1 for n, _ in labels.DOC_PAGES if (site / n).is_file()) + folders
              and sitemap.count('<lastmod>') == sitemap.count('<url>'), f'sitemap: {sitemap.count("<url>")} urls for {folders} folder pages')
+    # section 24: the dates manifest, one entry per sitemap page, every date today on a first publish
+    dates_path = work / 'caches' / f'{header}_pagedates.json'
+    dates = json.loads(dates_path.read_text(encoding='utf-8'))
+    today = datetime.date.today().isoformat()
+    st.check(len(dates) == sitemap.count('<url>') and all(v[1] == today for v in dates.values()) and 'sitemap.xml' not in dates,
+             f'pagedates: {len(dates)} entries')
+    # an old date survives a publish that leaves the page's bytes alone, and moves when they move: seed one
+    # song page and index.html with an old day for the bootstrap publish below to read
+    aged_song = song_pages[0]
+    dates[f'song/{aged_song}'][1] = '2026-01-01'
+    dates['index.html'][1] = '2026-01-01'
+    dates_path.write_text(json.dumps(dates), encoding='utf-8')
     static = sorted(str(p.relative_to(site / 'static')) for p in (site / 'static').rglob('*') if p.is_file())
     want_static = sorted(k[len('static/'):] for k in assets.load_assets(None)[0])
     st.check(static == want_static, f'static files {static} vs {want_static}')
     st.check(all(re.fullmatch(r'[a-z]+\.[0-9a-f]{8}\.(js|css|svg)', n) for n in static), 'a static file is not hashed')
     st.check(re.search(r'<script type="module" src="static/app\.[0-9a-f]{8}\.js"></script>', index) is not None
-             and index.count('<script') == 3 and index.index(page.THEME_SCRIPT) < index.index('<link rel="stylesheet"'), 'the module tag and the theme script before the styles')
+             and index.count('<script') == 4 and index.index(page.THEME_SCRIPT) < index.index('<link rel="stylesheet"'), 'the module tag and the theme script before the styles')
     st.check(page.THEME_SCRIPT in (site / '404.html').read_text(encoding='utf-8'), 'the 404 page carries the theme script')
     st.done(f'{len(codes)} graphs, {len(static)} hashed static files, {len(data_files)} sheet files, fallback styles inlined')
 
@@ -473,7 +503,14 @@ def run_all(work, header, args):
         index = (site / 'index.html').read_text(encoding='utf-8')
         st.check(f'href="static/{boot_files[0].name}"' in index and '<style>' not in index, 'index.html should link bootstrap')
         st.check(not (site / 'bootstrap.css').exists(), 'a top-level bootstrap.css survived')
-        st.check(len(index) < 29000, f'index.html is {len(index)} bytes; the rows should be in data/')
+        st.check(len(index) < 40000, f'index.html is {len(index)} bytes; the rows should be in data/')
+        # section 24: the song page kept its old day (its bytes did not move), index.html moved (the stylesheet link did)
+        dates = json.loads(dates_path.read_text(encoding='utf-8'))
+        sitemap = (site / 'sitemap.xml').read_text(encoding='utf-8')
+        st.check(dates[f'song/{aged_song}'][1] == '2026-01-01' and dates['index.html'][1] == today
+                 and f'<loc>https://fretladder.com/song/{aged_song}</loc><lastmod>2026-01-01</lastmod>' in sitemap
+                 and '<loc>https://fretladder.com/</loc><lastmod>2026-01-01</lastmod>' not in sitemap,
+                 f'pagedates after a second publish: song {dates[f"song/{aged_song}"][1]}, index {dates["index.html"][1]}')
         st.check(re.search(rf'curves: 0 rendered, {len(codes)} unchanged', st.out), 'curves re-rendered on a no-op')
         st.check(len(list((site / 'graph').glob('*.png'))) == len(lib.charted) and re.search(r'pictures: 0 rendered, \d+ unchanged', st.out), 'the song pictures were re-rendered or lost on the second publish')
         st.check(sorted(os.listdir(site)) == sorted(deploy.BUNDLE_TOP), f'site holds {sorted(os.listdir(site))}')
@@ -484,7 +521,8 @@ def run_all(work, header, args):
     # ---- deploy, dry run -----------------------------------------------------------------
     st = Stage('deploy --dry-run', work, env, args.python)
     log.write_text('')
-    st.run('deploy.py', '--env', 'deploy.env', '--dry-run')
+    st.run('deploy.py', '--env', 'indexnow.env', '--dry-run')
+    st.check('IndexNow: ' in st.out and '(dry run)' in st.out and 'IndexNow answered' not in st.out, 'the dry run names IndexNow and sends nothing')
     lines = log.read_text().splitlines()
     st.check(len(lines) == 9 and all(l.startswith('s3 sync') and l.endswith('--dryrun') for l in lines), f'aws.log {lines}')
     st.check(f"site/{header}/graph/ s3://fixture-bucket/graph/ --delete --cache-control 'public, max-age=604800'" in lines[0], lines[0])
@@ -553,7 +591,8 @@ def run_all(work, header, args):
         st.check(renderer.lookup(code) is not None, f'lookup({code}) should resolve')
     from functions import packs as packs_mod
     resolved = packs_mod.resolve(cache, packs_mod.load(registry))
-    built = page.build(header, xlsxs[0], None, public=True, resolved=resolved, links_path=work / 'caches' / f'{header}_links.json')
+    built = page.build(header, xlsxs[0], None, public=True, resolved=resolved, links_path=work / 'caches' / f'{header}_links.json',
+                       page_dates=page.PageDates.load(dates_path))
     httpd = MetricsServer(0, {'/' + n: d for n, d in built.files.items()}, renderer)
     port = httpd.server_address[1]
     import threading

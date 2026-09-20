@@ -135,7 +135,7 @@ if (cl) {
   say("it carries a totals line and at least one date", doc.querySelector("p.totals") !== null && doc.querySelectorAll("h2").length >= 1,
       doc.querySelectorAll("h2").length + " dates");
   say("every date heading links the table filtered to that update",
-      [...doc.querySelectorAll("h2 a")].every(a => /^\.\/\?f\.Added=\d{4}-\d{2}-\d{2}&f\.Level=Expert$/.test(a.getAttribute("href"))));
+      [...doc.querySelectorAll("h2 a")].every(a => /^\.\/#f\.Added=\d{4}-\d{2}-\d{2}&f\.Level=Expert$/.test(a.getAttribute("href"))));
 }
 // the raw markup lives in the JSON island, which is not rendered text
 const shown = [document.querySelector(".fw-head"), document.getElementById("body"), document.getElementById("about"), document.getElementById("foot")]

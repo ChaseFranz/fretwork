@@ -172,6 +172,11 @@ def bass_code_query_with_sheet(plain):
     return "?" + urllib.parse.urlencode({"sheet": sheet, "code": code})
 
 
+# the fragment form a document page links (section 24): ./#code=X
+def bass_code_fragment(plain):
+    return "#code=" + _second_sheet_code(plain)[1]
+
+
 # Optional keys: queries (strings or callables taking plain.html; one launch each),
 # windows (one launch per size), window, page (a page of its own, not injected),
 # needs_bootstrap, storage (seeded into localStorage before the modules run),
@@ -181,6 +186,7 @@ SUITES = [
     ("order.js",     {}),
     ("keys.js",      {}),
     ("launch.js",    {}),
+    ("fragment.js",  {"queries": [bass_code_fragment]}),
     ("roundtrip.js", {"queries": [roundtrip_query], "storage": {"fw.hidden": '["Artist"]'}}),   # a stale saved hidden set, no fw.v
     ("load.js",      {"queries": [bass_code_query, bass_code_query_with_sheet, ""], "delay": {"data/": 2000}}),   # long enough for a slow CI runner to evaluate the suite first
     ("fields.js",    {"queries": ["", "?r.Difficulty=:3", "?r.Year=2000:2010", album_query, genre_query]}),
@@ -233,7 +239,7 @@ def stage(site, work, suites):
     found = ANCHOR.findall(src)
     assert len(found) == 1, f"module tag found {len(found)} times, expected once"
     anchor = found[0]
-    assert src.count("<script") == 3, "index.html should hold the theme script, the island and one module tag"
+    assert src.count("<script") == 4, "index.html should hold the theme script, the WebSite block, the island and one module tag"
     assert not any(name in src for name, _ in suites), "index.html is not pristine"
     for name in sorted(deploy.BUNDLE_TOP - {"index.html", "static", "data", "graph"}):   # every entry page
         if (site / name).is_file():

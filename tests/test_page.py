@@ -2,6 +2,7 @@
 
 import datetime
 import pathlib
+import tempfile
 import re
 import unittest
 
@@ -91,12 +92,19 @@ class LibraryPageTest(unittest.TestCase):
         self.assertEqual(out.count('<h2>'), 5)
         self.assertIn('2 packs, 3 songs, 5 charts', out)
         self.assertIn('<span class="bar" style="width:100.0%"></span>', out)
-        self.assertIn('href="./?f.Added=2026-09-07&amp;f.Level=Expert"', out)
+        self.assertIn('href="./#f.Added=2026-09-07&amp;f.Level=Expert"', out)
         self.assertIn('<a href="https://example.com/one" rel="noopener">', out)
         self.assertIn('<td>Mixed</td>', out)                                  # pack one: 1XG official, 2XG custom
         self.assertIn('<td>Official</td>', out)                               # pack two: 4XG alone
         self.assertIn(page.THEME_SCRIPT, out)
-        self.assertEqual(out.count('<script'), 1)
+        self.assertEqual(out.count('<script'), 1)                             # the theme's, from render_library alone
+        # through library_pages the Dataset block rides along (section 24), and it is data, not a script that runs
+        with_ld = page.library_pages(self.resolved(), small_frames(), {'favicon': 'static/favicon.x.svg'},
+                                     {'Guitar': {'file': 'data/guitar.1.json'}}, datetime.date(2026, 9, 19))['library.html'].decode('utf-8')
+        self.assertEqual(with_ld.count('<script>'), 1)
+        self.assertEqual(with_ld.count('<script type="application/ld+json">'), 1)
+        self.assertIn('"@type": "Dataset"', with_ld)
+        self.assertIn('"contentUrl": "https://fretladder.com/data/guitar.1.json"', with_ld)
         self.assertNotRegex(out, r'__[A-Z][A-Z_]*__')
 
     def test_library_pages_need_the_pack_join(self):
@@ -148,10 +156,10 @@ class SongPagesTest(unittest.TestCase):
         f['Guitar']['Pct'] = [50, 100, 80, 100]
         facts = page.song_facts(f)
         out = page.render_song_page('0000000000a1', facts['0000000000a1'], names).decode('utf-8')
-        self.assertIn('<title>Alpha by a: chart difficulty - Fretladder</title>', out)
+        self.assertIn('<title>Alpha by a: Clone Hero chart difficulty - Fretladder</title>', out)
         self.assertIn('<base href="../">', out)
         self.assertIn('<meta property="og:title" content="Alpha by a">', out)
-        self.assertIn('<meta property="og:description" content="Expert Lead: D 10.00, Calc Tier 3, at or above 50%; Expert Bass: D 4.00, Calc Tier 1">', out)
+        self.assertIn('<meta property="og:description" content="How hard is Alpha by a in Clone Hero? Expert Lead: D 10.00, Calc Tier 3, at or above 50%; Expert Bass: D 4.00, Calc Tier 1">', out)
         self.assertIn('<link rel="canonical" href="https://fretladder.com/song/0000000000a1.html">', out)
         # the picture (section 22): the first part's Expert graph, as og:image, in the JSON-LD and on the page
         self.assertIn('<meta property="og:image" content="https://fretladder.com/graph/00000001XG.png">', out)
@@ -166,15 +174,23 @@ class SongPagesTest(unittest.TestCase):
         self.assertEqual(out.count('<script'), 3)                             # the forward, the theme, the JSON-LD
         self.assertIn('"@type": "MusicRecording"', out)
         self.assertIn('"byArtist": {"@type": "MusicGroup", "name": "a"}', out)
+        # section 24: the game in the title, the question in the description, the artist in the h1,
+        # the breadcrumb beside the recording, and every app link by fragment
+        self.assertIn('<title>Alpha by a: Clone Hero chart difficulty - Fretladder</title>', out)
+        self.assertIn('content="How hard is Alpha by a in Clone Hero? Expert Lead: D 10.00', out)
+        self.assertIn('<h1>Alpha by a</h1>', out)
+        self.assertIn('<p class="by">A Clone Hero custom chart.</p>', out)     # rendered without its game here; with one, FindabilityTest
+        self.assertIn('"@type": "BreadcrumbList"', out)
+        self.assertIn('{"@type": "ListItem", "position": 2, "name": "Alpha", "item": "https://fretladder.com/song/0000000000a1.html"}', out)
         # every level of every part, each a link into the table on that chart
-        self.assertIn('<h1>Alpha</h1>', out)
-        self.assertIn('<a href="./?code=00000001XG">10.00</a><small>50%</small>', out)
-        self.assertIn('<a href="./?code=00000001HG">5.00</a><small>80%</small>', out)
-        self.assertIn('<a href="./?code=00000001XB">4.00</a>', out)
-        self.assertEqual(out.count('href="./?code='), 4)                     # three cells and the picture
+        self.assertIn('<a href="./#code=00000001XG">10.00</a><small>50%</small>', out)
+        self.assertIn('<a href="./#code=00000001HG">5.00</a><small>80%</small>', out)
+        self.assertIn('<a href="./#code=00000001XB">4.00</a>', out)
+        self.assertEqual(out.count('href="./#code='), 4)                     # three cells and the picture
+        self.assertNotIn('href="./?', out)
         self.assertIn('Lead <span class="tier">Tier 3</span>', out)
         self.assertIn('<a href="methodology.html">', out)
-        self.assertIn('href="./?song=0000000000a1"', out)
+        self.assertIn('href="./#song=0000000000a1"', out)
         self.assertIn('href="static/favicon.x.svg"', out)
         self.assertNotRegex(out, r'__[A-Z][A-Z_]*__')
         pages = page.render_song_pages(f, names, facts, LibraryPageTest().resolved())
@@ -251,15 +267,20 @@ class GameAndListPagesTest(unittest.TestCase):
         pages = page.render_game_pages(self.f, self.r, self.names)
         self.assertEqual(sorted(pages), ['game/pack-one.html', 'game/pack-two.html'])
         one = pages['game/pack-one.html'].decode('utf-8')
-        self.assertIn('<title>Pack One setlist by difficulty - Fretladder</title>', one)
+        self.assertIn('<title>Pack One song list ranked by difficulty - Fretladder</title>', one)
+        self.assertIn('<h1>Pack One song list ranked by difficulty</h1>', one)
+        self.assertIn('<p class="site"><a href="./">Fretladder</a></p>', one)
         self.assertIn('<base href="../">', one)
         self.assertIn('<meta property="og:url" content="https://fretladder.com/game/pack-one.html">', one)
         self.assertIn('2 songs, 4 charts, mixed, on the site since 7 September 2026', one)
         # ranked by Expert guitar D: Beta (20.50) before Alpha (10.00), each linking its page and its chart
         self.assertLess(one.index('song/0000000000a2.html'), one.index('song/0000000000a1.html'))
-        self.assertIn('<a href="./?code=00000002XG">20.50</a><small>100%</small>', one)
-        self.assertIn('<a href="./?code=00000001XB">4.00</a>', one)
-        self.assertEqual(one.count('<script'), 1)
+        self.assertIn('<a href="./#code=00000002XG">20.50</a><small>100%</small>', one)
+        self.assertIn('<a href="./#code=00000001XB">4.00</a>', one)
+        self.assertEqual(one.count('<script>'), 1)                            # the theme's; the JSON-LD block is data
+        self.assertEqual(one.count('<script type="application/ld+json">'), 1)
+        self.assertIn('"@type": "ItemList"', one)
+        self.assertIn('{"@type": "ListItem", "position": 1, "name": "Beta", "url": "https://fretladder.com/song/0000000000a2.html"}', one)
         self.assertNotRegex(one, r'__[A-Z][A-Z_]*__')
 
     def test_list_pages(self):
@@ -277,6 +298,20 @@ class GameAndListPagesTest(unittest.TestCase):
         self.assertNotIn('song/0000000000a1.html', customs)
         easiest = pages['list/easiest-guitar.html'].decode('utf-8')
         self.assertLess(easiest.index('song/0000000000a1.html'), easiest.index('song/0000000000a3.html'))
+        # section 24: the method paragraph, the ItemList, the breadcrumb through the library, the More block,
+        # and the top entries' pictures once the facts are given (none without them)
+        self.assertIn('not a poll', hardest)
+        self.assertIn('"@type": "ItemList"', hardest)
+        self.assertIn('"name": "The library", "item": "https://fretladder.com/library.html"', hardest)
+        self.assertIn('<div class="more"><h2>Every game on the site</h2><ul><li><a href="game/pack-one.html">Pack One</a></li>', hardest)
+        self.assertIn('<a href="list/easiest-bass.html">Easiest bass</a>', hardest)
+        self.assertNotIn('<p class="pics">', hardest)
+        facts = page.song_facts(self.f)
+        with_pics = page.render_list_pages(self.f, self.r, self.names, facts)['list/hardest-guitar.html'].decode('utf-8')
+        self.assertEqual(with_pics.count('<p class="pics">'), 1)
+        self.assertIn('<a href="song/0000000000a3.html"><img src="graph/00000003XG.png" width="1920" height="840" loading="lazy" alt="Difficulty graph of Gamma by c:', with_pics)
+        self.assertIn('<b>1. Gamma</b> c, D 20.50</a>', with_pics)
+        self.assertNotIn('href="./?', with_pics)
 
 
 if __name__ == '__main__':
