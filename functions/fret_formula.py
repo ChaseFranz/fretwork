@@ -6,7 +6,7 @@ refined for window gating some metrics (median and stdev now operate off of acti
 Scaling CoV - better account of spikes over the course of the song / rest sections
 Stamina term to discount shorter songs, and slowly build a boost for longer songs
 
-D = N * V * COV * STAM
+D = (N + V) * COV * STAM
 
     epsN = aNPS * 0.05
     N = ((medNPS + epsN) * aNPS * pNPS) ** (1 / 3)
@@ -20,8 +20,6 @@ D = N * V * COV * STAM
 
     STAM = (DurationS / t_ref) ** s_stam
 
-    # base scalar difficulty
-    D = N * V * COV * STAM
 
 N & V balance peak segment impact against average and median
 COV is the interaction that accounts for uneven difficulty - more variable songs >1, less variable -> 1
@@ -117,7 +115,7 @@ def calc_nvcov(metrics):
     STAM = (DurationS / T_REF) ** S_STAM
 
     # base scalar difficulty
-    D = N * V * COV * STAM
+    D = (N + V) * COV * STAM
 
     return {
         'N': N,

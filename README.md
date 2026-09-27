@@ -22,6 +22,7 @@ Optionally, applies calculated difficulty to `song.ini` files for use in-game, o
 - [3. Analyzing a cache](#3-analyzing-a-cache)
 - [4. Rendering song graphs](#4-rendering-song-graphs)
 - [5. Fixes/Extension Ideas](#5-fixesextension-ideas)
+- [Third-Party Attributions](#third-party-attributions)
 - [License](#license)
 
 ---
@@ -44,13 +45,6 @@ All outputs are named: `{header}_{kind}_{timestamp}.{ext}`
 
 ex. `Library_cache_08052026-0330.pkl`, `Library_metrics_08052026-0330.xlsx`.
 
-**Render appearance settings**
-
-Under `RENDER_DEFAULT` and `RENDER_THEMES`, you can tweak how `render.py's` PNGs look:
-
-- `mode`: `"dark"` or `"light"` to set overall color theme
-- adjust hex value colors
-
 ---
 
 ## 2. Building a cache
@@ -59,15 +53,13 @@ Under `RENDER_DEFAULT` and `RENDER_THEMES`, you can tweak how `render.py's` PNGs
 
 By default this will run on the `SEARCH_PATH` & `HEADER` set in the config.
 
-**If you ran a prior version, you will need to rebuild your cache with the addition of Drums & Vocals**
+**If you ran a prior version, you will need to rebuild your cache**
 
 **Outputs in `/caches` folder:**
 
 - `{header}_cache_{timestamp}.pkl`: The main output used by Analyze and Render
 - `{header}_errors_{timestamp}.csv`: Only generated if some songs failed to parse, this lists which file failed and why (e.g. missing valid instruments, corrupt midi file)
 - `{header}_BackupData.csv`: A backup that stores all difficulties that were found at the time of building
-
-**Cache files are Python pickles** - loading one can run code, so only load caches you built yourself for safety.
 
 **Optional arguments:**
 - `--search-path`: scan a different folder than the one in `config.py`
@@ -77,7 +69,7 @@ By default this will run on the `SEARCH_PATH` & `HEADER` set in the config.
 
 ## 3. Analyzing a cache
 
-`analyze.py` loads the most recent cache for your config's `HEADER`, computes difficulty metrics for every song/instrument/selected level combo, and writes a **.xlsx spreadsheet**. This is the main output for browsing the library.
+`analyze.py` loads the most recent cache for your config's `HEADER`, computes difficulty metrics for every song/instrument/selected level combo, and writes a **.xlsx spreadsheet**.
 
 Optionally, `analyze.py` can also update each instrument's `song.ini` `diff_*` tag for use in-game. You can also restore all of them to the original assigned value. This option runs via args or `DIFF_WRITE_MODE` in the config.
 
@@ -115,10 +107,9 @@ In the metrics spreadsheet / render header, you'll see D translated two ways:
 - An unknown mode or instrument key stops Analyze before anything runs
 
 **How writes stay safe:**
-- The spreadsheet is saved first, `song.ini` files are written last
 - A value is only written where `{header}_BackupData.csv` already holds that song/instrument's original, anything else is reported as `not backed up (skipped)`
 - Values that match the write aren't rewritten, so repeat runs report them as `unchanged`
-- Band is only written for songs with a Band row (2+ core instruments with an Expert D score)
+- Band is only written for songs with a Band row (2+ core instruments with an Expert D)
 
 > **Upgrading from an earlier version:** Build now fills blank backup cells (e.g. the `diff_vocals` column added with Vocals) from the current `song.ini`. If you already wrote Vocals difficulties with an earlier version, those written values will be captured as the "original". Restore first with the old version before rebuilding.
 
@@ -189,6 +180,20 @@ Graphs are available in light or dark mode depending on the config.
 - DDR Groove Radar style scoring (probably tied to patterns)
 
 ---
+
+## Third-Party Attributions
+
+Fretwork's own code is MIT-licensed (see below), but a few pieces of format documentation and one adapted implementation came from other projects:
+
+| Source | Used for | License | Notes |
+|---|---|---|---|
+| [TheNathannator/ChartFormats](https://github.com/TheNathannator/GuitarGame_ChartFormats) | `.chart`/`.mid` track, section, and pitch-block details used throughout `instruments.py`, `mid_parser.py`, `chart_parser.py` | CC0 1.0 Universal | Reference |
+| [mdsitton/SngFileFormat](https://github.com/mdsitton/SngFileFormat) | `.sng` container spec for `sng_parser.py` | MIT | Reference |
+| [Free60 project](https://free60.org/System-Software/Formats/STFS/) | STFS format details for `rb3con_parser.py` | ??? | Reference |
+| [Rock Band Customs Project](https://rock-band-customs.gitlab.io/authoring-dtas.html) | `songs.dta` field reference for `rb3con_parser.py` | ??? | Reference|
+| [arkem/py360](https://github.com/arkem/py360) | STFS block-address math used in `rb3con_parser.py` adapted from py360's `stfs.py` | BSD | Copyright notice reproduced in `rb3con_parser.py` per the license's terms |
+| [mtolly/onyx](https://github.com/mtolly/onyx) | RB3 rank-to-tier values for `rb3con_parser.py` | GPL-3.0 | Threshold Reference |
+| [StackOverflow0x/RB3-Difficulty-Slider](https://github.com/StackOverflow0x/RB3-Difficulty-Slider) | RB3 rank-to-tier values for `rb3con_parser.py` | ??? | Threshold Reference |
 
 ## License
 **MIT** - see LICENSE for details.
