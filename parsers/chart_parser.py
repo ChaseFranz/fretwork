@@ -77,12 +77,13 @@ DRUM_ROLL_TYPE_TO_KIND = {65: 'single', 66: 'double'}
 # Raw section parsing (chart's [Section] / key = value text format)
 # ---------------------------------------------------------------------
 
-# decoded the same way as song.ini (utf-8 / utf-16 BOM / cp1252 fallback)
-def parse_chart(chart_source):
+# Parses already-decoded .chart text - shared by parse_chart() (notes.chart on disk, decoded via
+# text_decode.read_text) and a .sng-embedded chart (decoded via text_decode.decode_text)
+def parse_chart_text(text):
     c_dict = {}
     c_sect = None
 
-    for line in read_text(chart_source).splitlines():
+    for line in text.splitlines():
         line = line.strip()
 
         if line.startswith('[') and line.endswith(']'):
@@ -104,6 +105,11 @@ def parse_chart(chart_source):
     # Global [Events] holds section names / lyrics - nothing used from this section
     c_dict.pop('Events', None)
     return c_dict
+
+
+# decoded the same way as song.ini (utf-8 / utf-16 BOM / cp1252 fallback)
+def parse_chart(chart_source):
+    return parse_chart_text(read_text(chart_source))
 
 # SyncTrack 'B <bpm*1000>' markers -> tempo arrays for tick -> ms conversion
 # Returns (tempo arrays, dropped) - dropped is [(tick, bpm)] for zero/invalid markers that were skipped
@@ -248,16 +254,19 @@ def _extract_roll_spans(section, to_ms_array):
     return sorted(zip(start_ms.tolist(), end_ms.tolist(), kinds))
 
 
-def chart_notes(chart_source):
-    c_dict = parse_chart(chart_source)
+# Core extraction over an already-parsed chart dict - shared by chart_notes() (notes.chart on
+# disk) and chart_notes_from_text() (a chart embedded in a container).
+def _chart_notes_from_dict(c_dict, song_path, warn_label=None):
+    warn_label = warn_label if warn_label is not None else song_path
+
     for required in ('Song', 'SyncTrack'):
         if required not in c_dict:
-            raise ValueError(f"Missing required section '{required}' in {chart_source}")
+            raise ValueError(f"Missing required section '{required}' in {warn_label}")
 
     tick_res = int(c_dict['Song']['Resolution'])
     tempo_arrs, dropped_tempos = build_tempo_map(c_dict['SyncTrack'], tick_res)
     warnings = [
-        (str(chart_source), 'InvalidTempo', f"skipped tempo marker at tick {tick} ({bpm} BPM)")
+        (warn_label, 'InvalidTempo', f"skipped tempo marker at tick {tick} ({bpm} BPM)")
         for tick, bpm in dropped_tempos
     ]
 
@@ -298,16 +307,29 @@ def chart_notes(chart_source):
                 roll_spans_out['drums'] = drum_roll_spans
 
     if not instruments_out:
-        raise ValueError(f"No recognized instrument section with usable notes found in {chart_source}")
+        raise ValueError(f"No recognized instrument section with usable notes found in {warn_label}")
 
     return {
-        'song_path': str(pathlib.Path(chart_source).parent.resolve()),
+        'song_path': song_path,
         'source_format': 'chart',
         'resolution': tick_res,
         'instruments': instruments_out,
         'roll_spans': roll_spans_out,
         'warnings': warnings,  # popped into the build errors CSV by chart_loop
     }
+
+
+def chart_notes(chart_source):
+    c_dict = parse_chart(chart_source)
+    song_path = str(pathlib.Path(chart_source).parent.resolve())
+    return _chart_notes_from_dict(c_dict, song_path, warn_label=str(chart_source))
+
+
+# Same as chart_notes(), for chart text already decoded from a container (.sng).
+# song_path is the container's own identity.
+def chart_notes_from_text(text, song_path, warn_label=None):
+    c_dict = parse_chart_text(text)
+    return _chart_notes_from_dict(c_dict, song_path, warn_label=warn_label)
 
 
 # -----------

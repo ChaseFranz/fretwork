@@ -34,6 +34,21 @@ MISSING = "missing"
 def song_ini_path(song_path):
     return pathlib.Path(song_path) / "song.ini"
 
+
+# .sng songs are keyed by the container file itself
+# there's no song.ini to patch, so CalcTier/RemapDiff/Restore writes are skipped
+CONTAINER_EXTS = ('.sng',)
+
+# _rb3con packages commonly ship with no dotted extension at all
+_RB3CON_SUFFIXES = ('_rb3con', '.rb3con')
+
+def is_container_song(song_path):
+    base = song_path.split('::', 1)[0]
+    if pathlib.Path(base).suffix.lower() in CONTAINER_EXTS:
+        return True
+    lname = pathlib.Path(base).name.lower()
+    return any(lname.endswith(suffix) for suffix in _RB3CON_SUFFIXES)
+
 # ---------------------------------------------------------------------
 # ini read/write
 # ---------------------------------------------------------------------
@@ -299,10 +314,15 @@ def restore_from_backup(header):
         if not values:
             continue  # every column blank, leave song.ini alone
 
+        # song.ini fallback logic
         ini_path = song_ini_path(song_path)
         if not ini_path.is_file():
-            # song folder moved or deleted since BUILD
-            failed.append((song_path, None, 'FileNotFoundError', f"no song.ini at {ini_path}"))
+            if is_container_song(song_path):
+                failed.append((song_path, None, 'UnsupportedFormat',
+                                "diff tag writeback isn't supported for containers"))
+            else:
+                # song folder moved or deleted since BUILD
+                failed.append((song_path, None, 'FileNotFoundError', f"no song.ini at {ini_path}"))
             continue
 
         try:
@@ -357,7 +377,11 @@ def sync_difficulty(mode, header, instrument=None, songs=None, difficulties=None
             continue
         ini_path = song_ini_path(song_path)
         if not ini_path.is_file():
-            failed.append((song_path, 'FileNotFoundError', f"no song.ini at {ini_path}"))
+            if is_container_song(song_path):
+                failed.append((song_path, 'UnsupportedFormat',
+                                "diff tag writeback isn't supported for containers"))
+            else:
+                failed.append((song_path, 'FileNotFoundError', f"no song.ini at {ini_path}"))
             continue
         try:
             if update_ini_values(ini_path, {diff_tag: difficulties[song_path][mode]}):

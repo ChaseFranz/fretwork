@@ -77,10 +77,11 @@ def parse_ini(file):
     return ini
 
 
-def ini_metadata(file):
-    ini = parse_ini(file)
+# Builds one metadata row from an already-parsed {lowercased key: value} dict
+# shared for song.ini and .sng metadata
+def ini_metadata_from_pairs(ini, song_path):
     if not ini:
-        raise ValueError(f"No key = value metadata found in {file}")
+        raise ValueError(f"No key = value metadata found for {song_path}")
 
     # clean up tags & fix missing data, hard codes for malformed or missing
     name = DETAG.sub("", ini.get('name', 'unk'))
@@ -102,9 +103,6 @@ def ini_metadata(file):
             official = is_official
             break
 
-    # Song folder identity - full resolved path to account for duplicate songs across different sources
-    song_path = str(file.parent.resolve())
-
     return {
         'SongPath': song_path,
         'Name': name,
@@ -114,6 +112,13 @@ def ini_metadata(file):
         'Release': release,
         'Official': official,
     }
+
+
+def ini_metadata(file):
+    ini = parse_ini(file)
+    # Song folder identity - full resolved path to account for duplicate songs across different sources
+    song_path = str(file.parent.resolve())
+    return ini_metadata_from_pairs(ini, song_path)
 
 # -----------
 # Search loop
