@@ -1,7 +1,7 @@
 """
 BUILD - longest part of the process - builds a library cache for analysis/visualization
 
-Parses every song.ini, notes.chart and/or notes.mid under config's search_path,
+Parses every song under config's search_path,
 joins them by file path, and writes one consolidated timestamped cache
 Every recognized instrument is extracted from each song's chart/mid file at every level (EMHX)
 
@@ -9,8 +9,11 @@ Additionally backs up every song's original diff_* values w/ instrument columns 
 Existing backup rows are never overwritten - only their blank cells get filled from the current song.ini
 (Analyze never writes to a blank cell, so a blank cell still holds the original)
 
-The library is walked once: song.ini / notes.chart / notes.mid feed the parsers
-folders with a chart/mid but no song.ini plus unsupported .sng / .rb3con packages are counted in the report
+The library is walked once: 
+ - song.ini / notes.chart / notes.mid combinations built out by the parsers 
+- .sng / .rb3con containers are unpacked in memory and reshaped to go into the cache
+
+folders with a chart/mid but no song.ini plus unsupported .yargsong files are counted in the report
 
 Run this once or whenever your song library changes significantly
 
@@ -27,7 +30,7 @@ import pathlib
 
 import config
 from functions import instruments, ini_updater, timestamp
-from parsers import chart_parser, ini_parser, mid_parser 
+from parsers import chart_parser, ini_parser, mid_parser, rb3con_parser, sng_parser
 from functions import cache as cache_mod
 
 # The ini columns that survive to the metrics spreadsheet, aside from per-instrument Difficulty
@@ -38,13 +41,16 @@ _INI_NAME = os.path.normcase("song.ini")
 _CHART_NAME = os.path.normcase("notes.chart")
 _MID_NAME = os.path.normcase("notes.mid")
 
-# package formats fretwork can't read
-UNSUPPORTED_EXTS = ('.sng', '.rb3con')
+# .sng (Clone Hero container)
+SNG_EXTS = ('.sng',)
+
+# .yargsong deliberately exclusion due to licensing encryption
+UNSUPPORTED_EXTS = ('.yargsong',)
 
 
 # One walk of the library: file lists for the parsers + counts for the terminal report
 def scan_library(search_path):
-    ini_files, chart_files, mid_files = [], [], []
+    ini_files, chart_files, mid_files, sng_files, rb3con_files = [], [], [], [], []
     unsupported = {ext: 0 for ext in UNSUPPORTED_EXTS}
     ini_dirs, note_dirs = set(), set()
 
@@ -60,15 +66,22 @@ def scan_library(search_path):
             elif key == _MID_NAME:
                 mid_files.append(pathlib.Path(dirpath, name))
                 note_dirs.add(dirpath)
+            elif rb3con_parser.is_rb3con_filename(name):
+                # these commonly ship with no extension
+                rb3con_files.append(pathlib.Path(dirpath, name))
             else:
                 ext = os.path.splitext(name)[1].lower()
-                if ext in unsupported:
+                if ext in SNG_EXTS:
+                    sng_files.append(pathlib.Path(dirpath, name))
+                elif ext in unsupported:
                     unsupported[ext] += 1
 
     return {
         'ini': ini_files,
         'chart': chart_files,
         'mid': mid_files,
+        'sng': sng_files,
+        'rb3con': rb3con_files,
         'no_ini_folders': len(note_dirs - ini_dirs),
         'unsupported': unsupported,
     }
@@ -117,15 +130,28 @@ def build_cache(search_path=None, header=None, out_dir=None):
     scan = scan_library(search_path)
 
     ini_df = ini_parser.ini_loop(search_path, errors, files=scan['ini'])
-    if ini_df.empty:
-        raise ValueError(
-            f"No parseable song.ini files found under {search_path} - check SEARCH_PATH in config.py "
-            f"or pass --search-path"
-        )
-
     ini_rows = {row['SongPath']: row for row in ini_df.to_dict('records')}
 
+    # .sng containers carry their own metadata + notes.mid/.chart
+    # each container is one song keyed by resolved file path
+    sng_ini_rows, sng_note_streams = sng_parser.sng_loop(
+        search_path, errors, max_workers=config.PARSE_MAX_WORKERS, files=scan.get('sng'))
+    ini_rows.update(sng_ini_rows)
+
+    # _rb3con packages carry their own metadata (songs.dta) + notes.mid
+    rb3con_ini_rows, rb3con_note_streams = rb3con_parser.rb3con_loop(
+        search_path, errors, max_workers=config.PARSE_MAX_WORKERS, files=scan.get('rb3con'))
+    ini_rows.update(rb3con_ini_rows)
+
+    if not ini_rows:
+        raise ValueError(
+            f"No parseable song files found under {search_path} - check "
+            f"SEARCH_PATH in config.py or pass --search-path"
+        )
+
     note_index = build_note_index(search_path, errors, scan)
+    note_index.update(sng_note_streams)
+    note_index.update(rb3con_note_streams)
 
     songs = {}
     no_instruments = 0
@@ -146,7 +172,7 @@ def build_cache(search_path=None, header=None, out_dir=None):
             for level_key, level_stream in levels.items():
                 notes = level_stream['notes']
 
-                # for drums empty means both hand and kick must have no notes
+                # Defensive/redundant: every parser already checks for empty streams
                 if instrument_key == 'drums':
                     is_empty = (
                         len(notes['hand_mask']['time_ms']) == 0
@@ -239,8 +265,11 @@ def build_cache(search_path=None, header=None, out_dir=None):
 
     # terminal report
     print(f"\n{header} cache complete:")
-    print(f"    Song.ini count        {len(ini_rows)}")
-    print(f"    No usable chart/mid   {no_instruments}")
+    print(f"    Song.ini count        {len(ini_rows) - len(sng_ini_rows) - len(rb3con_ini_rows)}")
+    if scan.get('sng'):
+        print(f"    .sng count            {len(scan['sng'])}")
+    if scan.get('rb3con'):
+        print(f"    _rb3con count         {len(scan['rb3con'])} ({len(rb3con_ini_rows)} songs)")
     if scan['no_ini_folders']:
         print(f"    Chart/mid, no ini     {scan['no_ini_folders']}")
     for ext, count in scan['unsupported'].items():

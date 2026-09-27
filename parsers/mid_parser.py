@@ -51,6 +51,7 @@ Kick lane 1x base, kick lane 2x = base - 1 (expert only)
 """
 
 import concurrent.futures as cf
+import io
 import os
 import pathlib
 
@@ -293,22 +294,15 @@ def _extract_roll_spans(track, to_ms_array):
     return {level: sorted(spans) for level, spans in spans_by_level.items() if spans}
 
 
-def mid_notes(mid_source):
-    try:
-        mid = mido.MidiFile(str(mid_source), clip=True)
-    except (EOFError, OSError) as exc:
-        # these errors mean truncated/corrupted file
-        if type(exc) not in (EOFError, OSError):
-            raise
-        raise type(exc)(
-            f"{_diagnose_eof(mid_source)} - corrupt or truncated midi "
-            f"({type(exc).__name__} from mido)"
-        ) from exc
+# Core extraction over an already-open mido.MidiFile
+# shared by mid_notes() (notes.mid on disk) and mid_notes_from_bytes() (a midi embedded in a container)
+def _mid_notes_from_midifile(mid, song_path, warn_label=None):
+    warn_label = warn_label if warn_label is not None else song_path
 
     tick_res = mid.ticks_per_beat
     tempo_arrs, dropped_tempos = map_mid_tempo(mid)
     warnings = [
-        (str(mid_source), 'InvalidTempo', f"skipped tempo marker at tick {tick} ({bpm} BPM)")
+        (warn_label, 'InvalidTempo', f"skipped tempo marker at tick {tick} ({bpm} BPM)")
         for tick, bpm in dropped_tempos
     ]
 
@@ -348,13 +342,44 @@ def mid_notes(mid_source):
         )
 
     return {
-        'song_path': str(pathlib.Path(mid_source).parent.resolve()),
+        'song_path': song_path,
         'source_format': 'mid',
         'resolution': tick_res,
         'instruments': instruments_out,
         'roll_spans': roll_spans_out,
         'warnings': warnings,  # for build errors CSV
     }
+
+
+def mid_notes(mid_source):
+    try:
+        mid = mido.MidiFile(str(mid_source), clip=True)
+    except (EOFError, OSError) as exc:
+        # these errors mean truncated/corrupted file
+        if type(exc) not in (EOFError, OSError):
+            raise
+        raise type(exc)(
+            f"{_diagnose_eof(mid_source)} - corrupt or truncated midi "
+            f"({type(exc).__name__} from mido)"
+        ) from exc
+
+    song_path = str(pathlib.Path(mid_source).parent.resolve())
+    return _mid_notes_from_midifile(mid, song_path, warn_label=str(mid_source))
+
+
+# Same as mid_notes(), for midi bytes already extracted from a container
+def mid_notes_from_bytes(data, song_path, warn_label=None):
+    try:
+        mid = mido.MidiFile(file=io.BytesIO(data), clip=True)
+    except (EOFError, OSError) as exc:
+        if type(exc) not in (EOFError, OSError):
+            raise
+        raise type(exc)(
+            f"{len(data)}-byte embedded midi - corrupt or truncated "
+            f"({type(exc).__name__} from mido)"
+        ) from exc
+
+    return _mid_notes_from_midifile(mid, song_path, warn_label=warn_label)
 
 
 # -----------
