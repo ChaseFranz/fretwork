@@ -82,7 +82,7 @@ def _calc_fret_curves(windows, window_ms, step_ms, tau_ms=TAU_MS):
         'time_ms': windows['time_ms'],
         'nps': smoothed['nps'],
         'vps': smoothed['vps'],
-        'd_raw': np.sqrt(smoothed['nps'] * smoothed['vps']),
+        'd_raw': smoothed['nps'] + smoothed['vps'],
     }
 
 # final curves for render / 5 Fret

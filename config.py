@@ -27,7 +27,7 @@ HEADER can't contain < > : " / | ? * or a backslash (it names files) - Build/Ana
 SEARCH_PATH = r"C:\Users\[user]\Documents\Clone Hero\Songs" # edit to your library path before running Build
 
 # Identifies the run. Overridable with --header.
-HEADER = "Test" # edit to title your cache before running Build/Analyze/Render
+HEADER = "FullBand" # edit to title your cache before running Build/Analyze/Render
 
 #-----------------
 # Analyze Options

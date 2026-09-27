@@ -58,8 +58,8 @@ DRUM_REMAP_BINS = [0, 10.3, 12.3, 14, 16.2, 19.2, 22.8, math.inf]
 # CalcTier (log-scaled) params
 # --------------------------------------------
 # ~One tier per LN_INC of log(D / BASE_D)
-BASE_D = 9
-LN_INC = 0.196
+BASE_D = 10.243
+LN_INC = 0.1602
 
 
 # RB manual 0-6 fit

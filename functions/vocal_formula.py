@@ -63,9 +63,8 @@ VOCAL_REMAP_BINS = [0, 4.1, 6.0, 8.3, 11.4, 14.4, 17.6, math.inf]
 # CalcTier
 # --------------------------------------------
 # ~One tier per LN_INC of log(D / BASE_D)
-# Single log scale fit to the vocal remap edges
-BASE_D = 4.4
-LN_INC = 0.32
+BASE_D = 4.805
+LN_INC = 0.2476
 
 # --------------------------------------------
 # Formula Constants
@@ -93,7 +92,6 @@ def remap_diff(D):
             return label
         lower = upper
     return None
-
 
 # log tier calculation
 def calc_tier(D):

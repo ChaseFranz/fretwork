@@ -1,6 +1,6 @@
 # Fretwork - Full Band Difficulty Analyzer <!-- omit in toc -->
 
-Fretwork is an analysis tool to calculate difficulty values for **Full Band (Guitar / Bass / Keys / Drums / Vocals)** from chart & midi files **(Guitar Hero / Rock Band / Clone Hero / YARG)** using metrics derived directly from the charted notes (See Methodology.md for details)
+Fretwork is an analysis tool to calculate difficulty values for **Full Band (Guitar / Bass / Keys / Drums / Vocals)** from song files for **Guitar Hero / Rock Band / Clone Hero / YARG** using metrics derived directly from the charted notes (See Methodology.md for details)
 
 [Explainer video with some historical context](https://youtu.be/emoWMpDJ4ls)
 
@@ -49,7 +49,7 @@ ex. `Library_cache_08052026-0330.pkl`, `Library_metrics_08052026-0330.xlsx`.
 
 ## 2. Building a cache
 
-`build.py` walks `SEARCH_PATH`, finds every `song.ini`, `notes.chart`, and `notes.mid`, reads them, and writes one cache file containing every song's note timing and metadata. A CSV containing per instrument original difficulties is also saved.
+`build.py` walks `SEARCH_PATH`, finds every `song.ini`, `notes.chart`, and `notes.mid` (now supports `.sng` & `rb3con` as well), reads them, and writes one cache file containing every song's note timing and metadata. A CSV containing per instrument original difficulties is also saved.
 
 By default this will run on the `SEARCH_PATH` & `HEADER` set in the config.
 

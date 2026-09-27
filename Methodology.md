@@ -44,11 +44,13 @@ VPS adds value for calculating overall difficulty since it can differ so much fr
 
 ## 5 Fret Math
 
-Difficulty (D) is calculated by multiplying together N (using median, average, and peak NPS for a song), V (the same combination of VPS values), CoV (an interaction term that approximates how consistent through standard deviation, median, and average) and STAM (a gentle duration mod). The specific formula is described below.
+Difficulty (D) is calculated by adding together N (using median, average, and peak NPS for a song) and V (the same combination of VPS values), then multiplying by CoV (an interaction term that approximates how consistent through standard deviation, median, and average) and STAM (a gentle duration mod). The specific formula is described below.
 
 $$
-D = N \cdot V \cdot CoV \cdot STAM
+D = (N + V) \cdot CoV \cdot STAM
 $$
+
+> **v3 change:** D was previously multiplicative on N and V ($N \cdot V \cdot CoV \cdot STAM$). It's now additive, matching the shape Drums already used, so a fast/simple passage and a slow/complex one can't cancel each other toward zero the way a product would.
 
 Median and standard deviation are computed over active windows only (windows containing at least one note). Including silent windows dragged the median toward 0 on any song with an intro or long rests, which underrated the active sections. Peak and average still run over every window, so rests continue to count against the average the way they should.
 
@@ -100,7 +102,7 @@ $$
 ### Final D Formula <!-- omit in toc -->
 
 $$
-D = N \cdot V \cdot CoV \cdot STAM
+D = (N + V) \cdot CoV \cdot STAM
 $$
 
 ---
@@ -353,61 +355,64 @@ Reference for the calibration tables behind `fret_formula.py`, `drum_formula.py`
 
 | Tier | D range        | Official | Remap |
 |------|----------------|---------:|------:|
-| 0    | (0, 11.3]      |    4.3%  |  4.3% |
-| 1    | (11.3, 16.6]   |   10.6%  | 10.7% |
-| 2    | (16.6, 24.5]   |   24.0%  | 23.9% |
-| 3    | (24.5, 33.5]   |   25.1%  | 25.2% |
-| 4    | (33.5, 44.5]   |   17.7%  | 17.7% |
-| 5    | (44.5, 65.6]   |   12.0%  | 11.9% |
-| 6    | (65.6, inf)    |    6.2%  |  6.3% |
+| 0    | (0, 7.2]       |    4.2%  |  4.9% |
+| 1    | (7.2, 8.6]     |   10.5%  | 11.0% |
+| 2    | (8.6, 10.3]    |   24.5%  | 24.2% |
+| 3    | (10.3, 12.0]   |   24.6%  | 23.7% |
+| 4    | (12.0, 14.0]   |   18.1%  | 17.2% |
+| 5    | (14.0, 17.1]   |   11.7%  | 12.4% |
+| 6    | (17.1, inf)    |    6.4%  |  6.7% |
 
 #### Bass (`BASS_REMAP_BINS`) <!-- omit in toc -->
 
 | Tier | D range        | Official | Remap |
 |------|----------------|---------:|------:|
-| 0    | (0, 3.7]       |    6.7%  |  6.7% |
-| 1    | (3.7, 10.0]    |   22.8%  | 23.0% |
-| 2    | (10.0, 15.2]   |   27.6%  | 27.5% |
-| 3    | (15.2, 22.0]   |   23.9%  | 23.5% |
-| 4    | (22.0, 29.7]   |   10.9%  | 11.0% |
-| 5    | (29.7, 41.2]   |    5.8%  |  5.8% |
-| 6    | (41.2, inf)    |    2.4%  |  2.4% |
+| 0    | (0, 5.1]       |    6.6%  |  6.5% |
+| 1    | (5.1, 7.2]     |   23.1%  | 23.5% |
+| 2    | (7.2, 8.6]     |   27.8%  | 28.0% |
+| 3    | (8.6, 10.2]    |   23.7%  | 22.4% |
+| 4    | (10.2, 11.9]   |   10.6%  | 11.1% |
+| 5    | (11.9, 14.1]   |    5.7%  |  5.8% |
+| 6    | (14.1, inf)    |    2.5%  |  2.6% |
 
 #### Keys (`KEYS_REMAP_BINS`) <!-- omit in toc -->
 
 | Tier | D range        | Official | Remap |
 |------|----------------|---------:|------:|
-| 0    | (0, 2.5]       |    8.7%  |  8.5% |
-| 1    | (2.5, 7.8]     |   19.5%  | 19.7% |
-| 2    | (7.8, 13.7]    |   18.3%  | 18.0% |
-| 3    | (13.7, 21.5]   |   22.4%  | 22.4% |
-| 4    | (21.5, 31.4]   |   14.9%  | 15.1% |
-| 5    | (31.4, 42.4]   |    8.3%  |  8.1% |
-| 6    | (42.4, inf)    |    7.9%  |  8.1% |
+| 0    | (0, 3.5]       |    8.7%  |  8.7% |
+| 1    | (3.5, 6.0]     |   19.5%  | 19.7% |
+| 2    | (6.0, 7.8]     |   18.3%  | 17.4% |
+| 3    | (7.8, 9.7]     |   22.4%  | 22.6% |
+| 4    | (9.7, 11.8]    |   14.9%  | 14.7% |
+| 5    | (11.8, 13.6]   |    8.3%  |  8.7% |
+| 6    | (13.6, inf)    |    7.9%  |  8.1% |
 
 #### Drums (`DRUM_REMAP_BINS`) <!-- omit in toc -->
 
+
 | Tier | D range        | Official | Remap |
 |------|----------------|---------:|------:|
-| 0    | (0, 10.3]      |    4.0%  |  4.2% |
-| 1    | (10.3, 12.3]   |    9.1%  |  8.9% |
-| 2    | (12.3, 14.0]   |   15.6%  | 15.8% |
-| 3    | (14.0, 16.2]   |   27.2%  | 27.5% |
-| 4    | (16.2, 19.2]   |   27.5%  | 27.1% |
-| 5    | (19.2, 22.8]   |   12.3%  | 12.2% |
-| 6    | (22.8, inf)    |    4.3%  |  4.3% |
+| 0    | (0, 10.3]      |    4.1%  |  4.9% |
+| 1    | (10.3, 12.3]   |    9.9%  |  9.0% |
+| 2    | (12.3, 14.0]   |   16.3%  | 15.9% |
+| 3    | (14.0, 16.2]   |   26.3%  | 27.2% |
+| 4    | (16.2, 19.2]   |   26.6%  | 26.6% |
+| 5    | (19.2, 22.8]   |   12.4%  | 12.1% |
+| 6    | (22.8, inf)    |    4.4%  |  4.4% |
 
 #### Vocals (`VOCAL_REMAP_BINS`) <!-- omit in toc -->
 
+Refreshed from the same file (official, tagged charts only: n=2857). Bin edges are unchanged.
+
 | Tier | D range        | Official | Remap |
 |------|----------------|---------:|------:|
-| 0    | (0, 4.1]       |    6.5%  |  6.6% |
-| 1    | (4.1, 6.0]     |   14.3%  | 13.9% |
-| 2    | (6.0, 8.3]     |   26.9%  | 27.6% |
-| 3    | (8.3, 11.4]    |   30.5%  | 30.3% |
-| 4    | (11.4, 14.4]   |   14.1%  | 13.9% |
-| 5    | (14.4, 17.6]   |    5.2%  |  5.3% |
-| 6    | (17.6, inf)    |    2.4%  |  2.5% |
+| 0    | (0, 4.1]       |    6.1%  |  6.4% |
+| 1    | (4.1, 6.0]     |   14.0%  | 14.5% |
+| 2    | (6.0, 8.3]     |   26.5%  | 27.5% |
+| 3    | (8.3, 11.4]    |   30.4%  | 30.0% |
+| 4    | (11.4, 14.4]   |   14.5%  | 13.9% |
+| 5    | (14.4, 17.6]   |    5.9%  |  5.2% |
+| 6    | (17.6, inf)    |    2.6%  |  2.6% |
 
 ### CalcTier Calibration <!-- omit in toc -->
 
@@ -417,10 +422,6 @@ Reference for the calibration tables behind `fret_formula.py`, `drum_formula.py`
 
 | Group  | BASE_D | LN_INC | D step per tier | Home |
 |--------|-------:|-------:|----------------:|----------|
-| G/B/K |   7.6 |  0.44 |            ~55% | `fret_formula.py` |
-| Drums  |   9.0 | 0.196 |           ~22% | `drum_formula.py` |
-| Vocals |   4.4 |  0.32 |           ~38% | `vocal_formula.py` |
-
-Guitar/Bass/Keys share both constants despite different D scales since they're mechanically similar.
-
-Drums & Vocals need their own fits because their Ds are constructed differently. 5 Fret is multiplicative while drums is additive, so drum D spreads less far in log terms over a similar range of real difficulty. Vocals combines both addition and multiplication and has a much lower overall scale than either frets or drums.
+| G/B/K  |  7.101 | 0.1792 |            ~20% | `fret_formula.py` |
+| Drums  | 10.243 | 0.1602 |            ~17% | `drum_formula.py` |
+| Vocals |  4.805 | 0.2476 |            ~28% | `vocal_formula.py` |
