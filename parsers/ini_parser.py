@@ -9,7 +9,6 @@ Source tables (gh/rb/ch) and html-tag cleanup regex live here
 import pathlib
 import re
 
-import pandas as pd
 import tqdm
 
 from functions import instruments
@@ -125,17 +124,19 @@ def ini_metadata(file):
 # -----------
 
 # loops through search_path and provides errors to output along with cache
+# Returns {song_path: metadata row}
 def ini_loop(search_path, errors=None, files=None):
-    ini_out = []
+    ini_out = {}
     if files is None:
         files = list(pathlib.Path(search_path).rglob("song.ini"))
 
     for file in tqdm.tqdm(files, desc="Gathering ini data", unit="file"):
         try:
-            ini_out.append(ini_metadata(file))
+            row = ini_metadata(file)
+            ini_out[row['SongPath']] = row
         except Exception as exc:
             if errors is not None:
                 errors.append((str(file), type(exc).__name__, str(exc) or repr(exc)))
             continue
 
-    return pd.DataFrame(ini_out)
+    return ini_out

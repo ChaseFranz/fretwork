@@ -24,10 +24,10 @@ HEADER can't contain < > : " / | ? * or a backslash (it names files) - Build/Ana
 
 # Library to scan. set here or override on the command line with --search-path.
 # Build stops with "check SEARCH_PATH" if this folder doesn't exist
-SEARCH_PATH = r"C:\Users\[user]\Documents\Clone Hero\Songs" # edit to your library path before running Build
+SEARCH_PATH = r"M:\GH RB Analysis Files" # edit to your library path before running Build
 
 # Identifies the run. Overridable with --header.
-HEADER = "Test" # edit to title your cache before running Build/Analyze/Render
+HEADER = "FullBandv2" # edit to title your cache before running Build/Analyze/Render
 
 #-----------------
 # Analyze Options

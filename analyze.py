@@ -25,7 +25,7 @@ Run with DIFF_WRITE_MODE options to write calculated difficulty to song.inis or 
     - Restore always restores every instrument - overrides are ignored (and 'Restore' isn't a valid override)
     - song.inis are written last, after the spreadsheet is saved, and only where the backup holds the original
     - unchanged values aren't rewritten
-    - .sng/rb3con files are not rewritten, so diff writeback is skipped for these (shows as failing)
+    - .sng/rb3con files are not rewritten, so diff writeback is skipped for these (reported as 'skipped (container)')
 
 The cache's own header (stored by Build, or read from the cache filename) names the spreadsheet and
 picks the backup CSV - --cache accepts a full path or a bare filename from the caches folder
@@ -293,6 +293,13 @@ def analyze(cache=None, cache_path=None, header=None, out_dir=None, diff_mode=No
     global_mode, write_plan = _resolve_diff_plan(diff_mode, diff_overrides)
 
     if global_mode == "Restore":
+        # Restore follows the same header rule as every other path: an explicit cache wins over
+        # config/--header. The pickle isn't loaded just for this - Build names the file
+        # {header}_cache_{ts} and stores that same header inside, so the filename is enough
+        if cache is not None or cache_path is not None:
+            if cache_path is not None:
+                cache_path = timestamp.resolve_cache_path(cache_path)
+            header = cache_mod.resolve_header(cache or {}, cache_path, explicit_header, fallback=header)
         print(f"\nRestore mode - restoring {header} song.ini difficulties from backup (no spreadsheet this run)")
         result = ini_updater.sync_difficulty("Restore", header)
         return result

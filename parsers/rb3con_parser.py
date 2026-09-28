@@ -12,6 +12,7 @@ DTA metadata (songs.dta) reference: https://rock-band-customs.gitlab.io/authorin
 One container can hold multiple songs
 each song folder under /songs/ is matched to its own entry in songs.dta by its internal song-id symbol
 song_path for each is f"{container path}::{song_id}" since there's no per-song file to key against
+A song that fails inside a multi-song pack is logged on its own, the rest should still load
 
 DIFFICULTY: DTA rank values are RB3's own internal difficulty scores
 RANK_DIFF_MAPS (to bring them back into 0-6 range) was checked against the above dta gitlab,
@@ -132,6 +133,13 @@ class _Stfs:
     def __init__(self, path):
         self.path = path
         self.fd = open(path, 'rb')
+        try:
+            self._open()
+        except BaseException:
+            self.fd.close()
+            raise
+
+    def _open(self):
         magic = self.fd.read(4)
         if magic not in STFS_MAGICS:
             raise Rb3ConError(f"not an STFS package (bad magic {magic!r})")
@@ -325,12 +333,31 @@ def _difficulties_from_rank(song_entry):
 
 
 # One song within a container -> (meta_row, note_stream), matching ini_parser/mid_parser's own output shapes
+#   (encoding utf8)   -> re-decoded as utf-8
+#   (encoding latin1) -> kept as latin1
+#   undeclared        -> utf-8 if the bytes are valid utf-8 (some custom tools skip the tag), else latin1
+def _dta_string(song_entry, value):
+    if value is None:
+        return None
+    raw = value.encode('latin1')
+    declared = _dta_find_value(song_entry, 'encoding')
+    encoding = str(declared).strip().lower() if declared is not None else None
+    if encoding in ('utf8', 'utf-8'):
+        return raw.decode('utf-8', errors='replace')
+    if encoding is None:
+        try:
+            return raw.decode('utf-8')
+        except UnicodeDecodeError:
+            pass
+    return value
+
+
 def _rb3con_song(stfs, song_id, song_entry, folder_path):
     song_path = f"{stfs.path}::{song_id}"
 
     ini = _difficulties_from_rank(song_entry)
-    name = _dta_find_value(song_entry, 'name')
-    artist = _dta_find_value(song_entry, 'artist')
+    name = _dta_string(song_entry, _dta_find_value(song_entry, 'name'))
+    artist = _dta_string(song_entry, _dta_find_value(song_entry, 'artist'))
     if name:
         ini['name'] = name
     if artist:
@@ -349,8 +376,9 @@ def _rb3con_song(stfs, song_id, song_entry, folder_path):
     return meta_row, note_stream
 
 
-# Parses every song in one .rb3con, returning a list of (meta_row, note_stream) pairs
-# allows for multi songs packs
+# Parses every song in one .rb3con -> (results, song_errors)
+#   results:     list of (meta_row, note_stream) pairs, allows for multi songs packs
+#   song_errors: (song_path, error, message) for songs in the pack that failed on their own
 def rb3con_songs(path):
     path = str(pathlib.Path(path).resolve())
     stfs = _Stfs(path)
@@ -360,7 +388,7 @@ def rb3con_songs(path):
             None)
         if dta_entry is None:
             raise Rb3ConError(f"{path}: no songs.dta found in package")
-        dta_text = stfs.read_file(dta_entry).decode('utf-8', errors='replace')
+        dta_text = stfs.read_file(dta_entry).decode('latin1')
         dta_songs = {entry[0]: entry for entry in _parse_dta(dta_text) if entry and isinstance(entry[0], str)}
 
         song_folders = {
@@ -370,15 +398,22 @@ def rb3con_songs(path):
         }
 
         results = []
+        song_errors = []
+        matched = 0
         for song_id, folder_path in song_folders.items():
             song_entry = dta_songs.get(song_id)
             if song_entry is None:
-                continue  # a folder with no matching DTA entry isn't playable
-            results.append(_rb3con_song(stfs, song_id, song_entry, folder_path))
+                continue
+            matched += 1
+            try:
+                results.append(_rb3con_song(stfs, song_id, song_entry, folder_path))
+            except Exception as exc:
+                # one broken song doesn't remove the pack
+                song_errors.append((f"{path}::{song_id}", type(exc).__name__, str(exc) or repr(exc)))
 
-        if not results:
+        if not matched:
             raise Rb3ConError(f"{path}: no song folders matched an entry in songs.dta")
-        return results
+        return results, song_errors
     finally:
         stfs.close()
 
@@ -418,7 +453,10 @@ def rb3con_loop(search_path, errors=None, max_workers=None, files=None):
         results = pool.map(_rb3con_worker, files, chunksize=chunksize)
         for result, error in tqdm.tqdm(results, total=len(files), desc="Parsing rb3con", unit="file"):
             if result is not None:
-                for meta_row, note_stream in result:
+                songs, song_errors = result
+                if errors is not None:
+                    errors.extend(song_errors)
+                for meta_row, note_stream in songs:
                     warnings = note_stream.pop('warnings', [])
                     if errors is not None:
                         errors.extend(warnings)

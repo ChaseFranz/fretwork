@@ -20,7 +20,7 @@ Run this once or whenever your song library changes significantly
     python build.py
     python build.py --search-path "M:/Rhythm Game Songs" --header FullTest
 
-.mid is parsed before .chart - midis are the slowest to process, charts are quick
+midi preferred if both chart & mid exist per game convetions, chart is a fallback for unparseable midi
 """
 
 import argparse
@@ -90,22 +90,46 @@ def scan_library(search_path):
 # parse mid & chart files into per-instrument note streams keyed to song folder path
 # each stream contains every recognized instrument (at least 1 must be present)
 # each split into whichever EMHX levels that instrument has charted
+#
+# A folder with both notes.mid and notes.chart uses the midi
+# chart fallback when midi fails to parse
 def build_note_index(search_path, errors, scan=None):
     scan = scan or {}
+    mid_files = scan.get('mid')
+    if mid_files is None:
+        mid_files = list(pathlib.Path(search_path).rglob("notes.mid"))
+    chart_files = scan.get('chart')
+    if chart_files is None:
+        chart_files = list(pathlib.Path(search_path).rglob("notes.chart"))
+
     mid_streams = mid_parser.mid_loop(search_path, errors, max_workers=config.PARSE_MAX_WORKERS,
-                                      files=scan.get('mid'))
+                                      files=mid_files)
+
+    # keyed the same way the parsers key song_path
+    mid_dirs = {str(pathlib.Path(f).parent.resolve()) for f in mid_files}
+    charts_to_parse = []
+    for chart_file in chart_files:
+        folder = str(pathlib.Path(chart_file).parent.resolve())
+        if folder in mid_streams:
+            if errors is not None:
+                errors.append((str(chart_file), 'MultipleChart',
+                               "folder also has notes.mid - notes.mid used, notes.chart ignored"))
+            continue
+        charts_to_parse.append(chart_file)
+
     chart_streams = chart_parser.chart_loop(search_path, errors, max_workers=config.PARSE_MAX_WORKERS,
-                                            files=scan.get('chart'))
+                                            files=charts_to_parse)
+
+    # chart fallback
+    if errors is not None:
+        for song_path in chart_streams:
+            if song_path in mid_dirs:
+                errors.append((song_path, 'ChartFallback',
+                               "notes.mid failed to parse - using notes.chart instead"))
 
     note_index = {}
-    note_index.update(mid_streams)
-    note_index.update(chart_streams)  # chart wins on overlap
-
-    # .chart can't encode vocals, when a folder has both use midi vocal track
-    for song_path, chart_stream in chart_streams.items():
-        mid_vocals = mid_streams.get(song_path, {}).get('instruments', {}).get('vocals')
-        if mid_vocals is not None and 'vocals' not in chart_stream['instruments']:
-            chart_stream['instruments']['vocals'] = mid_vocals
+    note_index.update(chart_streams)
+    note_index.update(mid_streams)  # never overlaps, charts next to a parsed midi are skipped above
     return note_index
 
 
@@ -129,8 +153,7 @@ def build_cache(search_path=None, header=None, out_dir=None):
 
     scan = scan_library(search_path)
 
-    ini_df = ini_parser.ini_loop(search_path, errors, files=scan['ini'])
-    ini_rows = {row['SongPath']: row for row in ini_df.to_dict('records')}
+    ini_rows = ini_parser.ini_loop(search_path, errors, files=scan['ini'])
 
     # .sng containers carry their own metadata + notes.mid/.chart
     # each container is one song keyed by resolved file path

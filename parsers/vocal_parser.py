@@ -20,6 +20,7 @@ THREE SEPARATE STREAMS:
     'percussion' - note 96 taps: time_ms / end_ms
 
 Lyric checks ignore trailing join/format marks ('-', '=', '/', '%')
+Lyrics are read from lyric meta events, falling back to non-bracketed text events when the track has none
 
 Sung notes + talkies are the note count and feed D
 percussion is kept for render only
@@ -59,6 +60,7 @@ def _extract_vocal_track(track, to_ms_array):
     pitched_pairs = []
     perc_pairs = []
     lyric_events = []
+    text_lyric_events = [] # fallback
     end_tick = 0
 
     abs_tick = 0
@@ -80,7 +82,16 @@ def _extract_vocal_track(track, to_ms_array):
                 pitched_pairs.append([start_tick, abs_tick, msg.note])
         elif msg.type == 'lyrics':
             lyric_events.append((abs_tick, msg.text))
-        # text/animation events ([idle]/[intense]/etc.) ignored
+        elif msg.type == 'text':
+            # some charts store lyrics as plain text events instead of lyric meta events
+            # bracketed text is animation/venue cues ([idle]/[intense]/etc.)
+            text = msg.text.strip()
+            if text and not text.startswith('['):
+                text_lyric_events.append((abs_tick, text))
+
+    # lyric events preferred / text event fallback when have no lyric events
+    if not lyric_events:
+        lyric_events = text_lyric_events
 
     # notes left on near the end of the track are closed at track end (defensive)
     dangling = [(note, start) for note, starts in open_by_note.items() for start in starts]

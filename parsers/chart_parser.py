@@ -73,6 +73,9 @@ DRUM_HAND_NOTES = {1, 2, 3, 4, 5}
 # can't overcount these because of the charted notes vs actual implication for difficulty
 DRUM_ROLL_TYPE_TO_KIND = {65: 'single', 66: 'double'}
 
+# .chart format default
+DEFAULT_RESOLUTION = 192
+
 # ---------------------------------------------------------------------
 # Raw section parsing (chart's [Section] / key = value text format)
 # ---------------------------------------------------------------------
@@ -254,6 +257,23 @@ def _extract_roll_spans(section, to_ms_array):
     return sorted(zip(start_ms.tolist(), end_ms.tolist(), kinds))
 
 
+# [Song] Resolution -> (ticks per beat, warning or None)
+# missing / non-numeric / non-positive fallback to 192
+def _chart_resolution(song_section):
+    raw = song_section.get('Resolution')
+    if isinstance(raw, list):
+        raw = raw[-1]  # duplicated key - last one wins, same as the ini parser
+    if raw is None:
+        return DEFAULT_RESOLUTION, f"no Resolution in [Song], assumed {DEFAULT_RESOLUTION}"
+    try:
+        res = int(float(raw.strip().strip('"')))
+    except (ValueError, OverflowError):  # non-numeric, nan, inf
+        res = 0
+    if res <= 0:
+        return DEFAULT_RESOLUTION, f"invalid Resolution {raw!r} in [Song], assumed {DEFAULT_RESOLUTION}"
+    return res, None
+
+
 # Core extraction over an already-parsed chart dict - shared by chart_notes() (notes.chart on
 # disk) and chart_notes_from_text() (a chart embedded in a container).
 def _chart_notes_from_dict(c_dict, song_path, warn_label=None):
@@ -263,12 +283,14 @@ def _chart_notes_from_dict(c_dict, song_path, warn_label=None):
         if required not in c_dict:
             raise ValueError(f"Missing required section '{required}' in {warn_label}")
 
-    tick_res = int(c_dict['Song']['Resolution'])
+    tick_res, res_warning = _chart_resolution(c_dict['Song'])
     tempo_arrs, dropped_tempos = build_tempo_map(c_dict['SyncTrack'], tick_res)
     warnings = [
         (warn_label, 'InvalidTempo', f"skipped tempo marker at tick {tick} ({bpm} BPM)")
         for tick, bpm in dropped_tempos
     ]
+    if res_warning:
+        warnings.append((warn_label, 'InvalidResolution', res_warning))
 
     def to_ms_array(ticks):
         return ticks_to_ms(ticks, tick_res, *tempo_arrs)

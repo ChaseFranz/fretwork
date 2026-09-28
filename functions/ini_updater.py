@@ -295,7 +295,9 @@ def backup_data(songs, header):
 
 # Restores every song.ini for header back to its backed-up diff_* values
 # 'missing' cells remove the tag again, blank cells are left alone
-# Returns (restored_count, unchanged_count, failures) - failures if a song folder was moved, deleted, etc
+# Returns (restored_count, unchanged_count, container_count, failures)
+#   container_count - .sng/rb3con songs, backed up but never written (no song.ini to patch)
+#   failures        - a song folder was moved, deleted, etc
 def restore_from_backup(header):
     backup_csv = backup_csv_path(header)
     if not backup_csv.exists():
@@ -304,6 +306,7 @@ def restore_from_backup(header):
 
     restored = 0
     unchanged = 0
+    containers = 0
     failed = []
     for song_path, row in load_backup_rows(header).items():
         values = {
@@ -314,15 +317,15 @@ def restore_from_backup(header):
         if not values:
             continue  # every column blank, leave song.ini alone
 
-        # song.ini fallback logic
+        # containers have no song.ini to patch - counted, not failed
+        if is_container_song(song_path):
+            containers += 1
+            continue
+
         ini_path = song_ini_path(song_path)
         if not ini_path.is_file():
-            if is_container_song(song_path):
-                failed.append((song_path, None, 'UnsupportedFormat',
-                                "diff tag writeback isn't supported for containers"))
-            else:
-                # song folder moved or deleted since BUILD
-                failed.append((song_path, None, 'FileNotFoundError', f"no song.ini at {ini_path}"))
+            # song folder moved or deleted since BUILD
+            failed.append((song_path, None, 'FileNotFoundError', f"no song.ini at {ini_path}"))
             continue
 
         try:
@@ -333,7 +336,7 @@ def restore_from_backup(header):
         except Exception as exc:
             failed.append((song_path, None, type(exc).__name__, str(exc)))
 
-    return restored, unchanged, failed
+    return restored, unchanged, containers, failed
 
 
 # -----------------------------------------------------------------------------
@@ -354,11 +357,13 @@ def sync_difficulty(mode, header, instrument=None, songs=None, difficulties=None
         raise ValueError(f"Unknown diff mode '{mode}', expected one of {VALID_MODES} or None")
 
     if mode == "Restore":
-        restored, unchanged, failed = restore_from_backup(header)
+        restored, unchanged, containers, failed = restore_from_backup(header)
         print(f"Restored {restored} song.inis from backup" +
               (f", {unchanged} unchanged (all instruments already original tag)" if unchanged else "") +
+              (f", {containers} skipped (container)" if containers else "") +
               (f", {len(failed)} failed" if failed else ""))
-        return {"mode": mode, "restored": restored, "unchanged": unchanged, "failed": failed}
+        return {"mode": mode, "restored": restored, "unchanged": unchanged,
+                "skipped_container": containers, "failed": failed}
 
     if songs is None or difficulties is None or instrument is None:
         raise ValueError(f"diff mode '{mode}' needs songs + difficulties + instrument")
@@ -370,18 +375,18 @@ def sync_difficulty(mode, header, instrument=None, songs=None, difficulties=None
     applied = 0
     unchanged = 0
     not_backed_up = 0
+    containers = 0
     failed = []
     for song_path in songs:
+        if is_container_song(song_path):
+            containers += 1
+            continue
         if not backup_rows.get(song_path, {}).get(diff_tag):
             not_backed_up += 1
             continue
         ini_path = song_ini_path(song_path)
         if not ini_path.is_file():
-            if is_container_song(song_path):
-                failed.append((song_path, 'UnsupportedFormat',
-                                "diff tag writeback isn't supported for containers"))
-            else:
-                failed.append((song_path, 'FileNotFoundError', f"no song.ini at {ini_path}"))
+            failed.append((song_path, 'FileNotFoundError', f"no song.ini at {ini_path}"))
             continue
         try:
             if update_ini_values(ini_path, {diff_tag: difficulties[song_path][mode]}):
@@ -394,6 +399,7 @@ def sync_difficulty(mode, header, instrument=None, songs=None, difficulties=None
     print(f"Applied {mode} to {applied} song.inis [{instrument}]" +
           (f", {unchanged} unchanged (already the written value)" if unchanged else "") +
           (f", {not_backed_up} not backed up (skipped)" if not_backed_up else "") +
+          (f", {containers} skipped (container)" if containers else "") +
           (f", {len(failed)} failed" if failed else ""))
     return {"mode": mode, "instrument": instrument, "applied": applied, "unchanged": unchanged,
-            "not_backed_up": not_backed_up, "failed": failed}
+            "not_backed_up": not_backed_up, "skipped_container": containers, "failed": failed}

@@ -5,7 +5,8 @@ SNG_PARSER - Reads .sng container files into the same metadata-row / note-stream
 
 .yargsong is the same rough container as .sng, but with a layer of encryption I'm not messing with (don't want to blow up their licensing)
 
-Only notes.mid / notes.chart are read out of a container
+Only notes.mid / notes.chart are read out of a container - notes.mid preferred, notes.chart only if
+there's no midi or it fails to parse (same rule build.py applies to song folders)
 
 .SNG spec: https://github.com/mdsitton/SngFileFormat
 
@@ -158,29 +159,42 @@ def sng_song(path):
     meta_row = ini_parser.ini_metadata_from_pairs(ini, song_path)
 
     warnings = []
-    mid_stream = None
-    chart_stream = None
+    note_stream = None
+    mid_exc = None
 
+    # notes.mid preferred
+    # notes.chart is only read if there's no midi, or the midi fails to parse
     if 'notes.mid' in files:
-        mid_stream = mid_parser.mid_notes_from_bytes(
-            files['notes.mid'], song_path, warn_label=f"{path}!notes.mid")
-        warnings.extend(mid_stream.pop('warnings', []))
+        try:
+            note_stream = mid_parser.mid_notes_from_bytes(
+                files['notes.mid'], song_path, warn_label=f"{path}!notes.mid")
+            warnings.extend(note_stream.pop('warnings', []))
+            if 'notes.chart' in files:
+                warnings.append((f"{path}!notes.chart", 'MultipleChart',
+                                 "container also has notes.mid - notes.mid used, notes.chart ignored"))
+        except Exception as exc:
+            if 'notes.chart' not in files:
+                raise
+            mid_exc = exc
+            # midi error logged, then fall through to the chart
+            warnings.append((f"{path}!notes.mid", type(exc).__name__, str(exc) or repr(exc)))
+            warnings.append((f"{path}!notes.chart", 'ChartFallback',
+                             "notes.mid failed to parse - using notes.chart instead"))
 
-    if 'notes.chart' in files:
-        chart_text = decode_text(files['notes.chart'])
-        chart_stream = chart_parser.chart_notes_from_text(
-            chart_text, song_path, warn_label=f"{path}!notes.chart")
-        warnings.extend(chart_stream.pop('warnings', []))
-
-    # Same rules build.py applies for folder-based songs
-    if chart_stream is not None:
-        note_stream = chart_stream
-        if mid_stream is not None and 'vocals' not in note_stream['instruments']:
-            mid_vocals = mid_stream['instruments'].get('vocals')
-            if mid_vocals is not None:
-                note_stream['instruments']['vocals'] = mid_vocals
-    else:
-        note_stream = mid_stream
+    if note_stream is None:
+        try:
+            chart_text = decode_text(files['notes.chart'])
+            note_stream = chart_parser.chart_notes_from_text(
+                chart_text, song_path, warn_label=f"{path}!notes.chart")
+        except Exception as exc:
+            if mid_exc is None:
+                raise
+            # both failed - one error row that names both, so the midi failure isn't lost
+            raise SngError(
+                f"notes.mid: {type(mid_exc).__name__}: {mid_exc} / "
+                f"notes.chart fallback: {type(exc).__name__}: {exc}"
+            ) from exc
+        warnings.extend(note_stream.pop('warnings', []))
 
     note_stream['warnings'] = warnings
     return meta_row, note_stream

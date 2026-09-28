@@ -3,11 +3,11 @@ CURVES - smoothes density.py's windowed arrays for visualization
 
 The raw arrays are converted to rates (notes/sec, hits/sec, etc) before smoothing by an EMA
 
-5 fret: d_raw uses sqrt(nps*vps) to fit to scale
+5 fret: d_raw sums hnps+vps, fits on scale naturally
 
-Drums: d_raw sums hps+tps+kps directly, fits on scale naturally
+Drums: d_raw sums hps+tps+kps, fits on scale naturally
 
-Vocals: d_raw = R*A*pps + S_WEIGHT*sps, scale is okay / percussion is almost always low
+Vocals: d_raw = (R*A*pps) + (S_WEIGHT*sps), scale is okay / percussion is almost always low
 
 d_raw lines don't apply COV/STAM since those are song-level balancing values
 

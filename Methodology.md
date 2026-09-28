@@ -85,7 +85,7 @@ $$
 
 ### Interaction Term <!-- omit in toc -->
 
-CoV approximates how inconsistent the difficulty is and combines across NPS & VPS. CoV has a floor of 1 so worst case we get raw $N \cdot V$ for an extremely consistent song, while most songs will score above 1. In practice this mostly buffs songs that have a lot of rest between sections which tank the averages.
+CoV approximates how inconsistent the difficulty is and combines across NPS & VPS. CoV has a floor of 1 so worst case we get raw $N + V$ for an extremely consistent song, while most songs will score above 1. In practice this mostly buffs songs that have a lot of rest between sections which tank the averages.
 
 $$
 CoV = 1 + \sqrt{CV_N \cdot CV_V}

@@ -43,7 +43,7 @@ TRAVEL_GAMMA = 0.5
 
 
 # Distance lookup, [added_mask, prev_mask] -> travel cost
-# No prior lane (song's first note, or empty window before) is a pure addition
+# No prior lane is a pure addition
 def _build_travel_lookup(gamma=TRAVEL_GAMMA):
     lut = np.zeros((256, 256), dtype=np.float64)
     for added_byte in range(256):
@@ -150,7 +150,7 @@ def window_arrays(hand_mask, roll_spans=None, window_ms=WINDOW_MS, step_ms=STEP_
 
     hits, travel = hand_var(masks)
 
-    # split hits into normal/roll so only the roll share gets capped, travel zeroes outright
+    # split hits into normal/roll so only the roll share gets capped, travel zeroes
     if roll_spans:
         in_roll = roll_mask(times, roll_spans)
         travel = np.where(in_roll, 0, travel)

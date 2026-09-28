@@ -3,7 +3,7 @@ PLOT - Renders selected song's curves to a PNG.
 
 y-axis scales per song
 
-Guitar/Bass/Keys: NPS/VPS/D share an axis by using D = sqrt(NPS * VPS)
+Guitar/Bass/Keys: NPS/VPS/D share an axis by using D = NPS + VPS
 
 Drums: Hands/Travel/Kicks/D share an axis, D = Hands + Travel + Kicks
     - Hands reuses the NPS color, Travel reuses the VPS color, Kick has a new color
@@ -73,9 +73,14 @@ def _font_family():
 # fonts + quiet missing-glyph warnings (a glyph no installed font has still renders as a box)
 @contextlib.contextmanager
 def _render_context():
-    with plt.rc_context({'font.family': _font_family()}), warnings.catch_warnings():
-        warnings.filterwarnings('ignore', message=r'Glyph .* missing from')
-        yield
+    open_before = set(plt.get_fignums())
+    try:
+        with plt.rc_context({'font.family': _font_family()}), warnings.catch_warnings():
+            warnings.filterwarnings('ignore', message=r'Glyph .* missing from')
+            yield
+    finally:
+        for num in set(plt.get_fignums()) - open_before:
+            plt.close(num)
 
 #-------------
 # Filename
