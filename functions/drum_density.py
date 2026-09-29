@@ -197,9 +197,11 @@ def kick_arrays(kick_mask, bit_mask, window_ms=WINDOW_MS, step_ms=STEP_MS):
     return {'time_ms': grid, 'raw_kps_samples': kps_sum, 'timestamps_ms': times}
 
 
-# Note count for one reading: hand hits + kick hits (either 1x or 2x)
-def _note_count(hand_times, kick_times):
-    return int(hand_times.size + kick_times.size)
+# Note count: every hand hit (same as HPS) + kick hit (either 1x or 2x)
+def _note_count(hand_lanes, kick_times):
+    hand_lanes = np.asarray(hand_lanes, dtype=np.uint8)
+    hand_notes = int(POPCOUNT[hand_lanes].sum()) if hand_lanes.size else 0
+    return hand_notes + int(kick_times.size)
 
 
 # provides HPS/TPS/KPS metrics to calculate D
@@ -207,6 +209,7 @@ def _note_count(hand_times, kick_times):
 # A chart with no kick notes returns '1x' = None, its NoteCount_1x is the hand count alone
 def calc_drum_metrics(notes, roll_spans=None, window_ms=WINDOW_MS, step_ms=STEP_MS, windows=None):
     hand_times = np.asarray(notes['hand_mask']['time_ms'], dtype=np.float64)
+    hand_lanes = np.asarray(notes['hand_mask']['lanes'], dtype=np.uint8)
     kick_mask = notes['kick_mask']
 
     dur_s = song_duration_s(hand_times, kick_mask)
@@ -260,7 +263,7 @@ def calc_drum_metrics(notes, roll_spans=None, window_ms=WINDOW_MS, step_ms=STEP_
     return {
         'hand': hand_out,
         'DurationS': dur_s,
-        'NoteCount_1x': _note_count(hand_times, readings['1x']['time_ms'] if readings['1x'] else np.empty(0)),
-        'NoteCount_2x': _note_count(hand_times, readings['2x']['time_ms']) if readings['2x'] else None,
+        'NoteCount_1x': _note_count(hand_lanes, readings['1x']['time_ms'] if readings['1x'] else np.empty(0)),
+        'NoteCount_2x': _note_count(hand_lanes, readings['2x']['time_ms']) if readings['2x'] else None,
         **readings,
     }
