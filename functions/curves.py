@@ -7,13 +7,12 @@ The raw arrays are converted to rates (notes/sec, hits/sec, etc) before smoothin
 
 Drums: d_raw sums hps+tps+kps, fits on scale naturally
 
-Vocals: d_raw = (R*A*pps) + (S_WEIGHT*sps), scale is okay / percussion is almost always low
+Vocals: d_raw = (pps*R) + sps, scale is okay / percussion is almost always low
 
 d_raw lines don't apply COV/STAM since those are song-level balancing values
 
-Each calc_*_curves accepts the density module's window_arrays() output (windows=) so render can
-window a stream once and share it with the metrics calc; vocals also take the already computed
-difficulty (its R/A shape d_raw)
+Each calc_*_curves accepts the density module's window_arrays() output (windows=)
+so render can window a stream once and share it with the metrics calc
 """
 
 import math
@@ -186,6 +185,6 @@ def calc_vocal_curves(notes, talkie, percussion=None,
         'pps': smoothed['pps'],
         'sps': smoothed['sps'],
         'perc': smoothed['perc'] if has_perc else None,
-        'd_raw': difficulty['R'] * difficulty['A'] * smoothed['pps'] + vocal_formula.S_WEIGHT * smoothed['sps'],
+        'd_raw': difficulty['R'] * smoothed['pps'] + smoothed['sps'],
         'has_perc': has_perc,
     }
