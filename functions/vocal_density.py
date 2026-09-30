@@ -15,19 +15,18 @@ SPS = Syllables Per Second
 
 aPPS & aSPS = total / DurationS
 
-Active windows (median/std gating)
-    SPS gates on sung+talkie within the window
-    PPS gates on sung notes within the window
+Active windows (median/std gating) - onset based, same as 5 fret & drums
+    SPS gates on windows with at least one syllable onset (sung + talkie)
+    PPS gates on windows with at least one sung-note onset (slides/PHs included)
 
 Talkie length
     Authored talkie lengths are ignored so RB & GH style talkies can be treated equivalently
     default Talkie length set based on official measurement, but clipped for no overlap
-    Only used for occupancy gating and duration
+    Only used for duration
 
 Static features (sung notes only)
     Pitches    = distinct MIDI pitches used
     maxPitch   = highest sung pitch
-    ShortFrac  = share of sung notes (slides/PHs included) shorter than SHORT_NOTE_MS
     talkieFrac = talkie onsets / NoteCount - descriptive, flags rap/spoken charts
 
 std values are used for CoV, same as 5 fret/drums
@@ -50,14 +49,8 @@ STEP_MS = fret_density.STEP_MS
 PITCH_CAP = 12      # octave of semitones
 PITCH_GAMMA = 0.5   # sqrt compression
 
-# short notes = fast articulation
-SHORT_NOTE_MS = 120.0
-
 # fixed talkie length (estimated from official data), clipped to the next onset
 TALKIE_FILL_MS = 133.0
-
-# minimum interval length so a zero-length event still marks its window active
-MIN_EVENT_MS = 1e-3
 
 
 def _sorted_stream(stream, keys):
@@ -92,23 +85,6 @@ def talkie_ends(talkie_times, sung_times, fill_ms=TALKIE_FILL_MS):
     return talkie_times + np.minimum(gap, fill_ms)
 
 
-# Per grid window: any start/end interval overlapping the window
-def occupancy_gate(starts, ends, grid, window_ms=WINDOW_MS):
-    active = np.zeros(grid.size, dtype=bool)
-    if starts.size == 0:
-        return active
-    order = np.argsort(starts, kind='stable')
-    s = starts[order]
-    e = np.maximum(ends[order], s + MIN_EVENT_MS)
-    run_max_end = np.maximum.accumulate(e)
-
-    # intervals starting before the window closes
-    idx = np.searchsorted(s, grid + window_ms, side='left')
-    has = idx > 0
-    active[has] = run_max_end[idx[has] - 1] > grid[has]
-    return active
-
-
 # windowed sum of per-event values over the grid
 def _window_sum(times, values, grid, window_ms=WINDOW_MS):
     prefix = np.concatenate(([0.0], np.cumsum(values)))
@@ -117,19 +93,18 @@ def _window_sum(times, values, grid, window_ms=WINDOW_MS):
     return prefix[right] - prefix[left]
 
 
-# Windowing pass across SPS/PPS + the occupancy gates
+# Windowing pass across SPS/PPS + the onset gates
 # zero activity windows are included
 #     Returns:
 #        {
 #            'time_ms':          ndarray,  # uniform grid, starts at 0
 #            'raw_sps_samples':  ndarray,  # syllables per window
 #            'raw_pps_samples':  ndarray,  # pitch travel per window
-#            'active':           ndarray,  # bool, any sung/talkie time in window
-#            'active_sung':      ndarray,  # bool, any sung time in window
+#            'active':           ndarray,  # bool, any syllable onset (sung/talkie) in window
+#            'active_sung':      ndarray,  # bool, any sung-note onset in window
 #            'syllable_times':   ndarray,  # sorted syllable onsets (sung + talkie)
 #            'travel':           ndarray,  # per sung note travel (not windowed)
 #            'pitch':            ndarray,  # per sung note pitch, in onset order
-#            'sung_dur_ms':      ndarray,  # per sung note authored length
 #            'talkie_count':     int,
 #            'dur_ms':           float,    # latest end across sung/talkie/percussion
 #            'raw_perc_samples': ndarray,  # percussion hits per window (render only)
@@ -164,12 +139,9 @@ def window_arrays(notes, talkie, percussion=None, window_ms=WINDOW_MS, step_ms=S
     raw_perc = (_window_sum(perc_t, np.ones(perc_t.size), grid, window_ms)
                 if perc_t.size else np.zeros(grid.size, dtype=np.float64))
 
-    active = occupancy_gate(
-        np.concatenate([sung_t, talk_t]),
-        np.concatenate([sung_end, talk_end]),
-        grid, window_ms,
-    )
-    active_sung = occupancy_gate(sung_t, sung_end, grid, window_ms)
+    # onset gates - a window is active only if something starts in it
+    active = raw_sps > 0
+    active_sung = _window_sum(sung_t, np.ones(sung_t.size), grid, window_ms) > 0
 
     return {
         'time_ms': grid,
@@ -180,7 +152,6 @@ def window_arrays(notes, talkie, percussion=None, window_ms=WINDOW_MS, step_ms=S
         'syllable_times': syllable_times,
         'travel': travel,
         'pitch': pitch,
-        'sung_dur_ms': sung_end - sung_t,
         'talkie_count': int(talk_t.size),
         'dur_ms': dur_ms,
         'raw_perc_samples': raw_perc,
@@ -213,18 +184,15 @@ def calc_vocal_metrics(notes, talkie, percussion=None, window_ms=WINDOW_MS, step
     if pitch.size:
         pitches = int(np.unique(pitch).size)
         max_pitch = int(pitch.max())
-        short_frac = float(np.mean(windows['sung_dur_ms'] < SHORT_NOTE_MS))
     else:
         # talkie-only chart - nothing pitched
         pitches = max_pitch = 0
-        short_frac = 0.0
 
     return {
         'NoteCount': note_count,
         'DurationS': dur_s,
         'Pitches': pitches,
         'maxPitch': max_pitch,
-        'ShortFrac': short_frac,
         'talkieFrac': windows['talkie_count'] / note_count if note_count else 0.0,
         'pPPS': float(pps_window_values.max()) if pps_window_values.size else 0.0,
         'aPPS': total_travel / dur_s if dur_s > 0 else 0.0,

@@ -9,7 +9,7 @@ Drums: Hands/Travel/Kicks/D share an axis, D = Hands + Travel + Kicks
     - Hands reuses the NPS color, Travel reuses the VPS color, Kick has a new color
     - a chart with 2x stacks a second chart underneath the 1x
 
-Vocals: Pitch/Syllables/D share an axis, D approximated by R*A*Pitch + S_WEIGHT*Syllables
+Vocals: Pitch/Syllables/D share an axis, D approximated by R*Pitch + Syllables
     - Pitch reuses the VPS color, Syllables reuses the NPS color, Percussion reuses Kick's color
     - Percussion is render-only (not part of D) and only drawn when the chart actually has any
 

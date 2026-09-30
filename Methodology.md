@@ -219,7 +219,7 @@ The vocal track is split into three streams:
 - **Talkies** - rap/spoken/screamed segments. Two authoring conventions were uncovered: (RB-style) a pitched note paired with a lyric marked by `#` / `^` / `*`, & (GH-style) a lyric with no paired pitch
 - **Percussion** - kept for duration & render only, otherwise treated as rest time
 
-Authored talkie lengths are ignored so RB & GH style talkies can be treated equivalently. Every talkie gets a fixed length (133ms, estimated from official data), clipped so it never overlaps the next onset. This length is only used for active window gating and song duration.
+Authored talkie lengths are ignored so RB & GH style talkies can be treated equivalently. Every talkie gets a fixed length (133ms, estimated from official data), clipped so it never overlaps the next onset. This length is only used for song duration.
 
 ### PPS (Pitch-travel Per Second) <!-- omit in toc -->
 
@@ -245,24 +245,19 @@ Vocal's NPS equivalent - a straight rate of new syllables per window. A syllable
 
 ### Static Features <!-- omit in toc -->
 
-A few per-song values that aren't windowed, all from sung notes only & used to build R (Register):
+Two per-song values that aren't windowed, both from sung notes only. Used to build R (Register):
 - **Pitches** - count of distinct pitches used
 - **maxPitch** - highest sung pitch
-- **ShortFrac** - share of sung notes shorter than 120ms (quick runs/articulation)
-
-### Active windows & duration <!-- omit in toc -->
-
-Vocals gate windows differently from 5 Fret/Drums. Instead of counting onsets, a window is active if any note is active during the window, so a long held note still counts as active singing even with no new onsets. SPS gates on sung notes + talkies, PPS gates on sung notes only. Song duration runs from t=0 to the latest end across all three streams (incl percussion).
 
 ## Vocals Math
 
-Difficulty (D) is calculated by multiplying together P (using median, average, and peak PPS for a song), R (register - where the line sits), and A (articulation), adding S (the classic geomean combination of SPS values, down-weighted), then multiplying by CoV (the same interaction term, taken across pitch & syllables) and STAM (the same duration mod). Pitch movement is the main driver, with syllable rate as a secondary term. The specific formula is described below.
+Difficulty (D) is calculated by multiplying P (using median, average, and peak PPS for a song) by R (register - where the line sits), adding S (the same combination of SPS values), then multiplying by CoV (the same interaction term, taken across pitch & syllables) and STAM (the same duration mod). Pitch movement is the main driver, with syllable rate as a secondary term. The specific formula is described below.
 
 $$
-D = (P \cdot R \cdot A + S) \cdot CoV \cdot STAM
+D = (P \cdot R + S) \cdot CoV \cdot STAM
 $$
 
-Vocals is sort of a hybrid of lessons from 5 Fret & Drums due to the pure insanity of vocals charting. Official tiering conventions are incredibly messy (officials don't agree on nearly anything, even comparing DLC vs main setlist), so this is the loosest fit to official difficulty of any instrument.
+Vocals is sort of a hybrid of lessons from 5 Fret & Drums due to the pure complexity of vocals charting. Official tiering conventions are incredibly messy (officials don't agree on nearly anything, even comparing DLC vs main setlist of the same game), so this is the loosest fit to official difficulty of any instrument.
 
 ### Epsilon terms <!-- omit in toc -->
 
@@ -274,36 +269,22 @@ $$
 
 ### P (Pitch-travel) & S (Syllables) <!-- omit in toc -->
 
-The same pseudo-geometric mean used everywhere else. S is scaled down by $w_S = 0.25$ so syllable rate differentiates rap/scream/spoken songs without overshadowing pitch work.
+The same pseudo-geometric mean used everywhere else.
 
 $$
 P = \Big[(\mathrm{med}_P + \varepsilon_P)\cdot a_P \cdot p_P\Big]^{1/3}
 $$
 
 $$
-S = w_S\Big[(\mathrm{med}_S + \varepsilon_S)\cdot a_S \cdot p_S\Big]^{1/3}, \qquad w_S = 0.25
+S = \Big[(\mathrm{med}_S + \varepsilon_S)\cdot a_S \cdot p_S\Big]^{1/3}
 $$
 
 ### R (Register) <!-- omit in toc -->
 
-Where the vocal line tracks, not how fast it moves through it. Pitch vocabulary is square-root compressed, and the top of the line is squared for impact. Both are divided by a reference value (the pool medians - 12 distinct pitches, top pitch of 70) so R sits near 1.0 on a typical song and doesn't blow up the rest of the calc. R is 0 when a song has no sung notes.
+Where the vocal line tracks, not how fast it moves through it. Pitch vocabulary is square-root compressed, and the top of the line is measured against middle C (MIDI 60, the midpoint of the 36-84 chartable range). R is 0 when a song has no sung notes.
 
 $$
-R = \left(\frac{\mathrm{Pitches}}{12}\right)^{0.5}\cdot\left(\frac{\mathrm{maxPitch}}{70}\right)^{2}
-$$
-
-### A (Articulation) <!-- omit in toc -->
-
-A simple boost for quick runs, from the share of short (<120ms) sung notes. Ranges from 1 (no short notes) to 2 (all short notes).
-
-$$
-A = 1 + \mathrm{ShortFrac}
-$$
-
-Combinig both Fret & Drum approaches, P, R, & A are multiplied, with S added on to rescue talkie-only songs from scoring 0 D across the board.
-
-$$
-D = (P \cdot R \cdot A + S) \cdot CoV \cdot STAM
+R = \sqrt{\mathrm{Pitches}}\cdot\frac{\mathrm{maxPitch}}{60}
 $$
 
 ### Coefficients of variation <!-- omit in toc -->
@@ -317,10 +298,10 @@ $$
 
 ### Interaction Term <!-- omit in toc -->
 
-Similar to drums, with a scale value of 1.75. A song has to be uneven in both pitch movement and syllable rate to earn the full bonus.
+Similar to 5 Fret's interaction term. A song has to be uneven in both pitch movement and syllable rate to earn the full bonus.
 
 $$
-CoV = 1 + c_{scale}\sqrt{CV_P \cdot CV_S}, \qquad c_{scale} = 1.75
+CoV = 1 + \sqrt{CV_P \cdot CV_S}
 $$
 
 ### STAM (stamina) <!-- omit in toc -->
@@ -334,8 +315,10 @@ $$
 ### Final D Formula <!-- omit in toc -->
 
 $$
-D = (P \cdot R \cdot A + S) \cdot CoV \cdot STAM
+D = \left(P \cdot \sqrt{\mathrm{Pitches}}\cdot\frac{\mathrm{maxPitch}}{60} + S\right) \cdot \left(1 + \sqrt{CV_P \cdot CV_S}\right) \cdot \left(\frac{\mathrm{Duration}}{230}\right)^{0.2}
 $$
+
+The only vocals-specific constant is middle C (MIDI 60) - everything else is shared with 5 Fret/Drums.
 
 ### What's missing <!-- omit in toc -->
 
@@ -402,17 +385,17 @@ Reference for the calibration tables behind `fret_formula.py`, `drum_formula.py`
 
 #### Vocals (`VOCAL_REMAP_BINS`) <!-- omit in toc -->
 
-Refreshed from the same file (official, tagged charts only: n=2857). Bin edges are unchanged.
+Refit for the updated formula (official, tagged charts only: n=2857).
 
 | Tier | D range        | Official | Remap |
 |------|----------------|---------:|------:|
-| 0    | (0, 4.1]       |    6.1%  |  6.4% |
-| 1    | (4.1, 6.0]     |   14.0%  | 14.5% |
-| 2    | (6.0, 8.3]     |   26.5%  | 27.5% |
-| 3    | (8.3, 11.4]    |   30.4%  | 30.0% |
-| 4    | (11.4, 14.4]   |   14.5%  | 13.9% |
-| 5    | (14.4, 17.6]   |    5.9%  |  5.2% |
-| 6    | (17.6, inf)    |    2.6%  |  2.6% |
+| 0    | (0, 12.0]      |    6.1%  |  6.0% |
+| 1    | (12.0, 16.4]   |   14.0%  | 14.1% |
+| 2    | (16.4, 21.5]   |   26.5%  | 26.4% |
+| 3    | (21.5, 27.3]   |   30.4%  | 30.4% |
+| 4    | (27.3, 32.6]   |   14.5%  | 14.7% |
+| 5    | (32.6, 38.0]   |    5.9%  |  5.8% |
+| 6    | (38.0, inf)    |    2.6%  |  2.6% |
 
 ### CalcTier Calibration <!-- omit in toc -->
 
@@ -424,4 +407,4 @@ Refreshed from the same file (official, tagged charts only: n=2857). Bin edges a
 |--------|-------:|-------:|----------------:|----------|
 | G/B/K  |  7.101 | 0.1792 |            ~20% | `fret_formula.py` |
 | Drums  | 10.243 | 0.1602 |            ~17% | `drum_formula.py` |
-| Vocals |  4.805 | 0.2476 |            ~28% | `vocal_formula.py` |
+| Vocals | 14.000 | 0.1898 |            ~21% | `vocal_formula.py` |

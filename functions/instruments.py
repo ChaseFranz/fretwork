@@ -241,10 +241,10 @@ DRUM_SCALED_COLS = ['D_1x', 'D_2x', 'RemapDiff', 'CalcTier']
 # Vocals: headline metadata + D, plus the diagnostic breakdown
 # talkieFrac is descriptive only, not fed into the formula
 VOCAL_DIAG_COLS = [
-    'Pitches', 'maxPitch', 'ShortFrac', 'talkieFrac',
+    'Pitches', 'maxPitch', 'talkieFrac',
     'pPPS', 'aPPS', 'medPPS', 'stdPPS',
     'pSPS', 'aSPS', 'medSPS', 'stdSPS',
-    'P', 'R', 'A', 'S', 'CoV', 'STAM',
+    'P', 'R', 'S', 'CoV', 'STAM',
 ]
 VOCAL_COLUMN_ORDER = [
     'Code', 'Song Title', 'Artist', 'Type', 'Charter', 'Release', 'Official',
