@@ -30,7 +30,7 @@ import mido
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from functions import instruments  # noqa: E402
+from functions import ini_updater, instruments  # noqa: E402
 
 SEED = 20260911
 RESOLUTION = 192          # ticks per beat, both formats
@@ -45,7 +45,7 @@ BROKEN = 'broken'         # a song whose notes.mid is truncated inside its guita
 class Song:
     pack: str
     folder: str
-    fmt: str                     # 'chart' | 'mid' | 'both' (chart wins) | 'none' | BROKEN
+    fmt: str                     # 'chart' | 'mid' | 'both' (the mid wins) | 'none' | BROKEN
     parts: dict                  # instrument key -> level letters, e.g. {'guitar': 'EMHX', 'bass': 'X'}
     official: bool
     release: str
@@ -65,7 +65,7 @@ class Song:
 
     @property
     def source_format(self):
-        return 'chart' if self.fmt in ('chart', 'both') else ('mid' if self.fmt == 'mid' else None)
+        return 'mid' if self.fmt in ('mid', 'both') else ('chart' if self.fmt == 'chart' else None)
 
     def levels(self, instrument):
         return [LEVEL_OF[c] for c in self.parts.get(instrument, '')]
@@ -165,11 +165,19 @@ class Library:
     def errors(self):
         return [s for s in self.songs if s.fmt == BROKEN]
 
+    # a row in the errors CSV: the broken mid, and a warning per folder holding
+    # both formats, where the chart is the one the build ignores
+    @property
+    def error_rows(self):
+        return [s for s in self.songs if s.fmt in (BROKEN, 'both')]
+
     # every (song, instrument, level) the cache holds, drums included
     @property
     def codes(self):
         return sum(len(s.levels(i)) for s in self.charted for i in s.parts)
 
+    # rows per chart sheet; the Band sheet is not one of them (no song has a 'band'
+    # part, so it falls out here) and its rows are band_songs
     @property
     def rows_by_sheet(self):
         out = {}
@@ -179,19 +187,34 @@ class Library:
                 out[sheet] = n
         return out
 
+    # the Band sheet's rows, one per song rather than per chart: a song with two or
+    # more core parts at Expert, the lead (guitar, else keys) plus bass and drums,
+    # since only an Expert chart has the anchor band_formula.calc_band averages
+    @property
+    def band_songs(self):
+        out = []
+        for s in self.charted:
+            lead = next((k for k in ('guitar', 'keys') if 'X' in s.parts.get(k, '')), None)
+            core = [k for k in ([lead] if lead else []) + ['bass', 'drums'] if 'X' in s.parts.get(k, '')]
+            if len(core) >= 2:
+                out.append(s)
+        return out
+
     @property
     def official_rows(self):
         return sum(len(s.levels(i)) for s in self.charted if s.official for i in s.parts)
 
-    # the diff_* cell backup_data writes per song and tag: the ini value ('-1' when
-    # the tag is absent) for an instrument the song has a stream for, '' otherwise
+    # the diff_* cell backup_data writes per song and tag: the ini value, or
+    # ini_updater.MISSING when the tag is absent, for an instrument the song has a
+    # stream for and for band (always backed up, for a restore), '' otherwise
     @property
     def backup_rows(self):
         rows = {}
         for s in self.charted:
             row = {}
             for key, tag in instruments.DIFF_TAGS.items():
-                row[tag] = s.ini.get(tag, '-1') if key in s.parts else ''
+                kept = key in s.parts or key == 'band'
+                row[tag] = (s.ini.get(tag) or ini_updater.MISSING) if kept else ''
             rows[str(self.root / s.pack / s.folder)] = row
         return rows
 
@@ -386,10 +409,10 @@ def write(dest, seed=SEED):
             write_chart(rng, song, folder, streams)
         elif song.fmt == 'mid':
             write_mid(rng, song, folder, streams)
-        else:   # both: the mid carries different notes, and the chart must win
-            write_mid(rng, song, folder, {i: part_streams(random.Random(f'{seed}:{song.folder}:mid'), song, i)
-                                          for i in song.parts})
-            write_chart(rng, song, folder, streams)
+        else:   # both: the chart carries different notes, and the mid must win
+            write_chart(rng, song, folder, {i: part_streams(random.Random(f'{seed}:{song.folder}:chart'), song, i)
+                                           for i in song.parts})
+            write_mid(rng, song, folder, streams)
     return Library(root.resolve(), list(SONGS))
 
 

@@ -383,7 +383,7 @@ def _isnum(v):
 # official first, then Release, then title, then the code prefix), and every
 # level of every part of that folder with D, the percentile and the code, the
 # tier once per part. Keyed by SongKey.
-def song_facts(sheets):
+def song_facts(sheets, bands=None):
     levels = list(reversed(labels.VALUE_ORDER['Level']))
     types = list(labels.VALUE_ORDER.get('Type', ()))
     by_key = {}
@@ -430,7 +430,8 @@ def song_facts(sheets):
                       'official': str(main.get('Official')).lower() == 'true',
                       'album': _text(main.get('Album')), 'genre': _text(main.get('Genre')),
                       'year': int(year) if _isnum(year) and int(year) > 0 else None,
-                      'code': str(main['Code']), 'parts': parts}
+                      'code': str(main['Code']), 'parts': parts,
+                      'band': (bands or {}).get(key)}
     return facts
 
 
@@ -734,6 +735,7 @@ def song_sentences(fact):
     ui = labels.UI
     levels = list(reversed(labels.VALUE_ORDER['Level']))
     out = []
+    band = fact.get('band')
     for part in fact['parts']:
         level = next((l for l in levels if l in part['levels']), None)
         if level is None:
@@ -750,6 +752,10 @@ def song_sentences(fact):
             out.append(ui['song_sentence_tier'].format(level=level, type=part['type'], d=f'{chart["d"]:.2f}', tier=part['tier']))
         else:
             out.append(ui['song_sentence_d'].format(level=level, type=part['type'], d=f'{chart["d"]:.2f}'))
+    # the band placement (section 26): the engine's own cross-instrument tier, for
+    # a song charted on two or more of lead, bass and drums
+    if band and band['tier'] is not None:
+        out.append(ui['song_band'].format(tier=band['tier'], remap=band['remap']))
     return out
 
 
@@ -944,8 +950,8 @@ def _kind_of(songs):
 # each in sheet order (Bass, Keys, Drums, Vocals); songs with no guitar Expert
 # follow, by their best other part. Each song links its page, each number the
 # chart's graph.
-GUITAR_SHEET = next(iter(instruments.SHEET_GROUPS))
-OTHER_PARTS = [instruments.TYPE_LABELS[k] for sheet, keys in instruments.SHEET_GROUPS.items() if sheet != GUITAR_SHEET for k in keys]
+GUITAR_SHEET = instruments.CHART_SHEETS[0]
+OTHER_PARTS = [instruments.TYPE_LABELS[k] for sheet in instruments.CHART_SHEETS[1:] for k in instruments.SHEET_GROUPS[sheet]]
 
 
 def render_game_page(pack, slug_, songs, names, tally, more=''):
@@ -1365,6 +1371,10 @@ def page_dates_path(header):
 # link columns (Enchor, Leaderboard) for the links the registry knows.
 def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_path=None, page_dates=None, indexnow_key=None, png_size=PNG_SIZE):
     xlsx_path, sheets = frames.load_frames(header, xlsx_path)
+    # the Band sheet is a song per row, not a chart (section 26): the table never
+    # serves it, the song pages read its placement
+    sheets, band = frames.split_band(sheets)
+    bands = frames.band_rows(band)
     if any(frames.slug(name) == links_mod.SLUG for name in sheets):
         raise ValueError(f'a sheet slugs to {links_mod.SLUG!r}, the name of the links file under data/')
     if resolved is not None:
@@ -1397,7 +1407,7 @@ def build(header, xlsx_path, bootstrap_css, public=False, resolved=None, links_p
     files.update(changelog_pages(resolved, sheets, names))
     stats = frames.counts(sheets)
     files.update(library_pages(resolved, sheets, names, manifest, when, stats))
-    facts = song_facts(sheets)
+    facts = song_facts(sheets, bands)
     files.update(render_song_pages(sheets, names, facts, resolved, png_size=png_size))
     if facts:
         files[SONGS_PAGE] = render_songs_index(facts, names)

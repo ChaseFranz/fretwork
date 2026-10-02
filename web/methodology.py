@@ -46,18 +46,11 @@ STEP = re.compile(r'~(\d+)%')
 BINS_NAME = re.compile(r'<code>([A-Z]+_REMAP_BINS)</code>')
 HOME = re.compile(r'<code>([a-z_]+\.py)</code>')
 
-# Upstream's Methodology.md against upstream's code at the 2026-09-19 merge
-# (commits ef0f1f8 and fa7bc59 refit the constants without the tables). Each
-# entry is the sentence check_tables returns, less the "line N: " prefix.
-KNOWN_DRIFT = (
-    'GUITAR_REMAP_BINS tier 0 ends at 9.1 in Methodology.md but at 11.3 in fret_formula.py',
-    'GUITAR_REMAP_BINS tier 1 ends at 13.6 in Methodology.md but at 16.6 in fret_formula.py',
-    'GUITAR_REMAP_BINS tier 2 ends at 20.3 in Methodology.md but at 24.5 in fret_formula.py',
-    'GUITAR_REMAP_BINS tier 3 ends at 28.0 in Methodology.md but at 33.5 in fret_formula.py',
-    'GUITAR_REMAP_BINS tier 4 ends at 36.9 in Methodology.md but at 44.5 in fret_formula.py',
-    'GUITAR_REMAP_BINS tier 5 ends at 53.5 in Methodology.md but at 65.6 in fret_formula.py',
-    'CalcTier Drums is 9.0 / 0.2 in Methodology.md but drum_formula.py holds BASE_D 9 / LN_INC 0.196',
-)
+# The drifts upstream has been told about, each the sentence check_tables
+# returns less its "line N: " prefix. Empty since the 2026-10-01 merge, which
+# refit every table with its code (the 09-19 merge had seven); the test pins
+# this set, so a new drift is noticed at the next merge and a fixed one too.
+KNOWN_DRIFT = ()
 
 
 class MethodologyDrift(ValueError):
@@ -145,10 +138,19 @@ def check_tables(blocks):
             if not m:
                 continue
             name = m.group(1)
-            nxt = blocks[i + 1] if i + 1 < len(blocks) else None
-            if nxt is None or nxt[0] != 'table':
+            # the table is the next one under the heading: upstream writes a line of
+            # prose between the two for a refit, so paragraphs are skipped and only
+            # another heading ends the search
+            table = None
+            for nxt in blocks[i + 1:]:
+                if nxt[0] == 'table':
+                    table = nxt
+                    break
+                if nxt[0] == 'heading':
+                    break
+            if table is None:
                 raise MethodologyDrift(f'line {block[-1]}: the {name} heading is not followed by its table')
-            drifts += _check_remap(name, nxt)
+            drifts += _check_remap(name, table)
             found.add(name)
         elif block[0] == 'table' and block[1] == TIER_HEADER:
             tiers = block

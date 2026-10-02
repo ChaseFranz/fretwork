@@ -63,6 +63,10 @@ COLUMN_LABELS = {
     'D_2x':       'D (2x)',
     'RemapDiff':  'Remap Tier',
     'CalcTier':   'Calc Tier',
+    # the band sheet (one row per song, section 26)
+    'RemapBandDiff': 'Band Remap Tier',
+    'CalcBandTier': 'Band Tier',
+    'Instruments': 'Parts',
     'Pct':        'Percentile',
 
     # note density
@@ -110,7 +114,6 @@ COLUMN_LABELS = {
     # vocals: pitch travel and syllables per second, the register and the factors
     'Pitches':    'Distinct pitches',
     'maxPitch':   'Highest pitch',
-    'ShortFrac':  'Short notes',
     'talkieFrac': 'Talkie share',
     'pPPS':       'Peak pitch/sec',
     'aPPS':       'Avg pitch/sec',
@@ -122,7 +125,6 @@ COLUMN_LABELS = {
     'stdSPS':     'Std dev syllables/sec',
     'P':          'Pitch factor (P)',
     'R':          'Register (R)',
-    'A':          'Articulation (A)',
     'S':          'Syllable factor (S)',
 }
 
@@ -154,12 +156,15 @@ COLUMN_HELP = {
 
     'Difficulty': 'The diff_* tier already in song.ini. -1 means the tag is missing.',
     'D':          'Calculated difficulty. The main output, higher is harder, uncapped. For guitar, bass and keys '
-                  'D = N x V x CoV x STAM; drums add hands, travel and kicks before the same two factors and score '
-                  'the single-pedal (1x) reading here; vocals multiply pitch work by register and articulation, '
-                  'add syllables, then the two factors.',
+                  'D = (N + V) x CoV x STAM; drums add hands, travel and kicks before the same two factors and '
+                  'score the single-pedal (1x) reading here; vocals multiply pitch work by register, add '
+                  'syllables, then the two factors.',
     'D_2x':       'D at the double-pedal reading, every kick counted. Only a chart with 2x kicks has one; the '
                   'tiers and the percentile stay on the 1x reading.',
     'RemapDiff':  'D binned to 0-6, calibrated per instrument so the spread matches official tiers. From the Expert chart only.',
+    'CalcBandTier': 'The song as a band: the mean of its two hardest core parts\u2019 Calc Tiers, floored. Lead (guitar, else keys), bass and drums are the core; a song needs two of them to have one.',
+    'RemapBandDiff': 'The same rule over Remap Tier: the mean of the two hardest core parts, floored, in the 0-6 range the games use.',
+    'Instruments': 'Which parts the song is charted for, as the code letters: G guitar, B bass, D drums, K keys, V vocals.',
     'CalcTier':   f'Log-scaled tier, one step per {formula.LN_INC} increase in ln(D) above {formula.BASE_D} on guitar, bass and keys '
                   f'({drum_formula.LN_INC} above {drum_formula.BASE_D} on drums, {vocal_formula.LN_INC} above {vocal_formula.BASE_D} on vocals). '
                   'Uncapped, so hard customs reach 10+. From the Expert chart only.',
@@ -205,7 +210,6 @@ COLUMN_HELP = {
 
     'Pitches':    'How many distinct pitches the line uses.',
     'maxPitch':   'The highest pitch in the line, as a MIDI note number.',
-    'ShortFrac':  'Share of sung notes shorter than 120 ms: quick runs.',
     'talkieFrac': 'Share of syllables that are spoken rather than pitched. Descriptive only, not in the formula.',
     'pPPS':       'Busiest one-second window of pitch movement, in semitones.',
     'aPPS':       'Pitch movement per second across the whole chart.',
@@ -217,8 +221,7 @@ COLUMN_HELP = {
     'stdSPS':     'Spread of syllables across the chart.',
     'P':          'Pitch term: cube root of median x average x peak pitch movement.',
     'R':          'Register: how many pitches the line uses and how high it goes, near 1 for an average line.',
-    'A':          'Articulation: 1 plus the share of short notes.',
-    'S':          'Syllable term, weighted, so a spoken-only chart still scores.',
+    'S':          'Syllable term, so a spoken-only chart still scores.',
 }
 
 # ---------------------------------------------------------------------
@@ -290,7 +293,7 @@ VALUE_LABELS = {
 CURVE_FAMILIES = {
     'fret': {'lines': (('nps', 'Notes', 'notes/s', '--fw-curve-nps'),
                        ('vps', 'Variability', 'changes/s', '--fw-curve-vps')),
-             'alt': 'notes per second, fret changes per second and their geometric mean'},
+             'alt': 'notes per second, fret changes per second and their sum'},
     'drums': {'lines': (('hps', 'Hands', 'hits/s', '--fw-curve-nps'),
                         ('tps', 'Travel', 'travel/s', '--fw-curve-vps'),
                         ('kps', 'Kicks', 'kicks/s', '--fw-curve-kps')),
@@ -298,7 +301,7 @@ CURVE_FAMILIES = {
     'vocals': {'lines': (('pps', 'Pitch', 'pitch/s', '--fw-curve-vps'),
                          ('sps', 'Syllables', 'syllables/s', '--fw-curve-nps'),
                          ('perc', 'Percussion', 'perc/s', '--fw-curve-kps')),
-               'alt': 'pitch movement, syllables and percussion per second and their weighted sum'},
+               'alt': 'pitch movement, syllables and percussion per second and their sum'},
 }
 assert set(CURVE_FAMILIES) == set(instruments.FAMILIES)
 
@@ -401,15 +404,14 @@ PREFS_VERSION = 3
 EXPLAINER = (
     ('What D measures',
      'D is a single number for how hard a chart is to play, read out of the chart '
-     'file itself rather than from anyone\u2019s opinion. For guitar, bass and keys it '
-     'multiplies four things: how busy the chart is (N, from the peak, average and median '
-     'notes per second), how much the fretting hand has to move (V, the same three figures '
-     'for fret changes), how unevenly that work is spread across the song (CoV), and how '
-     'long it goes on (STAM, a slow curve of the length). Drums add up the hands, the '
-     'travel between pads and the kicks before the same two factors, and are scored at the '
-     'single-pedal reading; vocals multiply pitch movement by the register and the '
-     'articulation, add the syllables, then the same two. Higher is harder, and the scale '
-     'has no ceiling \u2013 the hardest guitar charts here run past 1000.'),
+     'file itself rather than from anyone\u2019s opinion. For guitar, bass and keys it adds '
+     'how busy the chart is (N, from the peak, average and median notes per second) to how '
+     'much the fretting hand has to move (V, the same three figures for fret changes), then '
+     'scales that by how unevenly the work is spread across the song (CoV) and by how long '
+     'it goes on (STAM, a slow curve of the length). Drums add up the hands, the travel '
+     'between pads and the kicks before the same two factors, and are scored at the '
+     'single-pedal reading; vocals multiply pitch movement by the register, add the '
+     'syllables, then the same two. Higher is harder, and the scale has no ceiling.'),
     ('Reading the tiers',
      f'Calc Tier is D on a log scale: one step for every {formula.LN_INC} rise in ln(D) above {formula.BASE_D} '
      f'on guitar, bass and keys, with drums and vocals on their own pair of constants, '
@@ -608,6 +610,8 @@ UI = {
     'song_sentence_pct': 'On {level} {type} it scores D {d}, at or above {pct}% of the site\u2019s {level} {sheet} charts.',
     'song_sentence_tier': 'On {level} {type} it scores D {d}, Calc Tier {tier}.',
     'song_sentence_d':  'On {level} {type} it scores D {d}.',
+    # the band placement (section 26): the engine's cross-instrument tier for the song
+    'song_band':        'As a band it places at tier {tier}, the mean of its two hardest core parts.',
     'song_source':      'From {source}, whose every song is ranked by difficulty on its page.',
     # the ladder under the table (section 25): the song's place among the site's songs and its
     # source's on its primary Expert part, its shape, and the songs beside it, every word a number

@@ -78,10 +78,10 @@ say("~D is a family the page draws: " + curves.family, ["fret", "drums", "vocals
     (curves.family === "fret" ? lines.length === 2 : lines.length >= 2), lines.length);
 
 // --- the pinned vector through the page's own smoothing ---------------------------
-const got = fw.smooth({ v: 2, family: "fret", step: 250, window: 1000, tau: 2000, n: 6, series: { nps: [0, 1, 3, 2, 0, 4], vps: [0, 1, 2, 2, 0, 3] }, d: { geo: ["nps", "vps"] } });
+const got = fw.smooth({ v: 2, family: "fret", step: 250, window: 1000, tau: 2000, n: 6, series: { nps: [0, 1, 3, 2, 0, 4], vps: [0, 1, 2, 2, 0, 3] }, d: { sum: { nps: 1, vps: 1 } } });
 const NPS = [0.206319956884, 0.233791139980, 0.249274712958, 0.221722210520, 0.166347919619, 0.113576201083];
 const VPS = [0.168201115681, 0.190596834038, 0.200329151998, 0.181904979485, 0.135036063769, 0.090279835296];
-const D = [0.186288075129, 0.211092044157, 0.223465862854, 0.200829216391, 0.149876510106, 0.101260262331];
+const D = [0.374521072565, 0.424387974018, 0.449603864955, 0.403627190006, 0.301383983388, 0.203856036379];   // v3: nps + vps
 say("smooth() reproduces the pinned vector", [...got.lines.nps].every((v, i) => near(v, NPS[i])) && [...got.lines.vps].every((v, i) => near(v, VPS[i])) &&
     [...got.d].every((v, i) => near(v, D[i])), JSON.stringify([...got.d].map(v => +v.toFixed(12))));
 // a weighted sum, as the drum and vocal files carry: ~D is the lines added with their weights

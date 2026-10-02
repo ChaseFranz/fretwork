@@ -464,6 +464,10 @@ def main():
     args = ap.parse_args()
     args.library = str(pathlib.Path(args.library).resolve())
     args.log = None
+    # caches/ and metrics/ land where this was run, not in the repo: build.py and
+    # analyze.py anchor a relative output folder to the tool's folder, and they are
+    # children of this process, so the anchor is set here for them and for us
+    os.environ.setdefault(timestamp.BASE_DIR_ENV, os.getcwd())
     try:
         sys.exit(ingest(args))
     except Refusal as exc:

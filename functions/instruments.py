@@ -22,8 +22,6 @@ LEVELS (EMHX)
 
 A given song may chart anywhere from 1 to all 4 levels for a given instrument
 
-Legacy GH1/2-style open note encoding in .mid assumed Expert-only
-
 DRUMS
 - splitting note streams out to have hands and kick separated
 - 1x & 2x columns/suffix conventions to support both for one song row
@@ -150,6 +148,7 @@ DIFF_TAGS = {
     'keys':   'diff_keys',
     'drums':  'diff_drums',
     'vocals': 'diff_vocals',
+    'band':   'diff_band',
 }
 
 # instrument suffix for retrieval code,
@@ -193,17 +192,23 @@ SHEET_GROUPS = {
     'Keys':   ['keys'],
     'Drums':  ['drums'],
     'Vocals': ['vocals'],
+    'Band':   ['band'],
 }
 
-# must match the 'Drums'/'Vocals' keys in SHEET_GROUPS above
+# must match the 'Drums'/'Vocals'/'Band' keys in SHEET_GROUPS above
 DRUMS_SHEET_NAME = 'Drums'
 VOCALS_SHEET_NAME = 'Vocals'
+BAND_SHEET_NAME = 'Band'
+
+# The sheets whose rows are charts: every sheet but Band, whose row is a song
+# (no Code, no Level, no D, no graph). The site's table is a chart browser, so
+# `web/frames.unify` serves these and reads the Band sheet separately.
+CHART_SHEETS = tuple(name for name in SHEET_GROUPS if name != BAND_SHEET_NAME)
 
 # --------------------------------------------------------------------------
 # Sheet profiles - one record per xlsx tab shape
 # Guitar/Bass/Keys are all fret-shaped (single D column, raw NPS/VPS diagnostics)
-# Drums is the only other shape (D_1x/D_2x, HPS/TPS/KPS diagnostics) so far
-# Band D???
+# Drums (D_1x/D_2x), Vocals (no EMHX), and Band each get their own shape
 # used for analyze and xlsx formatting
 # --------------------------------------------------------------------------
 SheetProfile = namedtuple('SheetProfile', [
@@ -270,10 +275,10 @@ DRUM_SCALED_COLS = ['D_1x', 'D_2x', 'RemapDiff', 'CalcTier']
 # Vocals: headline metadata + D, plus the diagnostic breakdown
 # talkieFrac is descriptive only, not fed into the formula
 VOCAL_DIAG_COLS = [
-    'Pitches', 'maxPitch', 'ShortFrac', 'talkieFrac',
+    'Pitches', 'maxPitch', 'talkieFrac',
     'pPPS', 'aPPS', 'medPPS', 'stdPPS',
     'pSPS', 'aSPS', 'medSPS', 'stdSPS',
-    'P', 'R', 'A', 'S', 'CoV', 'STAM',
+    'P', 'R', 'S', 'CoV', 'STAM',
 ]
 VOCAL_COLUMN_ORDER = [
     'Code', 'Song Title', 'Artist', 'Type', 'Charter', 'Release', *FORK_META_COLS, 'Official',
@@ -284,15 +289,28 @@ VOCAL_HIDDEN_COLS = list(VOCAL_DIAG_COLS)
 VOCAL_FLOAT_COLS = {*VOCAL_DIAG_COLS, 'D'} - {'Pitches', 'maxPitch'}
 VOCAL_SCALED_COLS = ['D', 'RemapDiff', 'CalcTier']
 
+# Band: one row per song. The fork adds its song identity (FORK_ID_COLS' SongKey
+# alone: a band row is a song, not a chart, so it has no NotesHash), which is how
+# the site joins the band placement onto the song's page.
+BAND_COLUMN_ORDER = [
+    'Song Title', 'Artist', 'Release', 'Difficulty', 'Instruments',
+    'RemapBandDiff', 'CalcBandTier', 'SongKey',
+]
+BAND_HIDDEN_COLS = []
+BAND_FLOAT_COLS = set()
+BAND_SCALED_COLS = ['RemapBandDiff', 'CalcBandTier']
+
 _FRET_PROFILE = SheetProfile(FRET_COLUMN_ORDER, FRET_HIDDEN_COLS, FRET_FLOAT_COLS, FRET_SCALED_COLS, 'D')
 _DRUM_PROFILE = SheetProfile(DRUM_COLUMN_ORDER, DRUM_HIDDEN_COLS, DRUM_FLOAT_COLS, DRUM_SCALED_COLS, 'D_1x')
 _VOCAL_PROFILE = SheetProfile(VOCAL_COLUMN_ORDER, VOCAL_HIDDEN_COLS, VOCAL_FLOAT_COLS, VOCAL_SCALED_COLS, 'D')
+_BAND_PROFILE = SheetProfile(BAND_COLUMN_ORDER, BAND_HIDDEN_COLS, BAND_FLOAT_COLS, BAND_SCALED_COLS, 'CalcBandTier')
 
 # every sheet in SHEET_GROUPS gets a profile
 SHEET_PROFILES = {
     sheet_name: (
         _DRUM_PROFILE if sheet_name == DRUMS_SHEET_NAME
         else _VOCAL_PROFILE if sheet_name == VOCALS_SHEET_NAME
+        else _BAND_PROFILE if sheet_name == BAND_SHEET_NAME
         else _FRET_PROFILE
     )
     for sheet_name in SHEET_GROUPS

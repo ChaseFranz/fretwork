@@ -14,11 +14,11 @@ for the three families (instruments.FAMILY), so the page has one drawing path:
      d: {geo: ['nps', 'vps']}                   ~D is their geometric mean (fret)
         | {sum: {hps: 1, tps: 1, kps: 1}}       or a weighted sum (drums, vocals)}
 
-The recipes are functions/curves.py's d_raw lines: sqrt(nps * vps) for the
-fret family, hps + tps + kps at the 1x reading for drums (the site ranks drums
-by D_1x, so the graph shows the 1x picture; the 2x reading is the D_2x column),
-and R * A * pps + S_WEIGHT * sps for vocals, whose R and A are the chart's own
-register and articulation factors, so they ride in the file. Counts are
+The recipes are functions/curves.py's d_raw lines: nps + vps for the fret
+family (formula v3 is additive), hps + tps + kps at the 1x reading for drums
+(the site ranks drums by D_1x, so the graph shows the 1x picture; the 2x
+reading is the D_2x column), and R * pps + sps for vocals, whose R is the
+chart's own register factor, so it rides in the file. Counts are
 integers where the density module keeps them so (the fret family), else
 rounded to four places.
 """
@@ -44,7 +44,7 @@ def _fret_series(entry):
     windows = fret_density.window_arrays(entry['notes'])
     if windows is None:
         return None
-    return ({'nps': windows['raw_nps_samples'], 'vps': windows['raw_vps_samples']}, {'geo': ['nps', 'vps']})
+    return ({'nps': windows['raw_nps_samples'], 'vps': windows['raw_vps_samples']}, {'sum': {'nps': 1, 'vps': 1}})
 
 
 # The hand and 1x kick streams on one grid, the longer of the two, as
@@ -73,7 +73,7 @@ def _vocal_series(entry):
     series = {'pps': windows['raw_pps_samples'], 'sps': windows['raw_sps_samples']}
     if windows['has_percussion']:
         series['perc'] = windows['raw_perc_samples']
-    return series, {'sum': {'pps': _num(diff['R'] * diff['A']), 'sps': _num(vocal_formula.S_WEIGHT)}}
+    return series, {'sum': {'pps': _num(diff['R']), 'sps': 1}}
 
 
 FAMILY_SERIES = {'fret': _fret_series, 'drums': _drum_series, 'vocals': _vocal_series}

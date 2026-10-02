@@ -136,7 +136,7 @@ class CurvesTest(unittest.TestCase):
         doc = json.loads(graph_mod.curves_bytes(self.entry()))
         self.assertEqual([doc['v'], doc['family'], doc['step'], doc['window'], doc['tau']], [2, 'fret', 250, 1000, 2000])
         self.assertEqual(list(doc['series']), ['nps', 'vps'])
-        self.assertEqual(doc['d'], {'geo': ['nps', 'vps']})
+        self.assertEqual(doc['d'], {'sum': {'nps': 1, 'vps': 1}})          # formula v3 adds N and V
         self.assertTrue(all(len(v) == doc['n'] for v in doc['series'].values()))
         self.assertEqual(doc['n'], int(2600 // 250) + 1)
         self.assertEqual(set(doc['head']), {'N', 'V', 'CoV', 'STAM', 'D', 'RemapDiff', 'CalcTier', 'source'})
@@ -154,8 +154,9 @@ class CurvesTest(unittest.TestCase):
         self.assertEqual([vocals['v'], vocals['family']], [2, 'vocals'])
         self.assertEqual(list(vocals['series']), ['pps', 'sps', 'perc'])
         self.assertEqual(list(vocals['d']['sum']), ['pps', 'sps'])
-        self.assertEqual(vocals['d']['sum']['sps'], 0.25)
+        self.assertEqual(vocals['d']['sum']['sps'], 1)                     # v3 dropped the syllable weight
         self.assertIn('R', vocals['head'])
+        self.assertNotIn('A', vocals['head'])                              # v3 dropped articulation
         quiet = json.loads(graph_mod.curves_bytes(self.vocal_entry(percussion=False)))
         self.assertEqual(list(quiet['series']), ['pps', 'sps'])
         # every family's series is n long and finite

@@ -15,11 +15,12 @@ THREE SEPARATE STREAMS:
     'talkie'     - every rap/talkie/spoken hit: time_ms / end_ms. Two authoring styles:
                    - a normally-pitched note whose lyric ends in '#' / '^' / '*' (RB style)
                    - a lyric event with no note under it (GH style)
-                    end_ms is NaN - no length is authored, density decides
+                   vocal_density ignores end_ms and gives every talkie a fixed length
 
     'percussion' - note 96 taps: time_ms / end_ms
 
 Lyric checks ignore trailing join/format marks ('-', '=', '/', '%')
+Lyrics are read from lyric meta events, falling back to non-bracketed text events when the track has none
 
 Sung notes + talkies are the note count and feed D
 percussion is kept for render only
@@ -54,10 +55,12 @@ def _lyric_base(text):
 
 
 def _extract_vocal_track(track, to_ms_array):
-    # Scan mido messages
-    note_on_events = []
-    note_off_events = []
+    # One chronological scan of the mido messages
+    open_by_note = {}
+    pitched_pairs = []
+    perc_pairs = []
     lyric_events = []
+    text_lyric_events = [] # fallback
     end_tick = 0
 
     abs_tick = 0
@@ -67,30 +70,28 @@ def _extract_vocal_track(track, to_ms_array):
 
         if msg.type == 'note_on' and msg.velocity > 0:
             if _is_kept(msg.note):
-                note_on_events.append((abs_tick, msg.note))
+                open_by_note.setdefault(msg.note, []).append(abs_tick)
         elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
-            if _is_kept(msg.note):
-                note_off_events.append((abs_tick, msg.note))
+            starts = open_by_note.get(msg.note) if _is_kept(msg.note) else None
+            if not starts:
+                continue  # stray note-off with nothing open
+            start_tick = starts.pop(0)
+            if msg.note == PERC_PLAYABLE:
+                perc_pairs.append([start_tick, abs_tick])
+            else:
+                pitched_pairs.append([start_tick, abs_tick, msg.note])
         elif msg.type == 'lyrics':
             lyric_events.append((abs_tick, msg.text))
-        # text/animation events ([idle]/[intense]/etc.) ignored
+        elif msg.type == 'text':
+            # some charts store lyrics as plain text events instead of lyric meta events
+            # bracketed text is animation/venue cues ([idle]/[intense]/etc.)
+            text = msg.text.strip()
+            if text and not text.startswith('['):
+                text_lyric_events.append((abs_tick, text))
 
-    # note on/off pairs
-    open_by_note = {}
-    for tick, note in note_on_events:
-        open_by_note.setdefault(note, []).append(tick)
-
-    pitched_pairs = []
-    perc_pairs = []
-    for tick, note in sorted(note_off_events, key=lambda e: e[0]):
-        starts = open_by_note.get(note)
-        if not starts:
-            continue
-        start_tick = starts.pop(0)
-        if note == PERC_PLAYABLE:
-            perc_pairs.append([start_tick, tick])
-        else:
-            pitched_pairs.append([start_tick, tick, note])
+    # lyric events preferred / text event fallback when have no lyric events
+    if not lyric_events:
+        lyric_events = text_lyric_events
 
     # notes left on near the end of the track are closed at track end (defensive)
     dangling = [(note, start) for note, starts in open_by_note.items() for start in starts]
