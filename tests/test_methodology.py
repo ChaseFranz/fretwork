@@ -3,6 +3,7 @@
 import html.parser
 import pathlib
 import unittest
+from unittest import mock
 
 from functions import drum_formula, fret_formula as formula, labels, vocal_formula
 from web import markdown, methodology, page
@@ -13,20 +14,20 @@ MD = (REPO / 'Methodology.md').read_text(encoding='utf-8')
 
 class MarkdownTest(unittest.TestCase):
 
-    # The counts pin what the 2026-09-19 upstream file holds (five remap tables and
-    # the CalcTier table, 29 display formulas, 15 inline ones, three bullet lists,
+    # The counts pin what the 2026-10-01 upstream file holds (five remap tables and
+    # the CalcTier table, 27 display formulas, 17 inline ones, three bullet lists,
     # three rules, seven links, every "omit in toc" comment stripped): an upstream
     # edit that adds a construct the renderer refuses fails in to_html, one that
     # adds more of these moves a number here.
     def test_the_real_file_renders_as_counted(self):
         out = markdown.to_html(MD)
         self.assertEqual(out.count('<table'), 6)
-        self.assertEqual(out.count('<math display="block"'), 29)
-        self.assertEqual(sum(out.count(f'<h{n} id=') for n in range(1, 5)), 44)
+        self.assertEqual(out.count('<math display="block"'), 27)
+        self.assertEqual(sum(out.count(f'<h{n} id=') for n in range(1, 5)), 42)
         self.assertEqual(out.count('<code>'), 29)
         self.assertEqual(out.count('<strong>'), 13)
         self.assertEqual(out.count('<em>'), 2)
-        self.assertEqual(out.count('<math>'), 15)
+        self.assertEqual(out.count('<math>'), 17)
         self.assertEqual(out.count('<ul>'), 3)
         self.assertEqual(out.count('<hr>'), 3)
         self.assertEqual(out.count('<a '), 7)
@@ -43,7 +44,7 @@ class MarkdownTest(unittest.TestCase):
     def test_shift_moves_every_heading(self):
         out = markdown.to_html(MD, shift=1)
         self.assertEqual(out.count('<h1'), 0)
-        self.assertEqual(sum(out.count(f'<h{n} id=') for n in range(2, 6)), 44)
+        self.assertEqual(sum(out.count(f'<h{n} id=') for n in range(2, 6)), 42)
 
     def test_refusals_name_the_line(self):
         cases = [
@@ -91,10 +92,10 @@ class DriftTest(unittest.TestCase):
 
     def test_a_number_that_moves_is_a_drift(self):
         cases = {
-            'a keys edge': (('(7.8, 13.7]', '(7.8, 13.8]'), ('(13.7, 21.5]', '(13.8, 21.5]'), 'KEYS_REMAP_BINS tier 2 ends at 13.8'),
+            'a keys edge': (('(6.0, 7.8]', '(6.0, 7.9]'), ('(7.8, 9.7]', '(7.9, 9.7]'), 'KEYS_REMAP_BINS tier 2 ends at 7.9'),
             'a drum edge': (('(14.0, 16.2]', '(14.0, 16.3]'), ('(16.2, 19.2]', '(16.3, 19.2]'), 'DRUM_REMAP_BINS tier 3 ends at 16.3'),
-            'a vocal BASE_D': (('| Vocals |   4.4 |', '| Vocals |   4.5 |'), None, 'CalcTier Vocals is 4.5 / 0.32'),
-            'a step': (('|  0.32 |           ~38% |', '|  0.32 |           ~39% |'), None, "step per tier reads '~39%'"),
+            'a vocal BASE_D': (('| Vocals | 14.000 |', '| Vocals | 14.500 |'), None, 'CalcTier Vocals is 14.5 / 0.1898'),
+            'a step': (('|            ~21% |', '|            ~22% |'), None, "step per tier reads '~22%'"),
         }
         for name, (first, second, want) in cases.items():
             with self.subTest(name=name):
@@ -169,21 +170,32 @@ class PageTest(unittest.TestCase):
         c.feed(out)
         count = lambda t: sum(1 for tag, _ in c.tags if tag == t)   # noqa: E731
         self.assertEqual(count('h1'), 1)
-        self.assertEqual(sum(count(f'h{n}') for n in range(2, 6)), 44)
+        self.assertEqual(sum(count(f'h{n}') for n in range(2, 6)), 42)
         self.assertEqual(len(c.ids), len(set(c.ids)))
         self.assertTrue(all(c.ids))
         self.assertEqual(c.first_h2, 'The Difficulty Formulas')
         self.assertEqual(count('math'), 44)
-        self.assertEqual(c.math_in_eq, 29)
+        self.assertEqual(c.math_in_eq, 27)
         self.assertEqual(count('table'), 6)
         self.assertEqual(c.table_in_tbl, 6)
         self.assertEqual(count('script'), 1)     # the theme's, page.THEME_SCRIPT, and nothing else
         self.assertFalse(any('$$' in t or '**' in t or '|---' in t for t in c.text))
         self.assertIn('href="https://github.com/Staycation44/fretwork/blob/main/Methodology.md"', out)
-        # the known drift is on the page, one sentence each, under the source line
-        self.assertEqual(out.count('<ul class="drift">'), 1)
+        # the known drift is on the page, one sentence each, under the source line;
+        # empty since the 2026-10-01 merge, so today the note is absent entirely
+        self.assertEqual(out.count('<ul class="drift">'), 1 if methodology.KNOWN_DRIFT else 0)
         for drift in methodology.KNOWN_DRIFT:
             self.assertIn(f'<li>{drift}.</li>', out)
+
+    # and the note still renders when there is a drift, whatever KNOWN_DRIFT holds
+    def test_render_methodology_notes_a_drift(self):
+        blocks, _ = methodology.load()
+        drift = 'line 366: KEYS_REMAP_BINS tier 2 ends at 7.9 in Methodology.md but at 7.8 in fret_formula.py'
+        with mock.patch.object(methodology, 'load', lambda: (blocks, [drift])):
+            out = page.render_methodology({'favicon': 'static/favicon.00000000.svg'})
+        out = out.decode('utf-8') if isinstance(out, bytes) else out
+        self.assertEqual(out.count('<ul class="drift">'), 1)
+        self.assertIn(f'<li>{methodology.plain(drift)}.</li>', out)
 
 
 if __name__ == '__main__':

@@ -1,12 +1,10 @@
 """
-5 FRET FORMULA v2 - Per-song difficulty scalar, computed from outputs of fret_density
+5 FRET FORMULA v3 - Per-song difficulty scalar, computed from outputs of fret_density
 
-Updates over v1:
-refined for window gating some metrics (median and stdev now operate off of active windows only)
-Scaling CoV - better account of spikes over the course of the song / rest sections
-Stamina term to discount shorter songs, and slowly build a boost for longer songs
+Updates over v2:
+D switched from multiplicative to additive on N/V (Data analysis showed Drums-stylestructure fit better across the board)
 
-D = N * V * COV * STAM
+D = (N + V) * COV * STAM
 
     epsN = aNPS * 0.05
     N = ((medNPS + epsN) * aNPS * pNPS) ** (1 / 3)
@@ -21,7 +19,7 @@ D = N * V * COV * STAM
     STAM = (DurationS / t_ref) ** s_stam
 
     # base scalar difficulty
-    D = N * V * COV * STAM
+    D = (N + V) * COV * STAM
 
 N & V balance peak segment impact against average and median
 COV is the interaction that accounts for uneven difficulty - more variable songs >1, less variable -> 1
@@ -54,9 +52,9 @@ DIFF_LABELS = [0, 1, 2, 3, 4, 5, 6]
 
 # Bin edges calibrated so RemapDiff distribution roughly matches diff_* tag's official distribution in the reference library
 # Methodology.md has table data for these bins
-GUITAR_REMAP_BINS = [0, 11.3, 16.6, 24.5, 33.5, 44.5, 65.6, math.inf]
-BASS_REMAP_BINS   = [0, 3.7, 10.0, 15.2, 22, 29.7, 41.2, math.inf]
-KEYS_REMAP_BINS   = [0, 2.5, 7.8, 13.7, 21.5, 31.4, 42.4, math.inf]
+GUITAR_REMAP_BINS = [0, 7.2, 8.6, 10.3, 12.0, 14.0, 17.1, math.inf]
+BASS_REMAP_BINS   = [0, 5.1, 7.2, 8.6, 10.2, 11.9, 14.1, math.inf]
+KEYS_REMAP_BINS   = [0, 3.5, 6.0, 7.8, 9.7, 11.8, 13.6, math.inf]
 
 REMAP_BINS = {
     'guitar': GUITAR_REMAP_BINS,
@@ -68,9 +66,8 @@ REMAP_BINS = {
 # CalcTier (log-scaled) params
 # --------------------------------------------
 # ~One tier per LN_INC of log(D / BASE_D)
-# One shared pair for every group due to mechanical similarities
-BASE_D = 7.6
-LN_INC = 0.44
+BASE_D = 7.101
+LN_INC = 0.1792
 
 
 # RB manual 0-6 fit
@@ -86,7 +83,7 @@ def remap_diff(D, instrument='guitar'):
     return None
 
 # log tier calculation
-def calc_tier(D, instrument='guitar'):
+def calc_tier(D):
     if D < BASE_D:
         return 0
     return int(math.floor(math.log(D / BASE_D) / LN_INC) + 1)
@@ -117,7 +114,7 @@ def calc_nvcov(metrics):
     STAM = (DurationS / T_REF) ** S_STAM
 
     # base scalar difficulty
-    D = N * V * COV * STAM
+    D = (N + V) * COV * STAM
 
     return {
         'N': N,
@@ -128,8 +125,9 @@ def calc_nvcov(metrics):
     }
 
 # RemapDiff/CalcTier anchored to the Expert level's D
+# Returns (RemapDiff, CalcTier)
 def anchor_remap_tier(expert_metrics, instrument='guitar'):
     if expert_metrics is None:
         return None, None
     expert_D = calc_nvcov(expert_metrics)['D']
-    return remap_diff(expert_D, instrument), calc_tier(expert_D, instrument)
+    return remap_diff(expert_D, instrument), calc_tier(expert_D)

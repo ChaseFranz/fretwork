@@ -25,6 +25,30 @@ COPIES_COL = 'Copies'
 HASH_COLS = {'SongKey': str, 'NotesHash': str}
 
 
+# The Band sheet (section 26) is one row per song, not per chart: no Code, no
+# Level, no D and no graph, so the table cannot serve it and `unify` sets it
+# aside. `band_rows` is what the song pages read it through.
+def split_band(frames):
+    band = frames.pop(instruments.BAND_SHEET_NAME, None)
+    return frames, band
+
+
+def band_rows(band):
+    """{SongKey: {'remap': int|None, 'tier': int|None, 'instruments': str}} from the Band sheet."""
+    out = {}
+    if band is None or 'SongKey' not in band.columns:
+        return out
+    for r in band.to_dict('records'):
+        key = r.get('SongKey')
+        if not isinstance(key, str):
+            continue
+        tier, remap = r.get('CalcBandTier'), r.get('RemapBandDiff')
+        out[key] = {'tier': None if pd.isna(tier) else int(tier),
+                    'remap': None if pd.isna(remap) else int(remap),
+                    'instruments': str(r.get('Instruments') or '')}
+    return out
+
+
 def load_frames(header, xlsx_path=None):
     if xlsx_path is None:
         xlsx_path = timestamp.latest_output('metrics', header, ext='xlsx')

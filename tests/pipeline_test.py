@@ -38,8 +38,8 @@ import analyze                                   # noqa: E402
 import config                                    # noqa: E402
 import deploy                                    # noqa: E402
 from functions import cache as cache_mod         # noqa: E402
-from functions import ini_updater, instruments, labels  # noqa: E402
-from web import assets, bootstrap, frames, page  # noqa: E402
+from functions import ini_updater, instruments, labels, timestamp  # noqa: E402
+from web import assets, bootstrap, frames, methodology, page  # noqa: E402
 from web.graph import GraphRenderer              # noqa: E402
 from web.server import MetricsServer             # noqa: E402
 from tests import fixture                        # noqa: E402
@@ -156,19 +156,27 @@ def run_all(work, header, args):
     INDEXNOW_KEY = 'f1' + '0' * 30
     (work / 'indexnow.env').write_text((work / 'deploy.env').read_text(encoding='utf-8') + f'FRETWORK_INDEXNOW_KEY={INDEXNOW_KEY}\n', encoding='utf-8')
     log = work / 'aws.log'
+    # every output lands under the working directory, never in the repo: the scripts
+    # anchor a relative folder from config.OUTPUT_DIRS to the tool's folder unless
+    # this says otherwise (functions/timestamp.base_dir)
     env = {**os.environ, 'PATH': f"{work / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}",
-           'AWS_STUB_LOG': str(log), 'PYTHONUNBUFFERED': '1'}
+           'AWS_STUB_LOG': str(log), 'PYTHONUNBUFFERED': '1', timestamp.BASE_DIR_ENV: str(work)}
     site = work / 'site' / header
 
-    # A backup CSV from before drums and vocals joined DIFF_TAGS: build must migrate its header (section 00).
+    # A backup CSV from before drums, vocals and band joined DIFF_TAGS: build must
+    # migrate its header (section 00). The migration takes a prefix of the current
+    # columns, so the old shape is everything up to the first instrument that joined.
     (work / 'caches').mkdir(exist_ok=True)
-    old_cols = [c for c in ini_updater.BACKUP_COLUMNS if c not in ('diff_drums', 'diff_vocals')]
+    cols = ini_updater.BACKUP_COLUMNS
+    old_cols = cols[:cols.index('diff_drums')]
     (work / 'caches' / f'{header}_BackupData.csv').write_text(','.join(old_cols) + '\n', encoding='utf-8')
 
     # ---- ingest (section 09): the three packs one at a time, in its own working directory ----
     ingest = work / 'ingest'
     ingest.mkdir()
-    st = Stage('ingest', ingest, env, args.python)
+    # ingest_pack anchors its own outputs to the directory it runs in, which is its
+    # documented contract; the harness's anchor would otherwise reach it first
+    st = Stage('ingest', ingest, {**env, timestamp.BASE_DIR_ENV: str(ingest)}, args.python)
     charted_so_far = 0
     for i, pack in enumerate(fixture.PACKS):
         songs_in_pack = [s for s in lib.songs if s.pack == pack]
@@ -198,14 +206,16 @@ def run_all(work, header, args):
     # ---- build -----------------------------------------------------------------------
     st = Stage('build', work, env, args.python)
     st.run('build.py', '--search-path', 'library', '--header', header)
-    for line, want in (('Song.ini count', lib.ini_count), ('No usable chart/mid', len(lib.unusable)),
-                       ('Errors', len(lib.errors)), ('Cached songs', len(lib.charted))):
+    for line, want in (('Song.ini count', lib.ini_count),
+                       ('Errors', len(lib.error_rows)), ('Cached songs', len(lib.charted))):
         st.check(re.search(rf'{re.escape(line)}\s+{want}\b', st.out), f'summary line {line!r} is not {want}')
     st.check('Backup CSV header updated' in st.out, 'the old backup header was not migrated')
     errors = list((work / 'caches').glob(f'{header}_errors_*.csv'))
     st.check(len(errors) == 1, f'expected one errors CSV, found {errors}')
     err_rows = list(csv.reader(errors[0].open(encoding='utf-8')))
-    st.check(len(err_rows) == 2 and 'C7 - Broken Mid' in err_rows[1][0], f'errors CSV rows: {err_rows}')
+    kinds = {r[1]: r[0] for r in err_rows[1:]}
+    st.check(len(err_rows) == len(lib.error_rows) + 1 and 'C7 - Broken Mid' in kinds.get('EOFError', '')
+             and 'C2 - Mid Pair' in kinds.get('MultipleChart', ''), f'errors CSV rows: {err_rows}')
     caches = list((work / 'caches').glob(f'{header}_cache_*.pkl'))
     st.check(len(caches) == 1, f'expected one cache, found {caches}')
     cache = cache_mod.load(caches[0])
@@ -228,7 +238,7 @@ def run_all(work, header, args):
                          and (notes['time_ms'][1:] >= notes['time_ms'][:-1]).all(),
                          f'{song.folder} {key} {level}: stream shape')
     st.check(by_folder['C4 - Less Than More']['meta']['Name'] == 'Less < More', 'C4 name not detagged')
-    st.check(by_folder['C2 - Mid Pair']['source_format'] == 'chart', 'chart did not win over mid for C2')
+    st.check(by_folder['C2 - Mid Pair']['source_format'] == 'mid', 'the mid did not win over the chart for C2')
     with (work / 'caches' / f'{header}_BackupData.csv').open(newline='', encoding='utf-8') as f:
         rows = list(csv.DictReader(f))
         f.seek(0)
@@ -250,7 +260,15 @@ def run_all(work, header, args):
     st.check(len(xlsxs) == 1, f'expected one xlsx, found {xlsxs}')
     st.check(xlsxs[0].stem.split('_')[-1] == caches[0].stem.split('_')[-1], 'xlsx timestamp differs from the cache')
     sheets = pd.read_excel(xlsxs[0], sheet_name=None)
-    st.check(list(sheets) == list(lib.rows_by_sheet), f'sheets {list(sheets)}')
+    st.check(list(sheets) == list(lib.rows_by_sheet) + [instruments.BAND_SHEET_NAME], f'sheets {list(sheets)}')
+    # the Band sheet is a song per row, not a chart (no Code, no Level, no D), so the
+    # site splits it off and joins it to the song pages by SongKey; every other check
+    # here is about the chart sheets
+    band = sheets.pop(instruments.BAND_SHEET_NAME)
+    st.check(list(band.columns) == analyze._column_order_for(instruments.BAND_SHEET_NAME), f'Band columns {list(band.columns)}')
+    st.check(len(band) == len(lib.band_songs), f'Band has {len(band)} rows, expected {len(lib.band_songs)}')
+    want_keys = {cache['songs'][str(lib.root / s.pack / s.folder)]['song_key'] for s in lib.band_songs}
+    st.check(set(band['SongKey']) == want_keys, f"Band rows are not the songs with two core Expert parts: {sorted(band['Song Title'])}")
     for name, df in sheets.items():
         st.check(list(df.columns) == analyze._column_order_for(name), f'{name} columns {list(df.columns)}')
         st.check(len(df) == lib.rows_by_sheet[name], f'{name} has {len(df)} rows, expected {lib.rows_by_sheet[name]}')
@@ -258,7 +276,12 @@ def run_all(work, header, args):
         st.check((df[d_col] > 0).all(), f'{name}: a {d_col} is not positive')
     # the site's one shape over the profiles (section 23): frames.unify reads drums at 1x and vocals at Expert
     _, unified = frames.load_frames(header, xlsxs[0])
+    unified, band_frame = frames.split_band(unified)
     st.check(all({'D', 'Level', 'NoteCount'} <= set(df.columns) for df in unified.values()), 'a sheet lacks D, Level or NoteCount after unify')
+    # the band placement the song pages read, keyed by the key that survives a re-download
+    bands = frames.band_rows(band_frame)
+    st.check(len(bands) == len(lib.band_songs) and all(b['tier'] is not None and b['remap'] is not None for b in bands.values())
+             and all(b['instruments'] for b in bands.values()), f'band rows {bands}')
     st.check((unified['Drums']['D'] == sheets['Drums']['D_1x']).all() and 'D_2x' in unified['Drums'].columns, 'the Drums sheet is not read at 1x')
     st.check((unified['Vocals']['Level'] == 'Expert').all() and 'Level' not in sheets['Vocals'].columns, 'the Vocals sheet is not read as Expert')
     total = pd.concat(unified.values())
@@ -285,8 +308,9 @@ def run_all(work, header, args):
         st.check(wb[name].column_dimensions[letter].hidden, f'{name}: NotesHash column {letter} is not hidden')
     st.check(total['NotesHash'].str.fullmatch('[0-9a-f]{12}').all(), 'a NotesHash is not 12 hex digits')
     _, loaded = frames.load_frames(header, xlsxs[0])
-    st.check(all(pd.api.types.is_string_dtype(df['NotesHash']) and pd.api.types.is_string_dtype(df['SongKey']) for df in loaded.values()),
-             'a hash column did not load as text')
+    loaded, loaded_band = frames.split_band(loaded)
+    st.check(all(pd.api.types.is_string_dtype(df['NotesHash']) and pd.api.types.is_string_dtype(df['SongKey']) for df in loaded.values())
+             and pd.api.types.is_string_dtype(loaded_band['SongKey']), 'a hash column did not load as text')
     a1 = total[(total['Song Title'] == 'Grid Runner') & (total['Level'] == 'Expert') & (total['Type'] == 'Lead')]['NotesHash'].item()
     b5 = total[total['Song Title'] == 'Grid Runner (Live)']['NotesHash'].item()
     st.check(a1 == b5, f'B5 should hash as A1: {a1} vs {b5}')
@@ -422,10 +446,14 @@ def run_all(work, header, args):
     st.check('methodology.html' in a.hrefs, 'about.html does not link the methodology page')
     # section 12: Methodology.md rendered, its tables checked, no scripts and nothing left unrendered
     method = (site / 'methodology.html').read_text(encoding='utf-8')
-    st.check(not PLACEHOLDER.search(method) and method.count('<table') == 6 and method.count('<math display="block"') == 29
+    st.check(not PLACEHOLDER.search(method) and method.count('<table') == 6 and method.count('<math display="block"') == 27
              and method.count('<script') == 1 and page.THEME_SCRIPT in method and method.count('<h1') == 1 and '$$' not in method and '**' not in method,
              f'methodology.html: {method.count("<table")} tables, {method.count(chr(36) * 2)} $$')
-    st.check(method.count('<ul class="drift">') == 1 and 'in Methodology.md but at' in method, 'the known drift is on the methodology page')
+    # the drift note is on the page when the file and the code disagree, and absent
+    # otherwise; nothing drifts since the 2026-10-01 merge refit every table
+    drift_block = 1 if methodology.KNOWN_DRIFT else 0
+    st.check(method.count('<ul class="drift">') == drift_block
+             and ('in Methodology.md but at' in method) == bool(drift_block), 'the drift note on the methodology page')
     st.check(not PLACEHOLDER.search(about) and not PLACEHOLDER.search((site / '404.html').read_text()), 'placeholders')
     st.check((site / 'robots.txt').read_text() == page.robots_txt() and 'Sitemap: ' in page.robots_txt(), 'robots.txt')
     # section 16: a page per song under song/, the week class; the sitemap names every page

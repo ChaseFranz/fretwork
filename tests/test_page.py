@@ -8,7 +8,7 @@ import unittest
 
 import pandas as pd
 
-from functions import labels, packs
+from functions import instruments, labels, packs
 from web import boot, frames, page
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
@@ -135,6 +135,23 @@ class SongPagesTest(unittest.TestCase):
         self.assertEqual(page.song_image_code(a1), '00000001XG')
         self.assertEqual(page.share_lines(a1), ['Expert Lead: D 10.00, Calc Tier 3, at or above 50%', 'Expert Bass: D 4.00, Calc Tier 1'])
         self.assertEqual(page.share_lines(facts['0000000000a3']), ['Expert Rhythm: D 20.50, at or above 100%'])
+
+    # section 26: the Band sheet is a song per row, so it never reaches the table;
+    # its placement is joined to the song page by SongKey and read out in words
+    def test_the_band_placement_joins_by_song_key(self):
+        f = small_frames()
+        band = pd.DataFrame({'Song Title': ['Alpha'], 'Artist': ['a'], 'Instruments': ['G/B'],
+                             'RemapBandDiff': [2], 'CalcBandTier': [3], 'SongKey': ['0000000000a1']})
+        sheets, split = frames.split_band({**f, instruments.BAND_SHEET_NAME: band})
+        self.assertEqual(list(sheets), list(f))
+        bands = frames.band_rows(split)
+        self.assertEqual(bands, {'0000000000a1': {'tier': 3, 'remap': 2, 'instruments': 'G/B'}})
+        facts = page.song_facts(sheets, bands)
+        self.assertEqual(facts['0000000000a1']['band'], bands['0000000000a1'])
+        self.assertIsNone(facts['0000000000a2']['band'])
+        said = page.song_sentences(facts['0000000000a1'])
+        self.assertIn(labels.UI['song_band'].format(tier=3, remap=2), said)
+        self.assertNotIn(labels.UI['song_band'].format(tier=3, remap=2), page.song_sentences(facts['0000000000a2']))
 
     def test_a_song_without_expert_previews_its_highest_level(self):
         f = small_frames()

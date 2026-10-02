@@ -5,6 +5,7 @@ ANALYZE and RENDER can read from caches to generate metrics/visuals
 
 Shape:
     {
+        'header':       str,                 # HEADER the cache was built under (used for backup/output names)
         'generated_at': str,
         'search_path':  str,
         'codes':        {code: song_path},   # code = 8-digit song hash + level letter + instrument letter
@@ -13,7 +14,8 @@ Shape:
                 'song_path':     str,
                 'song_key':      str | None,   # 12 hex digits over every 5-fret stream; same charts, same key, whatever folder
                 'meta':          {...},   # Name, Artist, Charter, Release, Official, Genre, Year (int, -1 sentinel),
-                                          # Album, and the per-instrument Difficulty dict (Expert-referenced)
+                                          # Album, and the per-instrument Difficulty dict (Expert-referenced,
+                                          # None where song.ini has no diff_* tag)
                 'source_format': 'chart' | 'mid',
                 'chart_md5':     str,   # MD5 of the raw notes file that produced source_format; never in meta
                 'codes':         {instrument_key: {level_key: code, ...}, ...},
@@ -44,7 +46,8 @@ Shape:
                     #     },
                     #     'talkie': { # rap/spoken
                     #         'time_ms': ndarray,
-                    #         'end_ms':  ndarray, # NaN when no length is authored (GH lyric-only)
+                    #         'end_ms':  ndarray, # authored note-off (RB style), NaN for GH lyric-only
+                    #                             # - not read by vocal_density, which uses a fixed talkie length
                     #     },
                     #     'percussion': {'time_ms': ndarray, 'end_ms': ndarray},   # note 96 taps, render only
                 },
@@ -73,7 +76,7 @@ Vocals only exist at Expert, talkie/percussion streams are carried with the code
 import hashlib
 import pickle
 
-from functions import instruments
+from functions import instruments, timestamp
 
 # Hash-derived retrieval codes digit length (pre level/instrument suffix)
 CODE_LEN = 8
@@ -175,6 +178,19 @@ def assign_codes(song_instrument_level_triples, digits=None):
 
     assert len(set(codes.values())) == len(codes), "song+instrument+level code collision"
     return codes
+
+# Header a loaded cache belongs to - stored in the cache by build
+# else parsed from the {header}_cache_{ts} filename
+def resolve_header(cache, cache_path=None, explicit_header=None, fallback=None):
+    stored = cache.get('header')
+    if stored is None and cache_path is not None:
+        stored, _ts = timestamp.split_cache_name(cache_path)
+    if stored is None:
+        return explicit_header or fallback
+    if explicit_header is not None and explicit_header != stored:
+        print(f"Warning: --header '{explicit_header}' doesn't match this cache's header '{stored}' - using '{stored}'")
+    return stored
+
 
 # Persistence
 def save(cache, cache_path):

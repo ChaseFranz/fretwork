@@ -9,10 +9,10 @@ Source tables (gh/rb/ch) and html-tag cleanup regex live here
 import pathlib
 import re
 
-import pandas as pd
 import tqdm
 
 from functions import instruments
+from parsers.text_decode import read_text
 
 # --------------
 # Source tables
@@ -69,23 +69,12 @@ def _year(text):
 # Parsing
 # --------
 
-# no declared encoding - usually utf-8, cp1252 from older tools, utf-16 if saved from notepad
-def _read_text(file):
-    raw = file.read_bytes()
-    if raw.startswith((b'\xff\xfe', b'\xfe\xff')):
-        return raw.decode('utf-16', errors='replace')
-    try:
-        return raw.decode('utf-8-sig')
-    except UnicodeDecodeError:
-        return raw.decode('cp1252', errors='replace')
-
-
 # key = value parse, same as chart_parser.parse_chart
 # not configparser - it chokes on % and line breaks in loading_phrase
 # [section] lines skipped (only ever [song]), keys lowercased, last dupe wins
 def parse_ini(file):
     ini = {}
-    for line in _read_text(file).splitlines():
+    for line in read_text(file).splitlines():
         line = line.strip()
         if not line or line[0] in ';#[':
             continue
@@ -96,10 +85,11 @@ def parse_ini(file):
     return ini
 
 
-def ini_metadata(file):
-    ini = parse_ini(file)
+# Builds one metadata row from an already-parsed {lowercased key: value} dict
+# shared for song.ini and .sng metadata
+def ini_metadata_from_pairs(ini, song_path):
     if not ini:
-        raise ValueError(f"No key = value metadata found in {file}")
+        raise ValueError(f"No key = value metadata found for {song_path}")
 
     # clean up tags & fix missing data, hard codes for malformed or missing
     name = DETAG.sub("", ini.get('name', 'unk'))
@@ -113,9 +103,8 @@ def ini_metadata(file):
     year = _year(ini.get('year', ''))
 
     # one difficulty value per instrument, keyed the same way as everywhere else
-    # (instrument key, not the raw ini tag name) - '-1' default matches prior single-tag behavior
     difficulties = {
-        instrument_key: ini.get(diff_tag, '-1')
+        instrument_key: ini.get(diff_tag)
         for instrument_key, diff_tag in instruments.DIFF_TAGS.items()
     }
 
@@ -126,9 +115,6 @@ def ini_metadata(file):
             release = source_dict[icon]
             official = is_official
             break
-
-    # Song folder identity - full resolved path to account for duplicate songs across different sources
-    song_path = str(file.parent.resolve())
 
     return {
         'SongPath': song_path,
@@ -143,22 +129,31 @@ def ini_metadata(file):
         'Official': official,
     }
 
+
+def ini_metadata(file):
+    ini = parse_ini(file)
+    # Song folder identity - full resolved path to account for duplicate songs across different sources
+    song_path = str(file.parent.resolve())
+    return ini_metadata_from_pairs(ini, song_path)
+
 # -----------
 # Search loop
 # -----------
 
 # loops through search_path and provides errors to output along with cache
-def ini_loop(search_path, errors=None):
-    ini_out = []
-    search = pathlib.Path(search_path)
-    files = list(search.rglob("song.ini"))
+# Returns {song_path: metadata row}
+def ini_loop(search_path, errors=None, files=None):
+    ini_out = {}
+    if files is None:
+        files = list(pathlib.Path(search_path).rglob("song.ini"))
 
     for file in tqdm.tqdm(files, desc="Gathering ini data", unit="file"):
         try:
-            ini_out.append(ini_metadata(file))
+            row = ini_metadata(file)
+            ini_out[row['SongPath']] = row
         except Exception as exc:
             if errors is not None:
                 errors.append((str(file), type(exc).__name__, str(exc) or repr(exc)))
             continue
 
-    return pd.DataFrame(ini_out)
+    return ini_out

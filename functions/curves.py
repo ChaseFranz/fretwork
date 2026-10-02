@@ -3,13 +3,16 @@ CURVES - smoothes density.py's windowed arrays for visualization
 
 The raw arrays are converted to rates (notes/sec, hits/sec, etc) before smoothing by an EMA
 
-5 fret: d_raw uses sqrt(nps*vps) to fit to scale
+5 fret: d_raw sums hnps+vps, fits on scale naturally
 
-Drums: d_raw sums hps+tps+kps directly, fits on scale naturally
+Drums: d_raw sums hps+tps+kps, fits on scale naturally
 
-Vocals: d_raw = R*A*pps + S_WEIGHT*sps, scale is okay / percussion is almost always low
+Vocals: d_raw = (pps*R) + sps, scale is okay / percussion is almost always low
 
 d_raw lines don't apply COV/STAM since those are song-level balancing values
+
+Each calc_*_curves accepts the density module's window_arrays() output (windows=)
+so render can window a stream once and share it with the metrics calc
 """
 
 import math
@@ -78,15 +81,16 @@ def _calc_fret_curves(windows, window_ms, step_ms, tau_ms=TAU_MS):
         'time_ms': windows['time_ms'],
         'nps': smoothed['nps'],
         'vps': smoothed['vps'],
-        'd_raw': np.sqrt(smoothed['nps'] * smoothed['vps']),
+        'd_raw': smoothed['nps'] + smoothed['vps'],
     }
 
 # final curves for render / 5 Fret
 def calc_curves(notes,
-                window_ms=fret_density.WINDOW_MS, 
-                step_ms=fret_density.STEP_MS, tau_ms=TAU_MS):
+                window_ms=fret_density.WINDOW_MS,
+                step_ms=fret_density.STEP_MS, tau_ms=TAU_MS, windows=None):
 
-    windows = fret_density.window_arrays(notes, window_ms, step_ms)
+    if windows is None:
+        windows = fret_density.window_arrays(notes, window_ms, step_ms)
     return _calc_fret_curves(windows, window_ms, step_ms, tau_ms)
 
 # -----------
@@ -95,11 +99,13 @@ def calc_curves(notes,
 
 # final curves for render - drums
 def calc_drum_curves(notes, roll_spans=None,
-                      window_ms=drum_density.WINDOW_MS, step_ms=drum_density.STEP_MS, tau_ms=TAU_MS):
+                      window_ms=drum_density.WINDOW_MS, step_ms=drum_density.STEP_MS, tau_ms=TAU_MS,
+                      windows=None):
     hand_mask = notes['hand_mask']
     kick_mask = notes['kick_mask']
 
-    windows = drum_density.window_arrays(hand_mask, roll_spans, window_ms, step_ms)
+    if windows is None:
+        windows = drum_density.window_arrays(hand_mask, roll_spans, window_ms, step_ms)
     if windows is None:
         return None
 
@@ -116,7 +122,7 @@ def calc_drum_curves(notes, roll_spans=None,
     n_2x = kicks_2x['time_ms'].size if kicks_2x is not None else 0
     n_max = max(n_hand, n_1x, n_2x)
 
-    grid = np.arange(n_max, dtype=np.float64) * step_ms
+    grid = drum_density.make_grid(n_max, step_ms)
     window_s = window_ms / 1000.0
 
     raw_rates = {
@@ -150,15 +156,19 @@ def calc_drum_curves(notes, roll_spans=None,
 # ------------
 
 # final curves for render - vocals
+# difficulty: calc_vocal_d() output, if the caller already has it - derived here otherwise
 def calc_vocal_curves(notes, talkie, percussion=None,
-                       window_ms=vocal_density.WINDOW_MS, step_ms=vocal_density.STEP_MS, tau_ms=TAU_MS):
-    windows = vocal_density.window_arrays(notes, talkie, percussion, window_ms, step_ms)
+                       window_ms=vocal_density.WINDOW_MS, step_ms=vocal_density.STEP_MS, tau_ms=TAU_MS,
+                       windows=None, difficulty=None):
+    if windows is None:
+        windows = vocal_density.window_arrays(notes, talkie, percussion, window_ms, step_ms)
     if windows is None:
         return None
 
-    # re-derive metrics/difficulty
-    metrics = vocal_density.calc_vocal_metrics(notes, talkie, percussion, window_ms, step_ms)
-    difficulty = vocal_formula.calc_vocal_d(metrics)
+    if difficulty is None:
+        metrics = vocal_density.calc_vocal_metrics(notes, talkie, percussion, window_ms, step_ms,
+                                                   windows=windows)
+        difficulty = vocal_formula.calc_vocal_d(metrics)
 
     window_s = window_ms / 1000.0
     raw_rates = {
@@ -175,6 +185,6 @@ def calc_vocal_curves(notes, talkie, percussion=None,
         'pps': smoothed['pps'],
         'sps': smoothed['sps'],
         'perc': smoothed['perc'] if has_perc else None,
-        'd_raw': difficulty['R'] * difficulty['A'] * smoothed['pps'] + vocal_formula.S_WEIGHT * smoothed['sps'],
+        'd_raw': difficulty['R'] * smoothed['pps'] + smoothed['sps'],
         'has_perc': has_perc,
     }

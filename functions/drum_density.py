@@ -43,7 +43,7 @@ TRAVEL_GAMMA = 0.5
 
 
 # Distance lookup, [added_mask, prev_mask] -> travel cost
-# No prior lane (song's first note, or empty window before) is a pure addition
+# No prior lane is a pure addition
 def _build_travel_lookup(gamma=TRAVEL_GAMMA):
     lut = np.zeros((256, 256), dtype=np.float64)
     for added_byte in range(256):
@@ -99,17 +99,21 @@ def n_samples_for(times, step_ms=STEP_MS):
     return int(times[-1] // step_ms) + 1
 
 
-# Prefix-sum windowed reducer over an arbitrary (times, values) pair
-# Similar grid/window logic used VPS but specific sample ct for shared hand/kick grid
-def windowed_sum(times, values, n_samples, window_ms=WINDOW_MS, step_ms=STEP_MS):
-    grid = np.arange(n_samples, dtype=np.float64) * step_ms
-    if times.size == 0 or n_samples == 0:
-        return grid, np.zeros(n_samples, dtype=np.float64)
+# Uniform window-start grid (t=0 onward, one sample per step)
+def make_grid(n_samples, step_ms=STEP_MS):
+    return np.arange(n_samples, dtype=np.float64) * step_ms
+
+
+# Prefix-sum windowed reducer over an arbitrary (times, values) pair on a caller-built grid
+# Same window logic as VPS - the caller builds the grid once and reuses it across streams
+def windowed_sum(times, values, grid, window_ms=WINDOW_MS):
+    if times.size == 0 or grid.size == 0:
+        return np.zeros(grid.size, dtype=np.float64)
 
     prefix = np.concatenate(([0.0], np.cumsum(np.asarray(values, dtype=np.float64))))
     left = np.searchsorted(times, grid, side='left')
     right = np.searchsorted(times, grid + window_ms, side='left')
-    return grid, prefix[right] - prefix[left]
+    return prefix[right] - prefix[left]
 
 
 # Song duration shared by every avg (aHPS/aTPS/aKPS) + STAM
@@ -146,7 +150,7 @@ def window_arrays(hand_mask, roll_spans=None, window_ms=WINDOW_MS, step_ms=STEP_
 
     hits, travel = hand_var(masks)
 
-    # split hits into normal/roll so only the roll share gets capped, travel zeroes outright
+    # split hits into normal/roll so only the roll share gets capped, travel zeroes
     if roll_spans:
         in_roll = roll_mask(times, roll_spans)
         travel = np.where(in_roll, 0, travel)
@@ -156,10 +160,10 @@ def window_arrays(hand_mask, roll_spans=None, window_ms=WINDOW_MS, step_ms=STEP_
         hits_normal = hits
         hits_roll = np.zeros_like(hits)
 
-    n_samples = n_samples_for(times, step_ms)
-    _, hps_normal = windowed_sum(times, hits_normal, n_samples, window_ms, step_ms)
-    _, hps_roll = windowed_sum(times, hits_roll, n_samples, window_ms, step_ms)
-    grid, tps_sum = windowed_sum(times, travel, n_samples, window_ms, step_ms)
+    grid = make_grid(n_samples_for(times, step_ms), step_ms)
+    hps_normal = windowed_sum(times, hits_normal, grid, window_ms)
+    hps_roll = windowed_sum(times, hits_roll, grid, window_ms)
+    tps_sum = windowed_sum(times, travel, grid, window_ms)
 
     window_s = window_ms / 1000.0
     hps_sum = hps_normal + np.minimum(hps_roll, ROLL_CAP_HPS * window_s)
@@ -188,19 +192,24 @@ def kick_arrays(kick_mask, bit_mask, window_ms=WINDOW_MS, step_ms=STEP_MS):
     if times.size == 0:
         return None
 
-    n_samples = n_samples_for(times, step_ms)
-    grid, kps_sum = windowed_sum(times, np.ones(times.size), n_samples, window_ms, step_ms)
+    grid = make_grid(n_samples_for(times, step_ms), step_ms)
+    kps_sum = windowed_sum(times, np.ones(times.size), grid, window_ms)
     return {'time_ms': grid, 'raw_kps_samples': kps_sum, 'timestamps_ms': times}
 
 
-# Note count for one reading: hand hits + kick hits (either 1x or 2x)
-def _note_count(hand_times, kick_times):
-    return int(hand_times.size + kick_times.size)
+# Note count: every hand hit (same as HPS) + kick hit (either 1x or 2x)
+def _note_count(hand_lanes, kick_times):
+    hand_lanes = np.asarray(hand_lanes, dtype=np.uint8)
+    hand_notes = int(POPCOUNT[hand_lanes].sum()) if hand_lanes.size else 0
+    return hand_notes + int(kick_times.size)
 
 
 # provides HPS/TPS/KPS metrics to calculate D
-def calc_drum_metrics(notes, roll_spans=None, window_ms=WINDOW_MS, step_ms=STEP_MS):
+# windows: window_arrays() output for this hand stream, if the caller already has it (render)
+# A chart with no kick notes returns '1x' = None, its NoteCount_1x is the hand count alone
+def calc_drum_metrics(notes, roll_spans=None, window_ms=WINDOW_MS, step_ms=STEP_MS, windows=None):
     hand_times = np.asarray(notes['hand_mask']['time_ms'], dtype=np.float64)
+    hand_lanes = np.asarray(notes['hand_mask']['lanes'], dtype=np.uint8)
     kick_mask = notes['kick_mask']
 
     dur_s = song_duration_s(hand_times, kick_mask)
@@ -208,7 +217,8 @@ def calc_drum_metrics(notes, roll_spans=None, window_ms=WINDOW_MS, step_ms=STEP_
 
     # HPS & TPS
     hand_out = None
-    windows = window_arrays(notes['hand_mask'], roll_spans, window_ms, step_ms)
+    if windows is None:
+        windows = window_arrays(notes['hand_mask'], roll_spans, window_ms, step_ms)
     if windows is not None:
         hps_window_values = windows['raw_hps_samples'] / window_s
         hps_active_mask = hps_window_values > 0   # active window mask used for both HPS & TPS
@@ -216,8 +226,6 @@ def calc_drum_metrics(notes, roll_spans=None, window_ms=WINDOW_MS, step_ms=STEP_
         tps_window_values = windows['raw_tps_samples'] / window_s
 
         hand_out = {
-            'time_ms': windows['timestamps_ms'],
-            'lanes': np.asarray(notes['hand_mask']['lanes'], dtype=np.uint8),
             'aHPS': (windows['total_hits'] / dur_s) if dur_s > 0 else 0.0,
             'pHPS': float(hps_window_values.max()) if hps_window_values.size else 0.0,
             'stdHPS': fret_density.active_std(hps_window_values, hps_active_mask),   # gated by hit activity
@@ -255,7 +263,7 @@ def calc_drum_metrics(notes, roll_spans=None, window_ms=WINDOW_MS, step_ms=STEP_
     return {
         'hand': hand_out,
         'DurationS': dur_s,
-        'NoteCount_1x': _note_count(hand_times, readings['1x']['time_ms']) if readings['1x'] else None,
-        'NoteCount_2x': _note_count(hand_times, readings['2x']['time_ms']) if readings['2x'] else None,
+        'NoteCount_1x': _note_count(hand_lanes, readings['1x']['time_ms'] if readings['1x'] else np.empty(0)),
+        'NoteCount_2x': _note_count(hand_lanes, readings['2x']['time_ms']) if readings['2x'] else None,
         **readings,
     }

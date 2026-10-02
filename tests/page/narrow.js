@@ -67,7 +67,7 @@ say("a table or formula wider than the screen scrolls in its own box", boxes.len
 const px = sel => parseFloat(mw.getComputedStyle(md.querySelector(sel)).fontSize);
 say("heading sizes step down h2 > h3 > h4 > h5", px(".md h2") > px(".md h3") && px(".md h3") > px(".md h4") && px(".md h4") > px(".md h5"),
     [".md h2", ".md h3", ".md h4", ".md h5"].map(px).join(" > "));
-say("it holds the six tables and 29 formulas", md.querySelectorAll(".md table").length === 6 && md.querySelectorAll('math[display="block"]').length === 29,
+say("it holds the six tables and 27 formulas", md.querySelectorAll(".md table").length === 6 && md.querySelectorAll('math[display="block"]').length === 27,
     md.querySelectorAll(".md table").length + " tables, " + md.querySelectorAll('math[display="block"]').length + " formulas");
 m.remove();
 

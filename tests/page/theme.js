@@ -76,9 +76,12 @@ const groundOf = f => f.contentWindow.getComputedStyle(f.contentDocument.body).b
 // loads, so it can only show the no-choice path; the document pages carry no
 // such script and show the stored one
 try { localStorage.removeItem("fw.theme"); } catch (e) {}
-const os = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+// the preference as that document sees it, not as this one does: Bootstrap puts a
+// color-scheme on :root and Chrome propagates the embedder's to a frame, so on a
+// dark-mode host this page reads dark while the frame it holds reads light
+const prefers = f => (f.contentWindow.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
 const fresh = await load("plain.html");
-say("with no choice stored a fresh page follows the OS", themeOf(fresh) === os, themeOf(fresh) + " vs " + os);
+say("with no choice stored a fresh page follows the OS", themeOf(fresh) === prefers(fresh), themeOf(fresh) + " vs " + prefers(fresh));
 try { localStorage.setItem("fw.theme", "dark"); } catch (e) {}
 const about = await load("about.html");
 say("a stored dark opens about.html dark, on the dark palette", themeOf(about) === "dark" && groundOf(about) === "rgb(26, 25, 32)", themeOf(about) + " " + groundOf(about));

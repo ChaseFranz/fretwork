@@ -1,6 +1,6 @@
 [![ci](https://github.com/ChaseFranz/fretwork/actions/workflows/ci.yml/badge.svg)](https://github.com/ChaseFranz/fretwork/actions/workflows/ci.yml) [![site release](https://img.shields.io/github/v/release/ChaseFranz/fretwork?label=fretladder&color=b71fb7)](https://github.com/ChaseFranz/fretwork/releases) [![fretladder.com](https://img.shields.io/badge/live-fretladder.com-b71fb7)](https://fretladder.com) [![licence](https://img.shields.io/github/license/ChaseFranz/fretwork)](LICENSE)
 
-**This fork is [fretladder](https://fretladder.com)**: fretwork's difficulty ratings for 18,807 Guitar Hero, Rock Band and Clone Hero charts, guitar, bass, keys, drums and vocals, as a hosted, searchable table, with each chart's graph drawn in the browser, every chart of its song beside it, and a link to where it is published. The engine, its calibration and the command-line tools are [Staycation44's fretwork](https://github.com/Staycation44/fretwork), unchanged and merged in as they move; this repository adds the viewer (`serve.py`, `publish.py`, `deploy.py`, `web/`), the pack registry, the link lookups and the tests. Site releases are tagged `fretladder-vX.Y.Z` and listed under [Releases](https://github.com/ChaseFranz/fretwork/releases), each at the commit whose sources produced the live bundle; the plan behind them is [`docs/spec/`](docs/spec/README.md). It is an independent fork, not affiliated with fretwork's author; the [about page](https://fretladder.com/about.html) says what the site is and is not. Song pack requests and rating reports go through the [issue forms](https://github.com/ChaseFranz/fretwork/issues/new/choose).
+**This fork is [fretladder](https://fretladder.com)**: fretwork's difficulty ratings for 18,838 Guitar Hero, Rock Band and Clone Hero charts, guitar, bass, keys, drums and vocals, as a hosted, searchable table, with each chart's graph drawn in the browser, every chart of its song beside it, and a link to where it is published. The engine, its calibration and the command-line tools are [Staycation44's fretwork](https://github.com/Staycation44/fretwork), unchanged and merged in as they move; this repository adds the viewer (`serve.py`, `publish.py`, `deploy.py`, `web/`), the pack registry, the link lookups and the tests. Site releases are tagged `fretladder-vX.Y.Z` and listed under [Releases](https://github.com/ChaseFranz/fretwork/releases), each at the commit whose sources produced the live bundle; the plan behind them is [`docs/spec/`](docs/spec/README.md). It is an independent fork, not affiliated with fretwork's author; the [about page](https://fretladder.com/about.html) says what the site is and is not. Song pack requests and rating reports go through the [issue forms](https://github.com/ChaseFranz/fretwork/issues/new/choose).
 
 [![fretladder: the charts table with a chart's details pane open, three levels of one song compared](https://raw.githubusercontent.com/ChaseFranz/fretwork/screenshots/fretladder-pane.png)](https://fretladder.com)
 
@@ -12,7 +12,7 @@ The rest of this file is the engine's own README, with sections 5 to 7 and 9 for
 
 # Fretwork - Full Band Difficulty Analyzer <!-- omit in toc -->
 
-Fretwork is an analysis tool to calculate difficulty values for **Full Band (Guitar / Bass / Keys / Drums / Vocals)** from chart & midi files **(Guitar Hero / Rock Band / Clone Hero / YARG)** using metrics derived directly from the charted notes (See Methodology.md for details)
+Fretwork is an analysis tool to calculate difficulty values for **Full Band (Guitar / Bass / Keys / Drums / Vocals)** from song files for **Guitar Hero / Rock Band / Clone Hero / YARG** using metrics derived directly from the charted notes (See Methodology.md for details)
 
 [Explainer video with some historical context](https://youtu.be/emoWMpDJ4ls)
 
@@ -43,6 +43,7 @@ Python 3.11 or newer (the pack registry is read with the standard library's `tom
 - [7. Updating the live site, start to finish](#7-updating-the-live-site-start-to-finish)
 - [8. Fixes/Extension Ideas](#8-fixesextension-ideas)
 - [9. Tests](#9-tests)
+- [Third-Party Attributions](#third-party-attributions)
 - [License](#license)
 
 ---
@@ -65,32 +66,21 @@ All outputs are named: `{header}_{kind}_{timestamp}.{ext}`
 
 ex. `Library_cache_08052026-0330.pkl`, `Library_metrics_08052026-0330.xlsx`.
 
-**Render appearance settings**
-
-Under `RENDER_DEFAULT` and `RENDER_THEMES`, you can tweak how `render.py's` PNGs look:
-
-- `mode`: `"dark"` or `"light"` to set overall color theme
-- adjust hex value colors
-
 ---
 
 ## 2. Building a cache
 
-`build.py` walks `SEARCH_PATH`, finds every `song.ini`, `notes.chart`, and `notes.mid`, reads them, and writes one cache file containing every song's note timing and metadata. A CSV containing per instrument original difficulties is also saved.
+`build.py` walks `SEARCH_PATH`, finds every `song.ini`, `notes.chart`, and `notes.mid` (now supports `.sng` & `rb3con` as well), reads them, and writes one cache file containing every song's note timing and metadata. A CSV containing per instrument original difficulties is also saved.
 
 By default this will run on the `SEARCH_PATH` & `HEADER` set in the config.
 
-Note state (strum/hopo/tap), note length, and star power/solo phrases are not parsed.
+**If you ran a prior version, you will need to rebuild your cache**
 
-**If you ran a prior version, you will need to rebuild your cache with the addition of Drums / Vocals**
-
-**Outputs:**
+**Outputs in `/caches` folder:**
 
 - `{header}_cache_{timestamp}.pkl`: The main output used by Analyze and Render
 - `{header}_errors_{timestamp}.csv`: Only generated if some songs failed to parse, this lists which file failed and why (e.g. missing valid instruments, corrupt midi file)
 - `{header}_BackupData.csv`: A backup that stores all difficulties that were found at the time of building
-
-Cache, errors, and backup all land in `caches/` & the metrics spreadsheet lands in `metrics/`.
 
 **Optional arguments:**
 - `--search-path`: scan a different folder than the one in `config.py`
@@ -100,20 +90,18 @@ Cache, errors, and backup all land in `caches/` & the metrics spreadsheet lands 
 
 ## 3. Analyzing a cache
 
-`analyze.py` loads the most recent cache for your config's `HEADER`, computes difficulty metrics for every song/instrument/selected level combo, and writes a **.xlsx spreadsheet**. This is the main output for browsing the library.
+`analyze.py` loads the most recent cache for your config's `HEADER`, computes difficulty metrics for every song/instrument/selected level combo, and writes a **.xlsx spreadsheet**.
 
 Optionally, `analyze.py` can also update each instrument's `song.ini` `diff_*` tag for use in-game. You can also restore all of them to the original assigned value. This option runs via args or `DIFF_WRITE_MODE` in the config.
 
-**Outputs:**
+**Outputs in `/metrics` folder:**
 
 An .xlsx spreadsheet named `{header}_metrics_{timestamp}.xlsx` with:
-- One tab per instrument group that has data in the cache (`Guitar` - combining Guitar/Co-op/Rhythm, `Bass`, `Keys`). Easy/Medium/Hard/Expert share the same tab in the `Level` column
-- **Retrieval codes** - an 8-digit song hash plus a level letter (`E`/`M`/`H`/`X`) and an instrument letter (`G`/`C`/`R`/`B`/`K`), e.g. `04821993XG` for an Expert Guitar song - used to render graphs
-- Metadata: Song Title, Artist, Level, Type (Lead/Co-op/Rhythm/Bass/Keys), Charter, Release/Source, Album, Year, Genre, Difficulty (song.ini diff tags). Year is the four-digit year found in the `year` tag, `-1` when it holds none
-- The difficulty metrics & updated Remap/CalcTier numbers
+- **One tab per instrument group** that has data in the cache, filterable by `E`/`M`/`H`/`X` levels, plus a `Band` tab with one row per song
+- **Retrieval codes** - an 8-digit song hash plus level(`E`/`M`/`H`/`X`) and instrument (`G`/`C`/`R`/`B`/`K`/`D`/`V`), ex. `04821993XG` for an Expert Guitar song
+- **Metadata** - Song Title, Artist, Level, Type (Instrument), Charter, Release/Source, Album, Year, Genre, Difficulty (song.ini diff tags). Year is the four-digit year found in the `year` tag, `-1` when it holds none
+- **D scores** & updated Remap/CalcTier numbers
 - Two hidden identity columns: `SongKey`, one hash over every chart in the song, and `NotesHash`, a 12-hex hash of one chart's notes. Two folders carrying the same chart share a `NotesHash` whatever they are called; the analyze summary's `Distinct charts` line counts (part, level, hash) once, and a `COUNTIFS` over those three columns is the spreadsheet's own copies count
-
-Each tab is formatted for browsing using `xlsx_format.py`
 
 Using `XLSX_LEVELS` in the config you can adjust the mix of Easy/Medium/Hard/Expert you want in the sheet.
 
@@ -122,21 +110,30 @@ The raw formula components are dropped by default but they can be included as hi
 **Full D formula, Remap tables, & CalcTier detail in `Methodology.md`** (also published as the site's methodology page, checked against `formula.py` at every publish)
 
 In the metrics spreadsheet / render header, you'll see D translated two ways:
-- **RemapDiff (0–6):** A manual grouping, calibrated to roughly match the percentage of official releases across the seven tiers & capped at 6.
-- **CalcTier:** A continuous, log-scaled tiering calculation. Every set natural-log increase in D over a baseline value increments the tier by one. This value is not capped, so tiers can extend well past 6 to provide additional granularity. Guitar/Bass/Keys share one scale, Drums and Vocals each have their own.
-
-**RemapDiff and CalcTier are computed once per song/instrument, from the Expert level D only** 
-Drums use the 1x kick reading, Vocals only have the one D
+- **RemapDiff (0–6):** A manual grouping, calibrated to roughly match the percentage of official releases across the tiers. Capped at 6.
+- **CalcTier:** A continuous, log-scaled tiering calculation. This value is not capped, so tiers can extend well past 6 as songs get harder.
 
 **Optional arguments:**
 
 - `--header`: analyze a different library's most recent cache
-- `--cache`: point at a specific cache file, instead of most recent for the header
-- `--diff-mode`: `CalcTier`, `RemapDiff`, or `Restore`. (`None` to leave `song.ini` alone)
+- `--cache`: point at a specific cache file, instead of most recent for the header (a bare filename is looked up in `caches/`)
+- `--diff-mode`: `CalcTier`, `RemapDiff`, `Restore`, or `None` (not case sensitive)
   - `CalcTier`/`RemapDiff` writes selected value into every song's own `diff_*` tag, per instrument
   - `Restore` returns every instrument's `diff_*` values back to its `{header}_BackupData.csv` original, throws errors for songs moved/deleted
+  - `None` leaves every `song.ini` alone for this run, even if `DIFF_WRITE_MODE`/`DIFF_WRITE_OVERRIDES` would write
+- `--xlsx-levels`: which EMHX levels go in the spreadsheet for this run, e.g. `X`, `EX`, `EMHX`, or `ALL` (default: `XLSX_LEVELS` in the config). This only filters rows - `song.ini` writes use the Expert anchor either way
 
 **Per-instrument exceptions:** `DIFF_WRITE_OVERRIDES` in the config lets individual instruments use a different mode than `--diff-mode`/`DIFF_WRITE_MODE`, or skip writing.
+- Overrides still apply when `DIFF_WRITE_MODE` is `None` - only the listed instruments are written
+- `Restore` always restores every instrument and ignores overrides
+- An unknown mode or instrument key stops Analyze before anything runs
+
+**How writes stay safe:**
+- A value is only written where `{header}_BackupData.csv` already holds that song/instrument's original, anything else is reported as `not backed up (skipped)`
+- Values that match the write aren't rewritten, so repeat runs report them as `unchanged`
+- Band is only written for songs with a Band row (2+ core instruments with an Expert D)
+
+> **Upgrading from an earlier version:** Build now fills blank backup cells (e.g. the `diff_vocals` column added with Vocals) from the current `song.ini`. If you already wrote Vocals difficulties with an earlier version, those written values will be captured as the "original". Restore first with the old version before rebuilding.
 
 **Note: After updating `song.ini` data, you MUST SCAN SONGS for the new metadata to work.**
 
@@ -313,7 +310,7 @@ The leaderboard half (`tools/leaderboards_lookup.py`, a "Leaderboard" link per s
 python publish.py --header Local
 ```
 
-Writes `site/Local/` - `index.html` and the sheet files, `404.html`, `about.html`, `changelog.html`, `library.html`, `songs.html`, `methodology.html` (the engine's `Methodology.md`, rendered), `sitemap.xml`, a page per song under `song/` (what a shared link previews with, with the song's graph as its picture), a page per pack under `game/`, the ranked lists under `list/`, `robots.txt`, the assets, Bootstrap, a curve file per chart under `graph/` and the one preview PNG. Publish stops with `MethodologyDrift` if a calibration table in `Methodology.md` disagrees with `functions/formula.py`, and with `MarkdownError` naming the line if the file uses a markdown construct the renderer does not know; both are fixed in the source, never by loosening the check. Seconds, first run or not; only charts whose notes changed get a new curve file. The summary's `social preview <code>:` line says whether the PNG was rendered, unchanged or (for a library without that chart) not published.
+Writes `site/Local/` - `index.html` and the sheet files, `404.html`, `about.html`, `changelog.html`, `library.html`, `songs.html`, `methodology.html` (the engine's `Methodology.md`, rendered), `sitemap.xml`, a page per song under `song/` (what a shared link previews with, with the song's graph as its picture), a page per pack under `game/`, the ranked lists under `list/`, `robots.txt`, the assets, Bootstrap, a curve file per chart under `graph/` and the one preview PNG. Publish stops with `MethodologyDrift` if a calibration table in `Methodology.md` cannot be read against the formula module that holds its constant, and with `MarkdownError` naming the line if the file uses a markdown construct the renderer does not know; both are fixed in the source, never by loosening the check. A number that simply differs is a drift: it is printed and put on the page under the source line, since this fork does not edit `Methodology.md` and the code is what scored the charts. Seconds, first run or not; only charts whose notes changed get a new curve file. The summary's `social preview <code>:` line says whether the PNG was rendered, unchanged or (for a library without that chart) not published.
 
 Publish stops if the spreadsheet and the cache carry different build timestamps (`spreadsheet is from X but the cache is from Y`), because that means Analyze has not run since the last Build; run it and publish again. `--allow-mismatch` exists for the deliberate exception, and `deploy.py` does not take it: a mismatched bundle is published by hand and then sent with `deploy.py --no-publish`, so the decision is taken twice. One more thing that looks like a fault and is not: a commit that changes what a manifest fingerprint is made of invalidates every stored hash, so the next publish rewrites every curve file once (seconds; the bytes are compared before writing, so the sync uploads only what changed).
 
@@ -342,7 +339,7 @@ python deploy.py               # publish, sync, invalidate
 python tools/check_site.py --site site/Local
 ```
 
-Thirteen checks against the live site, one line each (add `curl -s https://fretladder.com/changelog.html | grep -c '<h2'` for the changelog, which should print at least 1), and `--site` makes the first of them insist that the live strapline is the one in the bundle you just published, so a deploy that did not actually land fails here rather than in a browser. It also checks compression, the about page, `robots.txt`, the social-preview image, that the module script and every stylesheet are served with the right content type, that an unknown path gets our 404 page, and that a `?code=` link answers. It exits with the number of failures. CloudFront invalidation usually takes under a minute; if only the strapline check fails right after a deploy, wait and run it again. The two curl lines it replaces still work on any machine: `curl -s -o /dev/null -w "%{http_code}\n" https://fretladder.com/` and `curl -s https://fretladder.com/ | grep -o "Updated [^\"]*charts"`.
+Fifteen checks against the live site, one line each (add `curl -s https://fretladder.com/changelog.html | grep -c '<h2'` for the changelog, which should print at least 1), and `--site` makes the first of them insist that the live strapline is the one in the bundle you just published, so a deploy that did not actually land fails here rather than in a browser. It also checks compression, the about page, `robots.txt`, the social-preview image, that the module script and every stylesheet are served with the right content type, that an unknown path gets our 404 page, and that a `?code=` link answers. It exits with the number of failures. CloudFront invalidation usually takes under a minute; if only the strapline check fails right after a deploy, wait and run it again. The two curl lines it replaces still work on any machine: `curl -s -o /dev/null -w "%{http_code}\n" https://fretladder.com/` and `curl -s https://fretladder.com/ | grep -o "Updated [^\"]*charts"`.
 
 `deploy.py` ends by asking S3 what content type it will serve for one file of each kind, and refuses to call the deploy done if any is wrong. A file served as `binary/octet-stream` is not a cosmetic problem: browsers refuse to run an ES module with the wrong type, so the page loads and then does nothing.
 
@@ -424,10 +421,6 @@ The engine ideas below are upstream's list. The fork's own plan for the hosted s
 - Midi files misbehaving - *possibly parser drift / file corrruption/truncation?*
 
 **Extension Ideas:**
-- Vocal harmonies (`HARM1`-`HARM3`) - *doesn't seem worth the effort*
-- RB style band diff once all instruments are in
-  
-**Fork Ideas:**
 - Vocal harmonies (`HARM1`-`HARM3`)
 - Pro Instruments
 - Scoring by totals (as opposed to average), type of notes (singles by type/state, chords by type)
@@ -453,6 +446,20 @@ python tests/page/run.py --site /tmp/fw-ci/site/Fixture
 ```
 
 The first imports every module and checks the small pure functions. The second builds, analyzes, publishes and deploys a synthetic 15-song library from a temporary directory, with a stub `aws` on `PATH` so the deploy path runs without credentials, and asserts every count against the fixture's own table. The third drives the published page in headless Chrome: twelve suites read their expectations out of the page's data island, so `--site site/Local` runs the same checks against the real library. On WSL the runner uses Windows Chrome from `/mnt/c`. `tests/README.md` has the details and the harness gotchas.
+
+## Third-Party Attributions
+
+Fretwork's own code is MIT-licensed (see below), but a few pieces of format documentation and one adapted implementation came from other projects:
+
+| Source | Used for | License | Notes |
+|---|---|---|---|
+| [TheNathannator/ChartFormats](https://github.com/TheNathannator/GuitarGame_ChartFormats) | `.chart`/`.mid` track, section, and pitch-block details used throughout `instruments.py`, `mid_parser.py`, `chart_parser.py` | CC0 1.0 Universal | Reference |
+| [mdsitton/SngFileFormat](https://github.com/mdsitton/SngFileFormat) | `.sng` container spec for `sng_parser.py` | MIT | Reference |
+| [Free60 project](https://free60.org/System-Software/Formats/STFS/) | STFS format details for `rb3con_parser.py` | ??? | Reference |
+| [Rock Band Customs Project](https://rock-band-customs.gitlab.io/authoring-dtas.html) | `songs.dta` field reference for `rb3con_parser.py` | ??? | Reference|
+| [arkem/py360](https://github.com/arkem/py360) | STFS block-address math used in `rb3con_parser.py` adapted from py360's `stfs.py` | BSD | Copyright notice reproduced in `rb3con_parser.py` per the license's terms |
+| [mtolly/onyx](https://github.com/mtolly/onyx) | RB3 rank-to-tier values for `rb3con_parser.py` | GPL-3.0 | Threshold Reference |
+| [StackOverflow0x/RB3-Difficulty-Slider](https://github.com/StackOverflow0x/RB3-Difficulty-Slider) | RB3 rank-to-tier values for `rb3con_parser.py` | ??? | Threshold Reference |
 
 ## License
 **MIT** - see LICENSE for details.

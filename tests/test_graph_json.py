@@ -16,7 +16,8 @@ PINNED_WIN = [0, 1, 3, 2, 0, 4]
 PINNED_VAR = [0, 1, 2, 2, 0, 3]
 PINNED_NPS = [0.206319956884, 0.233791139980, 0.249274712958, 0.221722210520, 0.166347919619, 0.113576201083]
 PINNED_VPS = [0.168201115681, 0.190596834038, 0.200329151998, 0.181904979485, 0.135036063769, 0.090279835296]
-PINNED_D = [0.186288075129, 0.211092044157, 0.223465862854, 0.200829216391, 0.149876510106, 0.101260262331]
+# formula v3: the fret ~D line is nps + vps, where v2 took their geometric mean
+PINNED_D = [0.374521072565, 0.424387974018, 0.449603864955, 0.403627190006, 0.301383983388, 0.203856036379]
 
 
 class RenderProfileTest(unittest.TestCase):
@@ -54,12 +55,17 @@ class RenderProfileTest(unittest.TestCase):
         for key in ('graph_d', 'graph_y', 'graph_x'):
             literal = labels.UI[key]
             self.assertTrue(f"'{literal}'" in src or f'"{literal}"' in src, f'{key}: {literal!r} is not a literal in plot.py')
-        # each family's legend words, and its colour tokens in plot.py's own assignment (config.RENDER_DEFAULT)
+        # plot.py names each line as (curves['<key>'], '<color_*>', '<Legend>'); the page's
+        # own words and colour tokens must be that same pairing, so the PNG and the canvas
+        # agree on which line is which colour and what it is called
+        drawn = {(m.group(1), m.group(3)): m.group(2)
+                 for m in re.finditer(r"curves\[(?:'(\w+)'|'kps'\]\[mode)[^,]*,\s*'(color_\w+)',\s*'([\w ]+)'", src)}
+        pairs = {(key, legend): token for spec in labels.CURVE_FAMILIES.values() for key, legend, _readout, token in spec['lines']}
         colour_of = {'--fw-curve-nps': 'color_nps', '--fw-curve-vps': 'color_vps', '--fw-curve-kps': 'color_kps'}
-        for fam, spec in labels.CURVE_FAMILIES.items():
-            for key, legend, readout, token in spec['lines']:
-                self.assertIn(f"label='{legend}'", src, f'{fam} {key}: {legend!r} is not a plot.py label')
-                self.assertIn(token, colour_of, token)
+        for (key, legend), token in pairs.items():
+            self.assertIn(token, colour_of, token)
+            self.assertIn((key, legend), drawn, f'{legend!r} is not the label plot.py draws {key} with: {sorted(drawn)}')
+            self.assertEqual(drawn[(key, legend)], colour_of[token], f'{legend}: plot.py uses {drawn[(key, legend)]}')
         self.assertEqual({t for spec in labels.CURVE_FAMILIES.values() for *_, t in spec['lines']}, set(colour_of))
         self.assertEqual(set(boot.boot_payload({}, {})['curves']), set(labels.CURVE_FAMILIES))
 

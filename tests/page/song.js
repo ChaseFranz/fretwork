@@ -148,8 +148,12 @@ say("and focus returns to a table row", here() && here().matches("tbody tr"), he
 say("no row stays highlighted", !document.querySelector("#body tr.sel"));
 
 // the phone layout is measured in narrow.js, inside its 390px iframe
-click(row);
+// the row is looked up again rather than reused: section 17 repaints the window,
+// so the node captured at the top is detached on a real library's sheet
+const again = document.querySelector('#body tr[data-code="' + code + '"]');
+say("the row is painted again after the close", !!again);
+click(again);
 await wait(800);
-say("every cell is a touch target", cells().every(c => c.getBoundingClientRect().height >= 44), cells().map(c => Math.round(c.getBoundingClientRect().height)).join());
+say("every cell is a touch target", cells().length > 0 && cells().every(c => c.getBoundingClientRect().height >= 44), cells().map(c => Math.round(c.getBoundingClientRect().height)).join());
 key("Escape");
 done();
