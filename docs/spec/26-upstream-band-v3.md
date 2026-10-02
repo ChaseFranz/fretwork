@@ -1,6 +1,6 @@
 # 26. Formula v3, the Band sheet and the new containers from upstream
 
-**Status:** Landed (2026-10-01). From the merge of `upstream/main` at `f82a201` (23 commits, 2026-09-19 to 2026-09-30) into the fork's `main` at `35b609b`. Written the same day, after the code, from the maintainer's "make sure the project is up to date with source changes from upstream then make sure the website is up to date". The third such merge; 23 is the first with a section of its own, and this one follows its shape.
+**Status:** Landed (2026-10-01, 1770785..23e9666; live as fretladder-v1.9.0, deployed 22:25 -0500). From the merge of `upstream/main` at `f82a201` (23 commits, 2026-09-19 to 2026-09-30) into the fork's `main` at `35b609b`. Written the same day, after the code, from the maintainer's "make sure the project is up to date with source changes from upstream then make sure the website is up to date". The third such merge; 23 is the first with a section of its own, and this one follows its shape.
 
 **Effort:** M. The merge itself (five conflicts: `analyze.py`, `functions/instruments.py`, `functions/timestamp.py`, `parsers/chart_parser.py`, `parsers/mid_parser.py`), then the site: a sixth sheet that is not a chart sheet, the curve recipe for two families, the words for an additive formula, the drift set emptied, and the fixture and harness taught upstream's new behaviour.
 
